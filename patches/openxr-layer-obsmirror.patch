@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..43f1cb4 100644
+index 2df1e64..59999ec 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -343,7 +343,7 @@ index 2df1e64..43f1cb4 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
-@@ -1149,6 +1425,897 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,6 +1425,903 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -734,6 +734,12 @@ index 2df1e64..43f1cb4 100644
 +    // The nudge keys use Ctrl+Alt so they do not collide with the game (plain arrow keys fly the aircraft in DCS), and
 +    // GetAsyncKeyState so they work whichever window has focus.
 +    void D3D11Mirror::handleCalibrationKeys() {
++        if (!_gazeConfig.headsetMarker && !_calibrationDirty) {
++            // Calibration is off (the normal case, including all of normal play): the keyboard is not even looked at.
++            _nudgeWasDown = false;
++            return;
++        }
++
 +        const auto isDown = [](int key) { return (GetAsyncKeyState(key) & 0x8000) != 0; };
 +        const bool chord = isDown(VK_CONTROL) && isDown(VK_MENU);
 +        const ULONGLONG nowMs = GetTickCount64();
@@ -1241,7 +1247,7 @@ index 2df1e64..43f1cb4 100644
      void D3D11Mirror::copyToMirror() {
          _frameCounter = _frameCounter + 1;
          auto& tex = _mirrorTextures[0];
-@@ -1203,4 +2370,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1203,4 +2376,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
