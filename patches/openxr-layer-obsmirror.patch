@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..59999ec 100644
+index 2df1e64..8f05cef 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -343,7 +343,7 @@ index 2df1e64..59999ec 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
-@@ -1149,6 +1425,903 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,6 +1425,907 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -402,12 +402,22 @@ index 2df1e64..59999ec 100644
 +    }
 +
 +    void D3D11Mirror::loadGazeConfig() {
-+        // Only hit the filesystem about once a second.
-+        if (_gazeConfigCheckCountdown > 0) {
-+            _gazeConfigCheckCountdown--;
++        // The settings file is never polled. It is read once, and again only when whoever edited it says so by bumping a
++        // counter in a shared-memory block that we create here. Per frame this is one memory read - no system call, no
++        // disk access - and with no editor running nothing ever changes the counter.
++        if (!_settingsSignalTried) {
++            _settingsSignalTried = true;
++            if (_settingsSignal.open(eye_gaze_export::SettingsSignalName, eye_gaze_export::BlockAccess::Create)) {
++                _settingsSignal.data()->magic = eye_gaze_export::SettingsSignalMagic;
++                _settingsSignal.data()->version = 1;
++            }
++        }
++        const LONG generation = _settingsSignal.data() ? _settingsSignal.data()->generation : 0;
++        if (_gazeConfigLoaded && generation == _seenSettingsGeneration) {
 +            return;
 +        }
-+        _gazeConfigCheckCountdown = 90;
++        _gazeConfigLoaded = true;
++        _seenSettingsGeneration = generation;
 +
 +        try {
 +            if (_gazeConfigPath.empty()) {
@@ -423,7 +433,7 @@ index 2df1e64..59999ec 100644
 +                    std::ofstream defaults(_gazeConfigPath);
 +                    defaults << "# Eye gaze indicator drawn on the OBS mirror only (never visible in the headset).\n"
 +                                "# Requires the Quad-Views-Foveated build that exports the eye gaze.\n"
-+                                "# This file is reloaded live (about once a second) while the game is running.\n"
++                                "# The game reads this file when it starts and never polls it while running. To change things\n"
 +                                "enabled=1\n"
 +                                "\n"
 +                                "# Look of the indicator:\n"
@@ -525,13 +535,6 @@ index 2df1e64..59999ec 100644
 +                                "dwell_shrink=0.25\n";
 +                }
 +            }
-+
-+            std::error_code ec;
-+            const auto writeTime = std::filesystem::last_write_time(_gazeConfigPath, ec);
-+            if (ec || writeTime == _gazeConfigTime) {
-+                return;
-+            }
-+            _gazeConfigTime = writeTime;
 +
 +            GazeConfig config;
 +            std::ifstream file(_gazeConfigPath);
@@ -828,9 +831,7 @@ index 2df1e64..59999ec 100644
 +            }
 +            std::filesystem::rename(temp, _gazeConfigPath);
 +
-+            // We already hold these values: no need to reload our own write.
-+            std::error_code ec;
-+            _gazeConfigTime = std::filesystem::last_write_time(_gazeConfigPath, ec);
++            // We already hold these values, so there is nothing to reload; the settings app notices the file change itself.
 +            Log("Gaze overlay: saved trim %.4f, %.4f\n", _gazeConfig.offsetX, _gazeConfig.offsetY);
 +        } catch (...) {
 +            // Never let a settings problem take the game down.
@@ -857,7 +858,10 @@ index 2df1e64..59999ec 100644
 +            return;
 +        }
 +        if (!_gazeReader.open()) {
-+            _gazeReaderRetryCountdown = 90;
++            // No gaze producer yet. Look again later, backing off quickly: in a game without quad views it never shows up,
++            // and that must not turn into a steady drip of lookups (1 s, 2 s, 4 s ... capped at about 30 s at 90 fps).
++            _gazeReaderRetryCountdown = _gazeReaderRetryInterval;
++            _gazeReaderRetryInterval = std::min(_gazeReaderRetryInterval * 2, 2700u);
 +            return;
 +        }
 +
@@ -1247,7 +1251,7 @@ index 2df1e64..59999ec 100644
      void D3D11Mirror::copyToMirror() {
          _frameCounter = _frameCounter + 1;
          auto& tex = _mirrorTextures[0];
-@@ -1203,4 +2376,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1203,4 +2380,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1255,7 +1259,7 @@ index 2df1e64..59999ec 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..98dc106 100644
+index 098ed77..7d00098 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1290,7 +1294,7 @@ index 098ed77..98dc106 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -113,6 +125,114 @@ namespace Mirror
+@@ -113,6 +125,118 @@ namespace Mirror
          float _fovHorizRatio = 1.f;
          XrFovf _hmdFov{0.0f, 0.0f, 0.0f, 0.0f};
          XrFovf _viewFov{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1360,9 +1364,13 @@ index 098ed77..98dc106 100644
 +
 +        GazeConfig _gazeConfig;
 +        std::filesystem::path _gazeConfigPath;
-+        std::filesystem::file_time_type _gazeConfigTime{};
-+        uint32_t _gazeConfigCheckCountdown = 0;
++        // "Settings changed" signal: created here, bumped by the settings app. Replaces polling the file.
++        eye_gaze_export::SharedBlock<eye_gaze_export::SettingsSignal> _settingsSignal;
++        bool _settingsSignalTried = false;
++        bool _gazeConfigLoaded = false;
++        LONG _seenSettingsGeneration = 0;
 +        uint32_t _gazeReaderRetryCountdown = 0;
++        uint32_t _gazeReaderRetryInterval = 90;
 +        eye_gaze_export::Reader _gazeReader;
 +        EyePlacement _eyePlacement[2];
 +
@@ -1407,10 +1415,10 @@ index 098ed77..98dc106 100644
  
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
 new file mode 100644
-index 0000000..ab7b5e7
+index 0000000..794392c
 --- /dev/null
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
-@@ -0,0 +1,293 @@
+@@ -0,0 +1,316 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -1608,7 +1616,13 @@ index 0000000..ab7b5e7
 +        float color[3];
 +    };
 +
-+    // Owns a named shared-memory block of type T. `create` = the side that writes it.
++    // How a side attaches to a named shared-memory block.
++    //   Create    - the side that is always running makes the block once, up front. That way nobody ever has to keep
++    //               looking for a block that might appear later: the other side just opens it when it has something to say.
++    //   OpenRead / OpenWrite - attach to a block somebody else created.
++    enum class BlockAccess { Create, OpenRead, OpenWrite };
++
++    // Owns a named shared-memory block of type T.
 +    template <typename T>
 +    class SharedBlock {
 +      public:
@@ -1621,17 +1635,18 @@ index 0000000..ab7b5e7
 +            }
 +        }
 +
-+        // Cheap to call repeatedly: for readers the block might not exist (yet).
-+        bool open(const wchar_t* name, bool create) {
++        bool open(const wchar_t* name, BlockAccess access) {
 +            if (m_data) {
 +                return true;
 +            }
-+            m_mapping = create ? CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(T), name)
-+                               : OpenFileMappingW(FILE_MAP_READ, FALSE, name);
++            m_mapping = access == BlockAccess::Create
++                            ? CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(T), name)
++                            : OpenFileMappingW(access == BlockAccess::OpenWrite ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ, FALSE, name);
 +            if (!m_mapping) {
 +                return false;
 +            }
-+            m_data = static_cast<T*>(MapViewOfFile(m_mapping, create ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ, 0, 0, sizeof(T)));
++            m_data = static_cast<T*>(MapViewOfFile(
++                m_mapping, access == BlockAccess::OpenRead ? FILE_MAP_READ : FILE_MAP_ALL_ACCESS, 0, 0, sizeof(T)));
 +            if (!m_data) {
 +                CloseHandle(m_mapping);
 +                m_mapping = nullptr;
@@ -1649,15 +1664,14 @@ index 0000000..ab7b5e7
 +        T* m_data{nullptr};
 +    };
 +
++    // The consumer's side: only attaches while it actually has a marker to show (calibration), which is rare.
 +    class MarkerWriter {
 +      public:
 +        void publish(bool enabled, const float position[2][2], float size, const float color[3]) {
-+            if (!m_block.open(MarkerSharedMemoryName, true)) {
++            if (!m_block.open(MarkerSharedMemoryName, BlockAccess::OpenWrite)) {
 +                return;
 +            }
 +            MarkerData* data = m_block.data();
-+            data->magic = MarkerMagic;
-+            data->version = MarkerVersion;
 +            InterlockedIncrement(&data->sequence);
 +            data->enabled = enabled;
 +            data->updateTickMs = GetTickCount64();
@@ -1671,19 +1685,21 @@ index 0000000..ab7b5e7
 +        SharedBlock<MarkerData> m_block;
 +    };
 +
++    // The producer's side. It creates the block once, so that checking for a marker is a plain memory read every frame
++    // instead of a periodic search for a block that almost never exists.
 +    class MarkerReader {
 +      public:
-+        bool isOpen() const {
-+            return m_block.data() != nullptr;
++        void create() {
++            if (m_block.open(MarkerSharedMemoryName, BlockAccess::Create)) {
++                m_block.data()->magic = MarkerMagic;
++                m_block.data()->version = MarkerVersion;
++            }
 +        }
 +
-+        // Returns false when there is no marker to draw (no consumer, disabled, stale, or mid-update).
-+        bool read(MarkerData& snapshot) {
-+            if (!m_block.open(MarkerSharedMemoryName, false)) {
-+                return false;
-+            }
++        // Returns false when there is no marker to draw (disabled - the normal case - stale, or mid-update).
++        bool read(MarkerData& snapshot) const {
 +            const MarkerData* data = m_block.data();
-+            if (data->magic != MarkerMagic || data->version < 1) {
++            if (!data || !data->enabled) {
 +                return false;
 +            }
 +            for (int attempt = 0; attempt < 4; attempt++) {
@@ -1701,6 +1717,21 @@ index 0000000..ab7b5e7
 +
 +      private:
 +        SharedBlock<MarkerData> m_block;
++    };
++
++    // ---------------------------------------------------------------------------------------------------------------
++    // "Settings changed" signal. The consumer never polls its settings file: it creates this block once and compares
++    // `generation` with the last value it saw (a memory read). Whoever edits the settings - the settings app - bumps it.
++    // With no editor running nothing ever changes it, so nothing is ever re-read.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t SettingsSignalName[] = L"GazeOverlay.SettingsSignal";
++    constexpr uint32_t SettingsSignalMagic = 0x53534F47; // 'GOSS'
++
++    struct SettingsSignal {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG generation;
 +    };
 +
 +} // namespace eye_gaze_export

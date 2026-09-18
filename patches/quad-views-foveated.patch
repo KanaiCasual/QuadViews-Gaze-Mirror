@@ -1,9 +1,9 @@
 diff --git a/openxr-api-layer/eye_gaze_export.h b/openxr-api-layer/eye_gaze_export.h
 new file mode 100644
-index 0000000..ab7b5e7
+index 0000000..794392c
 --- /dev/null
 +++ b/openxr-api-layer/eye_gaze_export.h
-@@ -0,0 +1,293 @@
+@@ -0,0 +1,316 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -201,7 +201,13 @@ index 0000000..ab7b5e7
 +        float color[3];
 +    };
 +
-+    // Owns a named shared-memory block of type T. `create` = the side that writes it.
++    // How a side attaches to a named shared-memory block.
++    //   Create    - the side that is always running makes the block once, up front. That way nobody ever has to keep
++    //               looking for a block that might appear later: the other side just opens it when it has something to say.
++    //   OpenRead / OpenWrite - attach to a block somebody else created.
++    enum class BlockAccess { Create, OpenRead, OpenWrite };
++
++    // Owns a named shared-memory block of type T.
 +    template <typename T>
 +    class SharedBlock {
 +      public:
@@ -214,17 +220,18 @@ index 0000000..ab7b5e7
 +            }
 +        }
 +
-+        // Cheap to call repeatedly: for readers the block might not exist (yet).
-+        bool open(const wchar_t* name, bool create) {
++        bool open(const wchar_t* name, BlockAccess access) {
 +            if (m_data) {
 +                return true;
 +            }
-+            m_mapping = create ? CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(T), name)
-+                               : OpenFileMappingW(FILE_MAP_READ, FALSE, name);
++            m_mapping = access == BlockAccess::Create
++                            ? CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(T), name)
++                            : OpenFileMappingW(access == BlockAccess::OpenWrite ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ, FALSE, name);
 +            if (!m_mapping) {
 +                return false;
 +            }
-+            m_data = static_cast<T*>(MapViewOfFile(m_mapping, create ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ, 0, 0, sizeof(T)));
++            m_data = static_cast<T*>(MapViewOfFile(
++                m_mapping, access == BlockAccess::OpenRead ? FILE_MAP_READ : FILE_MAP_ALL_ACCESS, 0, 0, sizeof(T)));
 +            if (!m_data) {
 +                CloseHandle(m_mapping);
 +                m_mapping = nullptr;
@@ -242,15 +249,14 @@ index 0000000..ab7b5e7
 +        T* m_data{nullptr};
 +    };
 +
++    // The consumer's side: only attaches while it actually has a marker to show (calibration), which is rare.
 +    class MarkerWriter {
 +      public:
 +        void publish(bool enabled, const float position[2][2], float size, const float color[3]) {
-+            if (!m_block.open(MarkerSharedMemoryName, true)) {
++            if (!m_block.open(MarkerSharedMemoryName, BlockAccess::OpenWrite)) {
 +                return;
 +            }
 +            MarkerData* data = m_block.data();
-+            data->magic = MarkerMagic;
-+            data->version = MarkerVersion;
 +            InterlockedIncrement(&data->sequence);
 +            data->enabled = enabled;
 +            data->updateTickMs = GetTickCount64();
@@ -264,19 +270,21 @@ index 0000000..ab7b5e7
 +        SharedBlock<MarkerData> m_block;
 +    };
 +
++    // The producer's side. It creates the block once, so that checking for a marker is a plain memory read every frame
++    // instead of a periodic search for a block that almost never exists.
 +    class MarkerReader {
 +      public:
-+        bool isOpen() const {
-+            return m_block.data() != nullptr;
++        void create() {
++            if (m_block.open(MarkerSharedMemoryName, BlockAccess::Create)) {
++                m_block.data()->magic = MarkerMagic;
++                m_block.data()->version = MarkerVersion;
++            }
 +        }
 +
-+        // Returns false when there is no marker to draw (no consumer, disabled, stale, or mid-update).
-+        bool read(MarkerData& snapshot) {
-+            if (!m_block.open(MarkerSharedMemoryName, false)) {
-+                return false;
-+            }
++        // Returns false when there is no marker to draw (disabled - the normal case - stale, or mid-update).
++        bool read(MarkerData& snapshot) const {
 +            const MarkerData* data = m_block.data();
-+            if (data->magic != MarkerMagic || data->version < 1) {
++            if (!data || !data->enabled) {
 +                return false;
 +            }
 +            for (int attempt = 0; attempt < 4; attempt++) {
@@ -296,9 +304,24 @@ index 0000000..ab7b5e7
 +        SharedBlock<MarkerData> m_block;
 +    };
 +
++    // ---------------------------------------------------------------------------------------------------------------
++    // "Settings changed" signal. The consumer never polls its settings file: it creates this block once and compares
++    // `generation` with the last value it saw (a memory read). Whoever edits the settings - the settings app - bumps it.
++    // With no editor running nothing ever changes it, so nothing is ever re-read.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t SettingsSignalName[] = L"GazeOverlay.SettingsSignal";
++    constexpr uint32_t SettingsSignalMagic = 0x53534F47; // 'GOSS'
++
++    struct SettingsSignal {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG generation;
++    };
++
 +} // namespace eye_gaze_export
 diff --git a/openxr-api-layer/layer.cpp b/openxr-api-layer/layer.cpp
-index d821fde..6bab48d 100644
+index d821fde..edeeed3 100644
 --- a/openxr-api-layer/layer.cpp
 +++ b/openxr-api-layer/layer.cpp
 @@ -34,6 +34,7 @@
@@ -392,18 +415,16 @@ index d821fde..6bab48d 100644
  
                  unitVector = Normalize(
                      {gazeProjectedPoint.m128_f32[0], gazeProjectedPoint.m128_f32[1], gazeProjectedPoint.m128_f32[2]});
-@@ -2212,6 +2254,18 @@ namespace openxr_api_layer {
+@@ -2212,6 +2254,16 @@ namespace openxr_api_layer {
              return result;
          }
  
-+        // The marker block only exists while a gaze overlay consumer asks for it, so look for it sparingly.
++        // We create the marker block ourselves, once. A consumer that wants a marker shown writes into it; until then
++        // this is a single memory read per eye that finds `enabled == 0`. Nothing is ever searched for.
 +        bool readHeadsetMarker(eye_gaze_export::MarkerData& marker) {
-+            if (!m_headsetMarker.isOpen()) {
-+                if (m_headsetMarkerRetryCountdown > 0) {
-+                    m_headsetMarkerRetryCountdown--;
-+                    return false;
-+                }
-+                m_headsetMarkerRetryCountdown = 180;
++            if (!m_headsetMarkerCreated) {
++                m_headsetMarkerCreated = true;
++                m_headsetMarker.create();
 +            }
 +            return m_headsetMarker.read(marker);
 +        }
@@ -411,7 +432,7 @@ index d821fde..6bab48d 100644
          void compositeViewContent(uint32_t viewIndex,
                                    const XrCompositionLayerProjectionView& stereoView,
                                    Swapchain& swapchainForStereoView,
-@@ -2539,6 +2593,49 @@ namespace openxr_api_layer {
+@@ -2539,6 +2591,49 @@ namespace openxr_api_layer {
                      m_renderContext->ClearView(rtv.Get(), color, &rect, 1);
                  }
  
@@ -461,14 +482,14 @@ index d821fde..6bab48d 100644
                  TraceLoggingWriteStop(local, "xrEndFrame_Composite");
              }
  
-@@ -3096,6 +3193,10 @@ namespace openxr_api_layer {
+@@ -3096,6 +3191,10 @@ namespace openxr_api_layer {
          XrPosef m_cachedEyePoses[xr::StereoView::Count]{};
          XrVector2f m_centerOfFov[xr::StereoView::Count]{};
          XrVector2f m_eyeGaze[xr::StereoView::Count]{};
 +        eye_gaze_export::Writer m_eyeGazeExport;
 +        XrVector3f m_gazeForwardForExport{0.f, 0.f, -1.f};
 +        eye_gaze_export::MarkerReader m_headsetMarker;
-+        uint32_t m_headsetMarkerRetryCountdown{0};
++        bool m_headsetMarkerCreated{false};
  
          XrExtent2Di m_fullFovResolution{};
  

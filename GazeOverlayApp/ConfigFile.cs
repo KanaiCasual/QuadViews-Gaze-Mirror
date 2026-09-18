@@ -3,7 +3,7 @@ using System.Text;
 
 namespace GazeOverlay;
 
-/// <summary>Reads and writes the gaze overlay config that the OBSMirror layer hot-reloads (about once a second).</summary>
+/// <summary>Reads and writes the gaze overlay config that the OBSMirror layer reads at start, and again whenever LiveLink tells it to.</summary>
 public static class ConfigFile
 {
     public static string DefaultPath => Path.Combine(
@@ -35,7 +35,8 @@ public static class ConfigFile
         var text = new StringBuilder();
         text.AppendLine("# Eye gaze indicator drawn on the OBS mirror only (never visible in the headset).");
         text.AppendLine("# Written by OpenXR Gaze Overlay (GazeOverlay.exe). You can edit it by hand too:");
-        text.AppendLine("# the layer reloads this file about once a second while the game is running.");
+        text.AppendLine("# the game reads it when it starts. It never polls this file while running: edits go live through the");
+        text.AppendLine("# settings app (or, for a hand edit, while the settings app is open).");
 
         var known = new HashSet<string>();
         foreach (var group in Settings.Groups)

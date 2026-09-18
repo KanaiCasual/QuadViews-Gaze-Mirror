@@ -94,6 +94,27 @@ public partial class App : Application
             }
             report.WriteLine("previews: ok");
 
+            // Live link: play the layer's part (it creates the signal block) and check that the app's notify bumps it.
+            var liveOk = true;
+            try
+            {
+                using var existing = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting("GazeOverlay.SettingsSignal");
+                report.WriteLine("live link: a game is running, so its real signal block exists - simulated test skipped (notify returned " + LiveLink.NotifySettingsChanged() + ")");
+            }
+            catch (FileNotFoundException)
+            {
+                var withoutGame = LiveLink.NotifySettingsChanged();
+                using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew("GazeOverlay.SettingsSignal", 12);
+                using var view = block.CreateViewAccessor(0, 12);
+                view.Write(0, 0x53534F47u);
+                view.Write(4, 1u);
+                var first = LiveLink.NotifySettingsChanged();
+                var second = LiveLink.NotifySettingsChanged();
+                var generation = view.ReadInt32(8);
+                liveOk = !withoutGame && first && second && generation == 2;
+                report.WriteLine($"live link - {(liveOk ? "ok  " : "FAIL")} no game -> {withoutGame}; with a (simulated) game -> {first}, {second}; counter = {generation} (expected 2)");
+            }
+
             // Update check: version parsing and picking, against a canned release list (no network).
             const string canned = """
                 [
@@ -134,7 +155,7 @@ public partial class App : Application
                     report.WriteLine($"live check of {liveRepo} failed: {liveError.Message}");
                 }
             }
-            return checks.All(c => c.Ok) ? 0 : 1;
+            return checks.All(c => c.Ok) && liveOk ? 0 : 1;
         }
         catch (Exception ex)
         {

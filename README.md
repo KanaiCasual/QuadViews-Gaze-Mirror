@@ -23,8 +23,12 @@ Two OpenXR API layers cooperate through a small shared-memory block:
 The ring deforms into a teardrop as your eyes move, its tail is anchored to the world (so looking around by turning your
 head stretches it too), it is smoothed with a One-Euro filter, and it tightens when you hold your gaze on something.
 
-A small **settings app** edits the ring's look and behaviour live (the layer reloads its settings file about once a
-second), and has a calibration mode that shows a marker inside the headset so you can centre the ring on what you look at.
+A small **settings app** edits the ring's look and behaviour live, and has a calibration mode that shows a marker inside the headset so you can centre the ring on what you look at.
+
+**Nothing polls.** The layers never check the settings file while a game runs: the file is read once at start, and the
+settings app bumps a counter in shared memory when you change something, which the layer compares each frame (a memory
+read, no system call). With the app closed, nothing is ever re-read. The app itself listens for file-change
+notifications rather than checking on a timer.
 
 Requirements: a headset with eye tracking that works with Quad-Views-Foveated, a D3D11 game that supports quad views
 (e.g. DCS World), and OBS Studio.

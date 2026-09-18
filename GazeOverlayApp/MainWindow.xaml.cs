@@ -18,7 +18,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _loading;
     private readonly HashSet<string> _dirtyKeys = [];
-    private DateTime? _seenWriteTime;
+    private FileSystemWatcher? _configWatcher;
+    private DateTime _ownWriteUntil = DateTime.MinValue;
+    private readonly DispatcherTimer _outsideChangeTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly AppSettings _appSettings = AppSettings.Load();
     private ReleaseInfo? _availableUpdate;
 
@@ -28,7 +30,8 @@ public partial class MainWindow : Window
 
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SaveNow(); };
         _previewTimer.Tick += (_, _) => { _previewTimer.Stop(); RenderPreview(); };
-        _liveTimer.Tick += (_, _) => { UpdateLive(); WatchConfigFile(); };
+        _liveTimer.Tick += (_, _) => UpdateLive();
+        _outsideChangeTimer.Tick += (_, _) => { _outsideChangeTimer.Stop(); ApplyOutsideChange(); };
 
         BuildSettingsUi();
         BuildPresets();
@@ -47,8 +50,19 @@ public partial class MainWindow : Window
         InitializeUpdateUi();
         LoadConfig();
         RefreshStatus();
-        UpdateLive();
-        _liveTimer.Start();
+        StartWatchingConfigFile();
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) UpdateLiveTimer(); };
+        Activated += (_, _) => UpdateLiveTimer();
+        Deactivated += (_, _) => UpdateLiveTimer();
+        UpdateLiveTimer();
+    }
+
+    /// <summary>The once-a-second gaze light only ticks while it can be seen: Status tab showing and the window active.</summary>
+    private void UpdateLiveTimer()
+    {
+        var visible = Tabs.SelectedIndex == 0 && IsActive;
+        if (visible == _liveTimer.IsEnabled) return;
+        if (visible) { UpdateLive(); _liveTimer.Start(); } else { _liveTimer.Stop(); }
     }
 
     // ------------------------------------------------------------------ settings UI
@@ -230,9 +244,8 @@ public partial class MainWindow : Window
         foreach (var (key, setter) in _controlSetters) setter(_values.GetValueOrDefault(key) ?? "");
         _loading = false;
         _dirtyKeys.Clear();
-        _seenWriteTime = existed ? File.GetLastWriteTimeUtc(_configPath) : null;
         SaveStatus.Text = existed
-            ? "Loaded your current settings. Changes save automatically and reach a running game within about a second."
+            ? "Loaded your current settings. Changes save automatically and reach a running game instantly."
             : "No settings file yet - showing the defaults. It is created as soon as you change something (or install).";
         RenderPreview();
     }
@@ -262,10 +275,13 @@ public partial class MainWindow : Window
         try
         {
             MergeFromDisk();
+            _ownWriteUntil = DateTime.UtcNow.AddMilliseconds(600);
             ConfigFile.Save(_configPath, _values);
             _dirtyKeys.Clear();
-            _seenWriteTime = File.GetLastWriteTimeUtc(_configPath);
-            SaveStatus.Text = $"Saved at {DateTime.Now:T}. A running game picks it up within about a second.";
+            // The game never polls this file; telling it is what makes the change go live.
+            SaveStatus.Text = LiveLink.NotifySettingsChanged()
+                ? $"Saved at {DateTime.Now:T} and applied to the running game."
+                : $"Saved at {DateTime.Now:T}. No game is running right now - it reads the settings when it starts.";
             RenderPreview();
         }
         catch (Exception e)
@@ -274,24 +290,54 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Picks up changes made outside this app (in-game nudging, a text editor) about once a second.</summary>
-    private void WatchConfigFile()
+    /// <summary>
+    /// Windows tells us when the settings file changes (no polling): that is how in-game calibration nudges show up here
+    /// live, and how edits made in a text editor reach a running game while this app is open.
+    /// </summary>
+    private void StartWatchingConfigFile()
     {
         try
         {
-            if (_saveTimer.IsEnabled || !File.Exists(_configPath)) return;
-            var writeTime = File.GetLastWriteTimeUtc(_configPath);
-            if (writeTime == _seenWriteTime) return;
-            _seenWriteTime = writeTime;
-            if (MergeFromDisk())
+            var folder = System.IO.Path.GetDirectoryName(_configPath)!;
+            Directory.CreateDirectory(folder);
+            _configWatcher = new FileSystemWatcher(folder, System.IO.Path.GetFileName(_configPath))
             {
-                SaveStatus.Text = $"Picked up a change made outside this app at {DateTime.Now:T}.";
-                RenderPreview();
-            }
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                EnableRaisingEvents = true,
+            };
+            FileSystemEventHandler changed = (_, _) => Dispatcher.BeginInvoke(OnConfigFileChangedOutside);
+            _configWatcher.Changed += changed;
+            _configWatcher.Created += changed;
+            _configWatcher.Renamed += (_, _) => Dispatcher.BeginInvoke(OnConfigFileChangedOutside);
         }
         catch
         {
-            // The file may be mid-write; try again on the next tick.
+            // Without the watcher the app still works; outside changes then only show after "Reload from file".
+        }
+    }
+
+    private void OnConfigFileChangedOutside()
+    {
+        // Our own save triggers the watcher too; so does a save that is about to happen.
+        if (DateTime.UtcNow < _ownWriteUntil || _saveTimer.IsEnabled) return;
+        _outsideChangeTimer.Stop();
+        _outsideChangeTimer.Start(); // Editors write in several steps: wait for the file to settle.
+    }
+
+    private void ApplyOutsideChange()
+    {
+        try
+        {
+            if (!MergeFromDisk()) return;
+            // A text editor changed it (the layer already holds the values it wrote itself): make a running game reload.
+            LiveLink.NotifySettingsChanged();
+            SaveStatus.Text = $"Picked up a change made outside this app at {DateTime.Now:T}.";
+            if (_values.ContainsKey("headset_marker")) RefreshStatus();
+            RenderPreview();
+        }
+        catch
+        {
+            // The file may still be mid-write; the next change notification tries again.
         }
     }
 
