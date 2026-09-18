@@ -1,0 +1,17 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputName>OpenXR-Gaze-Overlay</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Set by Build-Installer.ps1; the defaults let the project build on its own too. -->
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.4.0</ProductVersion>
+    <PayloadDir Condition="'$(PayloadDir)' == ''">$(MSBuildProjectDirectory)\..\GazeOverlayApp\Payload</PayloadDir>
+    <AppDir Condition="'$(AppDir)' == ''">$(MSBuildProjectDirectory)\..\dist\app</AppDir>
+    <DefineConstants>ProductVersion=$(ProductVersion);PayloadDir=$(PayloadDir);AppDir=$(AppDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>

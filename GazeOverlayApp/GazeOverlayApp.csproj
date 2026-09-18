@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GazeOverlay</AssemblyName>
+    <RootNamespace>GazeOverlay</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Version>0.4.0</Version>
+    <Product>OpenXR Gaze Overlay</Product>
+    <Description>Settings for the eye-gaze overlay drawn on the OBS mirror. Installing is done by the MSI, not by this app.</Description>
+
+    <!-- Self-contained so no .NET install is needed, but as a plain folder of files that the MSI installs. Deliberately NOT
+         a single-file/compressed exe and with nothing embedded: a self-extracting exe that carried the layer DLLs and
+         installed them itself was quarantined by antivirus heuristics (2026-09-18). -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+    <!-- Application.ThemeMode (the built-in Fluent dark theme) is still flagged experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The installer payload lives next to the project for the MSI build; it is not part of the app. -->
+    <None Remove="Payload\**" />
+    <Resource Include="Assets\icon.ico" />
+    <!-- owner/name of the GitHub repository whose releases the app looks at. Empty = no update checks. Set by
+         Build-Installer.ps1 -GitHubRepository owner/name. -->
+    <AssemblyMetadata Include="GitHubRepository" Value="$(GitHubRepository)" />
+  </ItemGroup>
+
+</Project>

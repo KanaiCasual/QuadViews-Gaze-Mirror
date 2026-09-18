@@ -1,0 +1,23 @@
+<Application x:Class="GazeOverlay.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ThemeMode="Dark">
+    <Application.Resources>
+        <SolidColorBrush x:Key="Accent" Color="#4DB2FF" />
+        <SolidColorBrush x:Key="Muted" Color="#9AA4B2" />
+        <SolidColorBrush x:Key="Line" Color="#34373E" />
+        <SolidColorBrush x:Key="Panel" Color="#17181B" />
+        <SolidColorBrush x:Key="WindowBack" Color="#1F2024" />
+
+        <!-- No implicit Button style here: it would replace the theme's dark button template with the classic light one. -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </Application.Resources>
+</Application>

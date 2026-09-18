@@ -1,0 +1,28 @@
+{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\fs18
+{\b OpenXR Gaze Overlay \emdash  unofficial community build}\par
+\par
+This package shows stream viewers where you are looking in VR, by drawing a ring on your OBS mirror image. The ring is never visible in the headset.\par
+\par
+It installs modified builds of two open-source OpenXR API layers, plus an unmodified OBS plugin:\par
+\par
+\bullet  {\b Quad-Views-Foveated} by Matthieu Bucchianeri (MIT licence). Change: it also publishes where your eyes are looking.\par
+\bullet  {\b OpenXR-Layer-OBSMirror} by Jabbah (MIT licence). Changes: it draws the gaze ring on the mirror image, and fixes a texture leak.\par
+\bullet  The OBS plugin (win-openxr) from OpenXR-Layer-OBSMirror, unmodified.\par
+\par
+{\b These are not the original authors' releases.} They did not build, test or endorse this package. Please do not ask them for support with it.\par
+\par
+This package is not code-signed. Games that use anti-cheat software may refuse to load the layers.\par
+\par
+The full licence texts and third-party notices are installed next to each layer (LICENSE.txt and THIRD_PARTY.txt).\par
+\par
+{\b MIT License}\par
+\par
+Copyright (c) 2022-2023 Matthieu Bucchianeri\par
+Copyright (c) Jabbah and contributors (OpenXR-Layer-OBSMirror)\par
+\par
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\par
+\par
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\par
+\par
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\par
+}

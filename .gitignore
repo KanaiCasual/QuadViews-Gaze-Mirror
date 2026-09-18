@@ -1,0 +1,29 @@
+# This folder also holds unrelated projects, so this is a WHITELIST: everything at the top level is ignored unless it is
+# named below. Add new top-level files/folders here deliberately.
+/*
+
+!/.gitignore
+!/.gitmodules
+!/README.md
+!/LICENSE
+!/PUBLISHING-PLAN.md
+!/Build-Layers.ps1
+!/Build-Installer.ps1
+!/gaze.cfg
+!/GazeOverlayApp/
+!/Installer/
+!/patches/
+!/tools/
+# Upstream sources, as submodules pinned to the commits our patches apply to.
+!/Quad-Views-Foveated
+!/OpenXR-Layer-OBSMirror
+
+# Build output and anything binary/generated.
+bin/
+obj/
+*.user
+# The installer payload is collected from build outputs (and the upstream OBS plugin) by Collect-Payload.ps1.
+/GazeOverlayApp/Payload/
+# Recordings reviewed with tools/clip-review.
+/tools/clip-review/*.mp4
+__pycache__/

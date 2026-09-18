@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+<title>Gaze clip review</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 12px sans-serif; }
+  canvas { display: block; width: 100vw; }
+  video { display: none; }
+</style>
+</head>
+<body>
+<video id="v" src="clip.mp4" muted preload="auto"></video>
+<canvas id="c"></canvas>
+<script>
+const v = document.getElementById('v');
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+function seek(t) {
+  return new Promise(resolve => {
+    v.addEventListener('seeked', () => resolve(), { once: true });
+    v.currentTime = t;
+  });
+}
+
+// Draw one frame (optionally a crop given in 0..1 source coordinates) to the canvas.
+window.show = async (t, crop) => {
+  await seek(t);
+  const [sx, sy, sw, sh] = crop ? [crop[0] * v.videoWidth, crop[1] * v.videoHeight, crop[2] * v.videoWidth, crop[3] * v.videoHeight]
+                                : [0, 0, v.videoWidth, v.videoHeight];
+  c.width = 1600; c.height = Math.round(1600 * sh / sw);
+  ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return { t: v.currentTime, w: v.videoWidth, h: v.videoHeight };
+};
+
+// Contact sheet: `cols` x `rows` consecutive frames starting at t, `step` seconds apart, same optional crop.
+window.sheet = async (t, step, cols, rows, crop) => {
+  const vw = v.videoWidth, vh = v.videoHeight;
+  const [sx, sy, sw, sh] = crop ? [crop[0] * vw, crop[1] * vh, crop[2] * vw, crop[3] * vh] : [0, 0, vw, vh];
+  const cw = Math.floor(1600 / cols), ch = Math.round(cw * sh / sw);
+  c.width = cw * cols; c.height = ch * rows;
+  for (let i = 0; i < cols * rows; i++) {
+    await seek(t + i * step);
+    const x = (i % cols) * cw, y = Math.floor(i / cols) * ch;
+    ctx.drawImage(v, sx, sy, sw, sh, x, y, cw, ch);
+    ctx.fillStyle = '#ff0'; ctx.font = '14px sans-serif';
+    ctx.fillText((t + i * step).toFixed(2) + 's', x + 4, y + 16);
+  }
+  return { frames: cols * rows };
+};
+</script>
+</body>
+</html>
