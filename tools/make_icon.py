@@ -70,11 +70,18 @@ def shade(concept, x, y, size):
         col = over(col, accent, 1 - smooth(-aa, aa, d_ring))
         col = over(col, WHITE, 1 - smooth(-aa, aa, math.hypot(x, y) - 0.11))
         arm, off, w = 0.30, 0.70, (0.13 if small else 0.09)
+        rounding = w * 0.3
+        def bar(px, py, x0, x1, y0, y1):
+            # Rounded rectangle spanning x0..x1, y0..y1.
+            cx, cy, hx, hy = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 - rounding, (y1 - y0) / 2 - rounding
+            dx, dy = abs(px - cx) - hx, abs(py - cy) - hy
+            return math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - rounding
         for sx in (-1, 1):
             for sy in (-1, 1):
-                qx, qy = (x * sx - off), (y * sy - off)       # corner-local: inside is negative
-                d_h = max(abs(qy) - w / 2, abs(qx + arm / 2) - arm / 2)
-                d_v = max(abs(qx) - w / 2, abs(qy + arm / 2) - arm / 2)
+                qx, qy = (x * sx - off), (y * sy - off)       # corner-local: towards the centre is negative
+                # Both arms run through the corner block itself, so the outer corner is solid rather than notched.
+                d_h = bar(qx, qy, -arm, w / 2, -w / 2, w / 2)
+                d_v = bar(qx, qy, -w / 2, w / 2, -arm, w / 2)
                 col = over(col, accent, (1 - smooth(-aa, aa, min(d_h, d_v))) * 0.9)
     else:                    # an eye: almond outline with the ring as its iris
         R, stroke = 0.34, (0.15 if small else 0.10)
