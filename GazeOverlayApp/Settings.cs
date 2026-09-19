@@ -190,8 +190,28 @@ public static class Settings
             Key = "trail_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "200",
             Min = 0, Max = 3000, Step = 10, Unit = ValueUnit.Milliseconds,
             Label = "Tail lag",
-            Description = "How long the tail takes to catch up with the ring. Longer = a longer, lazier tail. " +
-                          "For Bubble/Solid it is the trail length; for Heatmap it is how long a stare is remembered (try 1500-3000).",
+            Description = "Ghost style: how long the tail takes to catch up with the ring. Longer = a longer, lazier tail.",
+        },
+        new()
+        {
+            Key = "blob_trail_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "450",
+            Min = 0, Max = 2000, Step = 10, Unit = ValueUnit.Milliseconds, ZeroText = "No trail",
+            Label = "Bubble / Solid trail",
+            Description = "Bubble and Solid styles: how long the trail of shrinking, fading blobs behind the gaze lasts.",
+        },
+        new()
+        {
+            Key = "heat_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "2000",
+            Min = 200, Max = 6000, Step = 50, Unit = ValueUnit.Milliseconds,
+            Label = "Heatmap warm-up",
+            Description = "Heatmap style: how long you have to stare at one place for it to go from blue through green and yellow to red.",
+        },
+        new()
+        {
+            Key = "heat_cool_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "700",
+            Min = 100, Max = 5000, Step = 50, Unit = ValueUnit.Milliseconds,
+            Label = "Heatmap cool-down",
+            Description = "Heatmap style: when you look away, the spot stays where it was and cools down over this time, while a new spot starts cold under your gaze. Looking back at a spot that is still warm carries on from there.",
         },
         new()
         {

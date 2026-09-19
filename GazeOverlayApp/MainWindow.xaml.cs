@@ -48,7 +48,8 @@ public partial class MainWindow : Window
             "Nothing here is code-signed, so Windows may warn about the installer, and games with anti-cheat may refuse to load the layers.\n\n" +
             "The Quad Views tab edits the same settings as QuadViews Companion by TallyMouse, and follows its slider logic so both can be used on the same file. " +
             "It is not TallyMouse's app and is not endorsed by them.\n\n" +
-            "This app only edits the two settings files below; it never installs anything or asks for administrator rights.\n\n" +
+            "This app only edits the two settings files below and never installs anything. It never runs with administrator rights either: " +
+            "switching a layer on or off on the Status tab makes Windows ask for permission and lets Windows' own reg.exe change that one value.\n\n" +
             "Ring settings:\n  " + _configPath + "\n" +
             "Quad-Views-Foveated settings:\n  " + QuadViewsFile.DefaultPath;
 
@@ -370,7 +371,10 @@ public partial class MainWindow : Window
     {
         var quadViews = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
         var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
-        var showPreview = !quadViews && PreviewToggle.IsChecked == true && roomForPreview;
+        // The preview only means something next to the ring's own settings (Look, Tail, Motion, Placement).
+        var ringTab = Tabs.SelectedItem is TabItem { Content: ScrollViewer { Content: StackPanel panel } } &&
+                      (ReferenceEquals(panel, PanelLook) || ReferenceEquals(panel, PanelTail) || ReferenceEquals(panel, PanelMotion) || ReferenceEquals(panel, PanelPlacement));
+        var showPreview = ringTab && PreviewToggle.IsChecked == true && roomForPreview;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
         // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
         PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
@@ -612,9 +616,62 @@ public partial class MainWindow : Window
                 "Quad-Views-Foveated above OBS Mirror with the \"OpenXR API Layers\" tool.", Colors.Firebrick);
         }
 
-        LayerList.Text = status.Layers.Count == 0
-            ? "(no OpenXR API layers are registered)"
-            : string.Join("\n", status.Layers.Select((l, i) => $"{i + 1}. [{(l.Enabled ? "on " : "off")}] {l.LayerName ?? "(unreadable manifest)"}\n      {l.JsonPath}"));
+        BuildLayerRows(status.Layers);
+    }
+
+    /// <summary>The small layers tool: what is registered, in load order, with an on/off tick box each.</summary>
+    private void BuildLayerRows(IReadOnlyList<LayerEntry> machineLayers)
+    {
+        LayerRows.Children.Clear();
+        List<LayerEntry> userLayers;
+        try { userLayers = LayerStatus.ReadLayers(perUser: true); } catch { userLayers = []; }
+
+        if (machineLayers.Count == 0 && userLayers.Count == 0)
+        {
+            LayerRows.Children.Add(new TextBlock { Text = "No OpenXR API layers are registered.", Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 6, 0, 6) });
+        }
+        var position = 1;
+        foreach (var layer in machineLayers.Concat(userLayers))
+        {
+            var ours = layer.LayerName is LayerStatus.QuadViewsLayer or LayerStatus.ObsMirrorLayer;
+            var box = new CheckBox { IsChecked = layer.Enabled, VerticalAlignment = VerticalAlignment.Top, MinWidth = 0, Margin = new Thickness(0, 0, 4, 0) };
+            var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold, Opacity = layer.Enabled ? 1 : 0.55 };
+            title.Inlines.Add($"{position++}. {layer.LayerName ?? "(manifest missing or unreadable)"}");
+            if (layer.PerUser) title.Inlines.Add(new System.Windows.Documents.Run("   this user only") { FontWeight = FontWeights.Normal, Foreground = (Brush)FindResource("Muted") });
+            if (!layer.Enabled) title.Inlines.Add(new System.Windows.Documents.Run("   off") { FontWeight = FontWeights.Normal, Foreground = new SolidColorBrush(Colors.Orange) });
+            var path = new TextBlock { Text = layer.JsonPath, Style = (Style)FindResource("Hint"), FontSize = 11.5 };
+
+            var text = new StackPanel { Margin = new Thickness(0, 5, 0, 0) };
+            text.Children.Add(title);
+            text.Children.Add(path);
+            var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+            DockPanel.SetDock(box, Dock.Left);
+            row.Children.Add(box);
+            row.Children.Add(text);
+            LayerRows.Children.Add(row);
+
+            box.Click += async (_, _) =>
+            {
+                var enable = box.IsChecked == true;
+                box.IsEnabled = false;
+                try
+                {
+                    var changed = await LayerStatus.SetEnabledAsync(layer, enable);
+                    LayerNote.Text = !changed ? "Nothing was changed (the Windows permission prompt was declined)."
+                        : $"{layer.LayerName ?? "The layer"} is now {(enable ? "on" : "off")}. Games pick that up the next time they start." +
+                          (ours && !enable ? " The gaze ring needs both of its layers on." : "");
+                }
+                catch (Exception error)
+                {
+                    LayerNote.Text = "Could not change the layer: " + error.Message;
+                }
+                RefreshStatus(); // Rebuilds the rows from what the registry really says now.
+            };
+        }
+        if (LayerNote.Text.Length == 0)
+        {
+            LayerNote.Text = "To reorder, add or remove layers, use fredemmott's \"OpenXR API Layers\" tool; this list only switches them on and off.";
+        }
     }
 
     private static Color HealthColor(LayerHealth health) => health switch
@@ -627,7 +684,7 @@ public partial class MainWindow : Window
 
     private void AddStatusRow(string title, string detail, Color color)
     {
-        var row = new Grid { Margin = new Thickness(0, 10, 0, 10) };
+        var row = new Grid { Margin = new Thickness(0, 5, 0, 5) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.Children.Add(new Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 4, 0, 0) });

@@ -37,6 +37,9 @@ public static class RingPreview
         var centerX = moving ? size * 0.62 : size * 0.5;
         var centerY = moving ? size * 0.38 : size * 0.5;
 
+        // Bubble / Solid / Heatmap are drawn from a list of places (x, y, weight), like the layer's trail constants.
+        var places = Places(style, moving, Get("blob_trail_ms"));
+
         var pixels = new byte[size * size * 4];
         var enabled = (values.GetValueOrDefault("enabled") ?? "1") != "0";
         for (var y = 0; y < size; y++)
@@ -45,7 +48,7 @@ public static class RingPreview
             {
                 var (br, bg, bb) = Background(background, x, y);
                 var shade = enabled
-                    ? ShadePixel(style, p, color, (x + 0.5 - centerX) / PixelsPerImageHeight, (y + 0.5 - centerY) / PixelsPerImageHeight, tipX, tipY)
+                    ? ShadePixel(style, p, color, (x + 0.5 - centerX) / PixelsPerImageHeight, (y + 0.5 - centerY) / PixelsPerImageHeight, tipX, tipY, places)
                     : default;
 
                 double r = br, g = bg, b = bb;
@@ -84,7 +87,32 @@ public static class RingPreview
     private sealed record Params(double Radius, double Thickness, double Feather, double Glow, double GlowStrength,
                                  double Opacity, double FillOpacity, double ShadowOpacity, double TailOpacity, double Solidity);
 
-    private static Shade ShadePixel(string style, Params p, (double R, double G, double B) color, double px, double py, double tipX, double tipY)
+    /// <summary>
+    /// Stand-in for the places the layer records, relative to the current gaze. Still eyes: just the gaze (for the heatmap,
+    /// a spot that has been stared at). Moving eyes: the same "up and to the right" pose as the ghost tail - a trail of
+    /// older samples behind the blob, or for the heatmap the spot that was just left, cooling down where it was.
+    /// </summary>
+    private static (double X, double Y, double W)[] Places(string style, bool moving, double blobTrailMs)
+    {
+        if (style == "heatmap")
+        {
+            return moving ? [(-0.065 * 0.78, 0.065 * 0.62, 0.6), (0, 0, 0.2)] : [(0, 0, 1.0)]; // near enough to stay in the picture
+        }
+        if (!moving || blobTrailMs <= 0) return [(0, 0, 1.0)];
+
+        // Eyes crossing about a third of the image height per second.
+        var length = Math.Clamp(blobTrailMs / 1000 * 0.35, 0.01, 0.16);
+        const int samples = 14;
+        var places = new (double, double, double)[samples + 1];
+        for (var i = 0; i <= samples; i++)
+        {
+            var t = (double)i / samples;
+            places[i] = (-length * 0.78 * t, length * 0.62 * t, 1 - t);
+        }
+        return places;
+    }
+
+    private static Shade ShadePixel(string style, Params p, (double R, double G, double B) color, double px, double py, double tipX, double tipY, (double X, double Y, double W)[] places)
     {
         var dist = Math.Sqrt(px * px + py * py);
         var shadowWidth = p.Feather * 3 + 0.0015;
@@ -119,19 +147,34 @@ public static class RingPreview
             case "bubble":
             case "solid":
             {
-                var outer = 1 - Smoothstep(p.Radius, p.Radius + Math.Max(p.Feather, 1e-5), dist);
-                var inner = p.Opacity;
-                if (style == "bubble")
+                // blobWithTrail in the shader: the head, then older samples as smaller, fainter discs.
+                var result = 0.0;
+                for (var i = 0; i < places.Length; i++)
                 {
-                    var t = Math.Clamp(dist / p.Radius, 0, 1);
-                    inner = Lerp(p.FillOpacity, p.Opacity, t * t * t);
+                    var (sx, sy, w) = places[i];
+                    var r = p.Radius * (0.35 + 0.65 * w);
+                    var d = Math.Sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+                    var outer = 1 - Smoothstep(r, r + Math.Max(p.Feather, 1e-5), d);
+                    var inner = p.Opacity;
+                    if (style == "bubble")
+                    {
+                        var t = Math.Clamp(d / r, 0, 1);
+                        inner = i == 0 ? Lerp(p.FillOpacity, p.Opacity, t * t * t) : Lerp(p.FillOpacity, p.Opacity, 0.35);
+                    }
+                    result = Math.Max(result, inner * outer * w * w);
                 }
-                return new Shade(color.R, color.G, color.B, inner * outer);
+                return new Shade(color.R, color.G, color.B, result);
             }
             case "heatmap":
             {
-                var x = dist / Math.Max(p.Radius, 1e-4);
-                var heat = Math.Clamp(Math.Exp(-2 * x * x), 0, 1);
+                // heatmap in the shader: every place adds its heat, falling off with distance.
+                var heat = 0.0;
+                foreach (var (sx, sy, w) in places)
+                {
+                    var x = Math.Sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy)) / Math.Max(p.Radius, 1e-4);
+                    heat += w * Math.Exp(-2 * x * x);
+                }
+                heat = Math.Clamp(heat, 0, 1);
                 var (r, g, b) = heat < 0.33 ? Mix((0, 0.25, 1), (0, 1, 0.3), heat / 0.33)
                               : heat < 0.66 ? Mix((0, 1, 0.3), (1, 0.85, 0), (heat - 0.33) / 0.33)
                                             : Mix((1, 0.85, 0), (1, 0.08, 0), (heat - 0.66) / 0.34);

@@ -8,6 +8,8 @@ namespace GazeOverlay;
 /// The settings app. It never installs anything, never asks for administrator rights and never touches Program Files or
 /// the system registry - the MSI does all of that. All it writes is two settings files in the user's profile: the ring's,
 /// and (only when Apply is clicked on the Quad Views tab) Quad-Views-Foveated's.
+/// One user-driven exception: ticking a layer on or off on the Status tab. The app itself still never runs elevated -
+/// it asks Windows (UAC) to let the system's own reg.exe change that single value (see LayerStatus.SetEnabledAsync).
 /// </summary>
 public partial class App : Application
 {
@@ -205,6 +207,16 @@ public partial class App : Application
                 var encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(bitmap));
                 using var file = File.Create(Path.Combine(outputDir, $"preview{index++}.png"));
+                encoder.Save(file);
+            }
+            // The styles that are drawn from recorded places, with the eyes moving: trail behind the blob, cooling heat spot.
+            foreach (var trailStyle in new[] { "bubble", "solid", "heatmap" })
+            {
+                var styled = new Dictionary<string, string>(values) { ["style"] = trailStyle };
+                var bitmap = RingPreview.Render(styled, PreviewBackground.Cockpit, moving: true, 260);
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var file = File.Create(Path.Combine(outputDir, $"preview-{trailStyle}-moving.png"));
                 encoder.Save(file);
             }
             report.WriteLine("previews: ok");

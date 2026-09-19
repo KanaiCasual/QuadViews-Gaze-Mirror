@@ -7,7 +7,8 @@ namespace GazeOverlay;
 
 public enum LayerHealth { NotActive, GazeBuild, OriginalWithoutGaze, Duplicate }
 
-public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName, string? DllPath);
+/// <param name="PerUser">Registered for this Windows user only (HKCU) rather than for the whole PC (HKLM).</param>
+public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName, string? DllPath, bool PerUser = false);
 
 public sealed record LayerReport(LayerHealth Health, string Detail);
 
@@ -25,11 +26,17 @@ public static class LayerStatus
     public const string ObsMirrorLayer = "XR_APILAYER_NOVENDOR_OBSMirror";
     private const string LayersKey = @"SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit";
 
-    public static List<LayerEntry> ReadLayers()
+    public const string LayersKeyPath = LayersKey;
+
+    /// <summary>The PC-wide list (HKLM, 64-bit) - where installers put layers, and the one the status checks look at.</summary>
+    public static List<LayerEntry> ReadLayers() => ReadLayers(perUser: false);
+
+    /// <summary>In registry order, which is the order the OpenXR loader uses: first = closest to the game.</summary>
+    public static List<LayerEntry> ReadLayers(bool perUser)
     {
         var layers = new List<LayerEntry>();
-        using var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-        using var key = hklm.OpenSubKey(LayersKey);
+        using var hive = RegistryKey.OpenBaseKey(perUser ? RegistryHive.CurrentUser : RegistryHive.LocalMachine, RegistryView.Registry64);
+        using var key = hive.OpenSubKey(LayersKey);
         if (key == null) return layers;
 
         foreach (var name in key.GetValueNames())
@@ -48,9 +55,53 @@ public static class LayerStatus
             {
                 // Missing or unreadable manifest: still list it so the order is visible.
             }
-            layers.Add(new LayerEntry(name, enabled, layerName, dllPath));
+            layers.Add(new LayerEntry(name, enabled, layerName, dllPath, perUser));
         }
         return layers;
+    }
+
+    /// <summary>
+    /// Switches one registered layer on or off (the value's data: 0 = on, 1 = off - the loader's own convention, and
+    /// what the "OpenXR API Layers" tool does). A per-user entry is simply written. A PC-wide entry needs administrator
+    /// rights, and this app never runs elevated: Windows' own reg.exe is started with a UAC prompt to change that one
+    /// value. Returns false when the user declined the prompt; throws when the change failed.
+    /// </summary>
+    public static async Task<bool> SetEnabledAsync(LayerEntry layer, bool enabled)
+    {
+        var data = enabled ? 0 : 1;
+        if (layer.PerUser)
+        {
+            using var hive = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry64);
+            using var key = hive.OpenSubKey(LayersKey, writable: true) ?? throw new InvalidOperationException("The layer list is no longer there.");
+            key.SetValue(layer.JsonPath, data, RegistryValueKind.DWord);
+            return true;
+        }
+
+        // The name goes on a command line inside quotes; refuse the (never legitimate) names that could break out of them.
+        if (layer.JsonPath.Contains('"') || layer.JsonPath.EndsWith('\\') || layer.JsonPath.Contains('\n') || layer.JsonPath.Contains('\r'))
+        {
+            throw new InvalidOperationException("This entry's name contains characters that cannot be passed on safely.");
+        }
+        var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "reg.exe"),
+            $"add \"HKLM\\{LayersKey}\" /v \"{layer.JsonPath}\" /t REG_DWORD /d {data} /f /reg:64")
+        {
+            UseShellExecute = true, Verb = "runas", WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+        };
+        System.Diagnostics.Process process;
+        try
+        {
+            process = System.Diagnostics.Process.Start(start) ?? throw new InvalidOperationException("Windows did not start reg.exe.");
+        }
+        catch (System.ComponentModel.Win32Exception e) when (e.NativeErrorCode == 1223)
+        {
+            return false; // "The operation was canceled by the user": No on the UAC prompt.
+        }
+        using (process)
+        {
+            await process.WaitForExitAsync();
+            if (process.ExitCode != 0) throw new InvalidOperationException($"reg.exe reported an error (exit code {process.ExitCode}).");
+        }
+        return true;
     }
 
     public static SystemStatus Get()

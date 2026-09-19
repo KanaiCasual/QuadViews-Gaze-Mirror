@@ -41,29 +41,26 @@
             <TabItem Header="Status" Padding="7,4">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="14,10,14,12">
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="Status" />
-                        <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14"
-                                   Text="Shows viewers where you are looking in VR: a ring drawn on your OBS mirror only, never in the headset. This app edits the ring's settings and, on the Quad Views tab, Quad-Views-Foveated's. Installing, updating and removing is done by the OpenXR Gaze Overlay installer (.msi) and Windows' installed-apps list." />
-
-                        <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="14,4">
+                        <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="10,2">
                             <StackPanel x:Name="StatusRows" />
                         </Border>
-                        <Button Content="Refresh" HorizontalAlignment="Left" Margin="0,12,0,0" Click="OnRefresh" />
 
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="Live check" Margin="0,22,0,4" />
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="LiveDot" Width="10" Height="10" Margin="0,4,8,0" VerticalAlignment="Top" Fill="Gray" />
-                            <TextBlock x:Name="LiveText" TextWrapping="Wrap" MaxWidth="600" />
-                        </StackPanel>
+                        <DockPanel Margin="0,8,0,0">
+                            <Button DockPanel.Dock="Right" Content="Refresh" VerticalAlignment="Top" Margin="8,0,0,0" Click="OnRefresh" />
+                            <Ellipse x:Name="LiveDot" DockPanel.Dock="Left" Width="10" Height="10" Margin="2,5,8,0" VerticalAlignment="Top" Fill="Gray" />
+                            <TextBlock x:Name="LiveText" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
 
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="OpenXR layer order" Margin="0,22,0,4" />
-                        <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
-                                   Text="Top is closest to the game. Quad-Views-Foveated must be above OBS Mirror." />
-                        <TextBlock x:Name="LayerList" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="OpenXR API layers" Margin="0,14,0,2" />
+                        <TextBlock x:Name="LayerHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                   Text="In the order games load them - top is closest to the game. Untick a layer to switch it off (Windows asks for permission)." />
+                        <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="10,2">
+                            <StackPanel x:Name="LayerRows" />
+                        </Border>
+                        <TextBlock x:Name="LayerNote" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" />
 
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="In OBS" Margin="0,22,0,4" />
-                        <TextBlock Style="{StaticResource Hint}"
-                                   Text="Add an &quot;OpenXR Mirror Capture&quot; source to your scene and pick the eye to record. The ring follows that eye automatically and only appears while your game is running with eye tracking active." />
+                        <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,12,0,0"
+                                   Text="In OBS: add an &quot;OpenXR Mirror Capture&quot; source and pick the eye to record. The ring follows that eye and only appears while a game runs with eye tracking active." />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

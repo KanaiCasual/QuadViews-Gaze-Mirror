@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..8f05cef 100644
+index 2df1e64..7c600d5 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -10,7 +10,7 @@ index 2df1e64..8f05cef 100644
  
  #pragma comment(lib, "d3dcompiler.lib")
  #pragma comment(lib, "d3d11.lib")
-@@ -220,6 +221,246 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -220,6 +221,247 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
  
  	return textureColor;
  }
@@ -169,7 +169,8 @@ index 2df1e64..8f05cef 100644
 +    return result;
 +}
 +
-+// Dwell-time heatmap along the trail: blue (glanced at) -> green -> yellow -> red (stared at).
++// Dwell-time heatmap. Each trail entry is a place that was looked at, z = its heat: blue (glanced at) -> green -> yellow
++// -> red (stared at). Spots left behind stay where they were and cool down (see drawGazeOverlay).
 +float4 heatmap(float2 uv)
 +{
 +    float heat = 0.0;
@@ -257,7 +258,7 @@ index 2df1e64..8f05cef 100644
  )_";
  
      float quad_verts[] = {
-@@ -485,6 +726,10 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -485,6 +727,10 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              srcData._texture.Get(), &viewDesc, srcData._quadTextureView.GetAddressOf()));
      }
  
@@ -268,7 +269,7 @@ index 2df1e64..8f05cef 100644
      bool D3D11Mirror::enabled() const {
          return _obsRunning;
      }
-@@ -492,6 +737,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -492,6 +738,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
      void D3D11Mirror::flush() {
          _d3d11MirrorContext->Flush();
          _pMirrorSurfaceData->lastProcessedIndex = _frameCounter;
@@ -276,7 +277,7 @@ index 2df1e64..8f05cef 100644
          if (_targetView) {
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
              float clearRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-@@ -669,7 +915,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -669,7 +916,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view->subImage.imageRect, format, view->subImage.swapchain);
@@ -291,7 +292,7 @@ index 2df1e64..8f05cef 100644
          else 
          {
              auto it = _sourceData.find(view->subImage.swapchain);
-@@ -763,6 +1015,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -763,6 +1016,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov, view->fov);
@@ -304,7 +305,7 @@ index 2df1e64..8f05cef 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -821,6 +1079,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -821,6 +1080,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view1->subImage.imageRect, format, view1->subImage.swapchain);
@@ -317,7 +318,7 @@ index 2df1e64..8f05cef 100644
          }
          else 
          {
-@@ -899,6 +1163,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -899,6 +1164,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov1, view1->fov);
@@ -330,7 +331,7 @@ index 2df1e64..8f05cef 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -989,6 +1259,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -989,6 +1260,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              // Modify the view port and scissor for offset eye rendering
              XrRect2Di rect = {{0, 0}, view2->subImage.imageRect.extent};
              rect.offset.x = rect.offset.x + static_cast<int32_t>((rect.extent.width * _pMirrorSurfaceData->overlap) / 100);
@@ -343,7 +344,7 @@ index 2df1e64..8f05cef 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
-@@ -1149,6 +1425,907 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,6 +1426,988 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -478,8 +479,13 @@ index 2df1e64..8f05cef 100644
 +                                "tail_opacity=0.7\n"
 +                                "tail_max=0.14\n"
 +                                "# ghost: how long the tail lags behind the ring (longer = longer, lazier tail).\n"
-+                                "# bubble/solid: length of the fading trail. heatmap: dwell memory (try 1500-3000).\n"
 +                                "trail_ms=150\n"
++                                "# bubble/solid: length of the fading trail behind the blob.\n"
++                                "blob_trail_ms=450\n"
++                                "# heatmap: how long you have to stare for a spot to go from blue to red, and how long a spot\n"
++                                "# stays where it was, cooling down, after you look away.\n"
++                                "heat_ms=2000\n"
++                                "heat_cool_ms=700\n"
 +                                "# world  = the tail follows where the gaze was in the world, so head turns stretch it too (VR).\n"
 +                                "# screen = the tail only follows on-screen motion (like a desktop eye tracker).\n"
 +                                "tail_space=world\n"
@@ -617,6 +623,12 @@ index 2df1e64..8f05cef 100644
 +                        config.tailMax = std::clamp(std::stof(value), 0.f, 2.f);
 +                    } else if (name == "trail_ms") {
 +                        config.trailMs = std::clamp(std::stof(value), 0.f, 10000.f);
++                    } else if (name == "blob_trail_ms") {
++                        config.blobTrailMs = std::clamp(std::stof(value), 0.f, 10000.f);
++                    } else if (name == "heat_ms") {
++                        config.heatMs = std::clamp(std::stof(value), 50.f, 60000.f);
++                    } else if (name == "heat_cool_ms") {
++                        config.heatCoolMs = std::clamp(std::stof(value), 50.f, 60000.f);
 +                    } else if (name == "hold_ms") {
 +                        config.holdMs = std::max(std::stof(value), 0.f);
 +                    } else if (name == "radius") {
@@ -994,6 +1006,13 @@ index 2df1e64..8f05cef 100644
 +                    if (!reprojectToCurrentView(reference, _gazeDwellAnchor[0], _gazeDwellAnchor[1])) {
 +                        _gazeDwellMs = 0.f;
 +                    }
++                    // Trail samples and heat spots are places in the world too (both lists are empty for other styles).
++                    for (auto it = _gazeTrail.begin(); it != _gazeTrail.end();) {
++                        it = reprojectToCurrentView(reference, it->x, it->y) ? std::next(it) : _gazeTrail.erase(it);
++                    }
++                    for (auto it = _heatSpots.begin(); it != _heatSpots.end();) {
++                        it = reprojectToCurrentView(reference, it->x, it->y) ? std::next(it) : _heatSpots.erase(it);
++                    }
 +                }
 +                _gazePrevOrientation = reference.orientation;
 +                _gazeHasPrevOrientation = true;
@@ -1093,11 +1112,12 @@ index 2df1e64..8f05cef 100644
 +
 +        gaze_buffer_t constants{};
 +
-+        // Trail: the current position first, then the recorded history from newest to oldest.
-+        const bool useTrail = _gazeConfig.style >= 4 && _gazeConfig.style <= 6 && _gazeConfig.trailMs > 0.f;
++        // Trail (bubble/solid): the current position first, then the recorded history from newest to oldest.
++        const bool useTrail = (_gazeConfig.style == 4 || _gazeConfig.style == 5) && _gazeConfig.blobTrailMs > 0.f;
++        const bool useHeat = _gazeConfig.style == 6;
 +        constexpr size_t MaxTrail = _countof(constants.trail);
 +        if (useTrail) {
-+            const float interval = _gazeConfig.trailMs / (MaxTrail - 1);
++            const float interval = _gazeConfig.blobTrailMs / (MaxTrail - 1);
 +            if (_gazeTrail.empty() ||
 +                std::chrono::duration<float, std::milli>(now - _gazeTrail.back().time).count() >= interval) {
 +                _gazeTrail.push_back({_gazePos[0], _gazePos[1], now});
@@ -1105,22 +1125,84 @@ index 2df1e64..8f05cef 100644
 +            while (!_gazeTrail.empty() &&
 +                   (_gazeTrail.size() > MaxTrail - 1 ||
 +                    std::chrono::duration<float, std::milli>(now - _gazeTrail.front().time).count() >
-+                        _gazeConfig.trailMs)) {
++                        _gazeConfig.blobTrailMs)) {
 +                _gazeTrail.pop_front();
 +            }
 +        } else {
 +            _gazeTrail.clear();
 +        }
++
++        // Heatmap: the spot being looked at warms up (blue -> red over heat_ms). Looking away leaves it where it was,
++        // cooling down over heat_cool_ms, while a new, cold spot starts under the gaze. Looking back at a spot that is
++        // still warm carries on from its current heat.
++        if (useHeat && haveTarget) {
++            const float joinRadius = 0.5f * _gazeConfig.radius * height;
++            size_t current = _heatSpots.size();
++            float best = joinRadius * joinRadius;
++            for (size_t i = 0; i < _heatSpots.size(); i++) {
++                const float dx = _heatSpots[i].x - _gazePos[0], dy = _heatSpots[i].y - _gazePos[1];
++                if (dx * dx + dy * dy <= best) {
++                    best = dx * dx + dy * dy;
++                    current = i;
++                }
++            }
++            if (current == _heatSpots.size()) {
++                _heatSpots.push_back({_gazePos[0], _gazePos[1], 0.f});
++            } else if (current + 1 != _heatSpots.size()) {
++                const HeatSpot spot = _heatSpots[current];
++                _heatSpots.erase(_heatSpots.begin() + current);
++                _heatSpots.push_back(spot);
++            }
++            for (size_t i = 0; i + 1 < _heatSpots.size(); i++) {
++                _heatSpots[i].heat -= dtMs / _gazeConfig.heatCoolMs;
++            }
++            HeatSpot& looking = _heatSpots.back();
++            looking.heat = std::min(1.f, looking.heat + dtMs / _gazeConfig.heatMs);
++            // Let the spot settle on the middle of the fixation rather than on where the eye happened to land.
++            const float settle = 1.f - expf(-dtMs / 300.f);
++            looking.x += (_gazePos[0] - looking.x) * settle;
++            looking.y += (_gazePos[1] - looking.y) * settle;
++            for (size_t i = 0; i + 1 < _heatSpots.size();) {
++                if (_heatSpots[i].heat <= 0.f) {
++                    _heatSpots.erase(_heatSpots.begin() + i);
++                } else {
++                    i++;
++                }
++            }
++            while (_heatSpots.size() > MaxTrail) {
++                _heatSpots.pop_front();
++            }
++        } else if (useHeat) {
++            // Eyes closed or tracking lost: nothing is being looked at, everything cools.
++            for (auto it = _heatSpots.begin(); it != _heatSpots.end();) {
++                it->heat -= dtMs / _gazeConfig.heatCoolMs;
++                it = it->heat <= 0.f ? _heatSpots.erase(it) : std::next(it);
++            }
++        } else {
++            _heatSpots.clear();
++        }
++
 +        size_t trailCount = 0;
-+        constants.trail[trailCount][0] = _gazePos[0] / width;
-+        constants.trail[trailCount][1] = _gazePos[1] / height;
-+        constants.trail[trailCount][2] = 1.f;
-+        trailCount++;
++        if (useHeat && !_heatSpots.empty()) {
++            // z = heat. The spot under the gaze never reads as fully cold, so there is always something to see.
++            for (size_t i = 0; i < _heatSpots.size() && trailCount < MaxTrail; i++) {
++                const bool looking = haveTarget && i + 1 == _heatSpots.size();
++                constants.trail[trailCount][0] = _heatSpots[i].x / width;
++                constants.trail[trailCount][1] = _heatSpots[i].y / height;
++                constants.trail[trailCount][2] = looking ? std::max(_heatSpots[i].heat, 0.15f) : _heatSpots[i].heat;
++                trailCount++;
++            }
++        } else {
++            constants.trail[trailCount][0] = _gazePos[0] / width;
++            constants.trail[trailCount][1] = _gazePos[1] / height;
++            constants.trail[trailCount][2] = useHeat ? 0.15f : 1.f; // Heatmap with nothing recorded: a cold spot.
++            trailCount++;
++        }
 +        for (auto it = _gazeTrail.rbegin(); it != _gazeTrail.rend() && trailCount < MaxTrail; ++it) {
 +            const float age = std::chrono::duration<float, std::milli>(now - it->time).count();
 +            constants.trail[trailCount][0] = it->x / width;
 +            constants.trail[trailCount][1] = it->y / height;
-+            constants.trail[trailCount][2] = std::clamp(1.f - age / _gazeConfig.trailMs, 0.f, 1.f);
++            constants.trail[trailCount][2] = std::clamp(1.f - age / _gazeConfig.blobTrailMs, 0.f, 1.f);
 +            trailCount++;
 +        }
 +        if (_gazeConfig.style == 7) {
@@ -1142,8 +1224,8 @@ index 2df1e64..8f05cef 100644
 +        constants.premultiply = screenBlend ? 1.f : 0.f;
 +        constants.solidity = _gazeConfig.solidity;
 +        constants.glowStrength = _gazeConfig.glowStrength;
-+        // A steady fixation for the whole trail duration saturates the heatmap.
-+        constants.heatGain = 1.5f / (0.5f * MaxTrail);
++        // The heat spots carry their own 0..1 heat; overlapping spots add up.
++        constants.heatGain = 1.f;
 +
 +        // Only rasterize the area the indicator can touch (spotlight darkens the whole image).
 +        float uvMin[2] = {0.f, 0.f};
@@ -1251,7 +1333,7 @@ index 2df1e64..8f05cef 100644
      void D3D11Mirror::copyToMirror() {
          _frameCounter = _frameCounter + 1;
          auto& tex = _mirrorTextures[0];
-@@ -1203,4 +2380,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1203,4 +2462,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1259,7 +1341,7 @@ index 2df1e64..8f05cef 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..7d00098 100644
+index 098ed77..1441e08 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1294,7 +1376,7 @@ index 098ed77..7d00098 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -113,6 +125,118 @@ namespace Mirror
+@@ -113,6 +125,127 @@ namespace Mirror
          float _fovHorizRatio = 1.f;
          XrFovf _hmdFov{0.0f, 0.0f, 0.0f, 0.0f};
          XrFovf _viewFov{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1305,8 +1387,10 @@ index 098ed77..7d00098 100644
 +            bool headsetMarker = false; // Calibration aid: also show a marker inside the headset (Ctrl+Alt+G).
 +            int style = 7;             // 0 = ring, 1 = glow, 2 = dot, 3 = spotlight, 4 = bubble, 5 = solid, 6 = heatmap,
 +                                       // 7 = ghost.
-+            float trailMs = 150.f;     // ghost: how long the tail lags behind. bubble/solid: length of the fading
-+                                       // tail. heatmap: dwell memory.
++            float trailMs = 150.f;     // ghost: how long the tail lags behind.
++            float blobTrailMs = 450.f; // bubble/solid: length of the fading trail.
++            float heatMs = 2000.f;     // heatmap: how long a stare takes to go from blue to red.
++            float heatCoolMs = 700.f;  // heatmap: how long a spot lingers and cools down after looking away.
 +            bool worldAnchored = true; // Keep the indicator's motion/tail relative to the world, not the (moving) head.
 +            bool screenBlend = true;   // Blend like light (screen) instead of like paint (normal alpha).
 +            float solidity = 0.4f;     // Screen blending: how much the indicator also covers what is behind it.
@@ -1409,6 +1493,13 @@ index 098ed77..7d00098 100644
 +            std::chrono::steady_clock::time_point time;
 +        };
 +        std::deque<TrailSample> _gazeTrail; // Oldest first.
++
++        // Heatmap: places that were looked at. The one being looked at warms up; the others stay put and cool down.
++        struct HeatSpot {
++            float x, y; // Pixels in the compositor texture.
++            float heat; // 0 (cold) .. 1 (stared at).
++        };
++        std::deque<HeatSpot> _heatSpots; // The spot being looked at is last.
 +        std::chrono::steady_clock::time_point _gazeLastDraw{};
      };
  }
