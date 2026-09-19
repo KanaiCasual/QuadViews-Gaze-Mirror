@@ -47,7 +47,7 @@ Requirements: a headset with eye tracking that works with Quad-Views-Foveated, a
 | `patches/` | **Everything we changed upstream**, as two patch files |
 | `GazeOverlayApp/` | The settings app (WPF, .NET 10, dark theme). Never elevates, never installs anything |
 | `Installer/` | WiX 5 project for the MSI. Purely declarative - no custom code runs during setup |
-| `tools/` | Patch scripts, the logo generator, an offline ring preview, an MSI inspector, a clip reviewer |
+| `tools/` | Patch scripts, the logo and installer-artwork generators, an offline ring preview, an MSI inspector, a clip reviewer |
 | `gaze.cfg` | A sample of the layer's settings file |
 | `PUBLISHING-PLAN.md` | Notes and decisions for going public |
 
@@ -84,6 +84,11 @@ one.
 - The installer refuses to run while the *original* Quad-Views-Foveated or OBSMirror layer is installed: two copies of a
   layer cannot be active together. Uninstall the originals first. Your Quad-Views-Foveated settings in
   `%LocalAppData%\Quad-Views-Foveated` are kept, and tools that edit them keep working.
+- Running the installer when the product is already installed (or choosing **Modify** in Windows' installed-apps list)
+  shows one page with **Repair** and **Uninstall**. Repair puts the layer files back and re-enables both layers in the
+  right order. Uninstall leaves your settings files and the OBS plugin. To update, just run the newer installer.
+- A first install offers a desktop shortcut (ticked by default); the choice is remembered for later versions.
+  Silent install without it: `msiexec /i OpenXR-Gaze-Overlay-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
 - Setup is a plain MSI on purpose. An earlier self-installing `.exe` was quarantined by antivirus heuristics half-way
   through an install.
 

@@ -34,6 +34,20 @@
     <Launch Condition="Installed OR NOT ORIGINALOBSMIRROR"
             Message="The original OpenXR OBS Mirror layer is installed, and two copies cannot be active together. Run Uninstall-Layer.ps1 from its folder as administrator, then run this installer again. The OBS plugin can stay." />
 
+    <!--
+      Desktop shortcut: ticked by default on a first install. The choice is written to the registry and read back by later
+      versions, so an upgrade neither brings back a shortcut somebody did not want nor drops one they did.
+      A tick box counts as ticked for ANY value, so "not wanted" has to be the property being empty, not "0".
+      Silent installs: DESKTOPSHORTCUT=0 (or DESKTOPSHORTCUT="") switches it off.
+    -->
+    <Property Id="DESKTOPSHORTCUT" Value="1" Secure="yes" />
+    <Property Id="SAVEDDESKTOPSHORTCUT" Secure="yes">
+      <RegistrySearch Id="FindSavedDesktopShortcut" Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="DesktopShortcut" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="DESKTOPSHORTCUT" Action="RestoreNoDesktopShortcut" Value="" After="AppSearch" Sequence="first" Condition="SAVEDDESKTOPSHORTCUT = &quot;no&quot;" />
+    <SetProperty Id="DESKTOPSHORTCUTCHOICE" Action="DesktopShortcutChosen" Value="yes" Before="InstallInitialize" Sequence="execute" Condition="DESKTOPSHORTCUT = &quot;1&quot;" />
+    <SetProperty Id="DESKTOPSHORTCUTCHOICE" Action="DesktopShortcutDeclined" Value="no" Before="InstallInitialize" Sequence="execute" Condition="DESKTOPSHORTCUT &lt;&gt; &quot;1&quot;" />
+
     <!-- OBS Studio, for its plugin folder. -->
     <Property Id="OBSDIR">
       <RegistrySearch Id="FindObs64" Root="HKLM" Key="SOFTWARE\OBS Studio" Type="raw" Bitness="always64" />
@@ -67,11 +81,16 @@
       <ComponentRef Id="LayerRegistration" />
       <ComponentGroupRef Id="SettingsApp" />
       <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="RememberChoices" />
       <ComponentGroupRef Id="ObsPlugin" />
     </Feature>
 
-    <ui:WixUI Id="WixUI_Minimal" />
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <!-- Pages: GazeUI.wxs. Pictures: tools\make_installer_art.py draws them from the app logo. -->
+    <UIRef Id="GazeOverlayUI" />
+    <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;OpenXR Gaze Overlay&quot; from the Start menu to set up the ring. In OBS, add an &quot;OpenXR Mirror Capture&quot; source to your scene. Running this installer again offers Repair and Uninstall." />
   </Package>
 
   <Fragment>
@@ -134,6 +153,18 @@
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Condition="DESKTOPSHORTCUT = &quot;1&quot;">
+        <Shortcut Id="SettingsDesktopShortcut" Name="OpenXR Gaze Overlay" Description="Settings for the eye-gaze ring on your OBS mirror"
+                  Target="[INSTALLFOLDER]GazeOverlay.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+        <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Component Id="RememberChoices" Directory="INSTALLFOLDER" Guid="C5E08B27-4F91-4D3A-8A66-1B9D7E3F0C42">
+      <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="DesktopShortcut" Type="string" Value="[DESKTOPSHORTCUTCHOICE]" KeyPath="yes" />
+    </Component>
 
     <!--
       The OBS plugin is the unmodified upstream one. NeverOverwrite: leave a plugin that is already there alone.

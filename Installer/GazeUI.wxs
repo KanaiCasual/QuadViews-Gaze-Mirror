@@ -1,0 +1,97 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!--
+    The installer's pages. It follows WiX's own "Minimal" set: ONE page to install (licence, a desktop-shortcut tick box,
+    Install). The maintenance side is replaced: running the installer - or choosing Modify in Windows' installed-apps list - when the
+    product is already there goes straight to ONE page with two choices, Repair and Uninstall. The stock set shows a
+    welcome page first and then a page with a permanently disabled "Change" button, and it hides Modify in Windows.
+
+    Still no code of ours: these are dialog tables that Windows Installer itself draws. The only custom action is WiX's
+    stock "print the licence" button, as before.
+  -->
+  <Fragment>
+    <UI Id="GazeOverlayUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Publish Dialog="GazeWelcomeDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_X64" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <Publish Dialog="GazeMaintenanceDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="GazeMaintenanceDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="GazeMaintenanceDlg" />
+
+      <Dialog Id="GazeMaintenanceDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Repair or uninstall" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="290" Height="20" Transparent="yes" NoPrefix="yes" Text="[ProductName] [ProductVersion] is installed on this PC." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+        <Control Id="RepairButton" Type="PushButton" X="30" Y="66" Width="80" Height="17" Default="yes" Text="&amp;Repair" ToolTip="Put the files and registration back">
+          <Publish Property="WixUI_InstallMode" Value="Repair" />
+        </Control>
+        <Control Id="RepairText" Type="Text" X="120" Y="64" Width="230" Height="44" NoPrefix="yes"
+                 Text="Puts the layer files back and switches both OpenXR layers on again, in the right order - for when another tool removed or disabled them. Your settings are not touched." />
+
+        <Control Id="RemoveButton" Type="PushButton" X="30" Y="122" Width="80" Height="17" Text="&amp;Uninstall" ToolTip="Remove [ProductName] from this PC">
+          <Publish Property="WixUI_InstallMode" Value="Remove" />
+        </Control>
+        <Control Id="RemoveText" Type="Text" X="120" Y="120" Width="230" Height="54" NoPrefix="yes"
+                 Text="Removes both layers, the settings app and the Start menu shortcut. Your settings files stay in your profile, and the OBS plugin stays in OBS because your scenes may use it." />
+
+        <Control Id="UpdateText" Type="Text" X="30" Y="192" Width="320" Height="30" NoPrefix="yes"
+                 Text="Updating? Just run the newer installer - it replaces this version by itself. Close your game and OBS first, so their files are not in use." />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Close">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- WiX's WelcomeEulaDlg plus one tick box. DESKTOPSHORTCUT is remembered between versions (see Package.wxs). -->
+      <Dialog Id="GazeWelcomeDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="WixUI_Bmp_Dialog" />
+        <Control Id="Title" Type="Text" X="130" Y="6" Width="225" Height="30" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Install [ProductName] [ProductVersion]" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="LicenseText" Type="ScrollableText" X="130" Y="38" Width="226" Height="138" Sunken="yes" TabSkip="no">
+          <Text SourceFile="License.rtf" />
+        </Control>
+        <Control Id="LicenseAcceptedCheckBox" Type="CheckBox" X="130" Y="182" Width="226" Height="18" CheckBoxValue="1" Property="LicenseAccepted" Text="I &amp;accept the terms in the License Agreement" />
+        <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="130" Y="204" Width="226" Height="18" CheckBoxValue="1" Property="DESKTOPSHORTCUT" Text="Put a shortcut to the settings app on the &amp;desktop" />
+        <Control Id="Print" Type="PushButton" X="88" Y="243" Width="56" Height="17" Text="&amp;Print" />
+        <Control Id="Back" Type="PushButton" X="156" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
+        <Control Id="Install" Type="PushButton" ElevationShield="yes" X="212" Y="243" Width="80" Height="17" Default="yes" Text="&amp;Install"
+                 DisableCondition="LicenseAccepted &lt;&gt; &quot;1&quot;" EnableCondition="LicenseAccepted = &quot;1&quot;">
+          <Publish Event="SpawnWaitDialog" Value="WaitForCostingDlg" Condition="!(wix.WixUICostingPopupOptOut) OR CostingComplete = 1" />
+          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace &lt;&gt; 1" />
+          <Publish Event="SpawnDialog" Value="OutOfRbDiskDlg" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST=&quot;P&quot; OR NOT PROMPTROLLBACKCOST)" />
+          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
+          <Publish Event="EnableRollback" Value="False" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
+          <Publish Event="SpawnDialog" Value="OutOfDiskDlg" Condition="(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST=&quot;F&quot;)" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <InstallUISequence>
+        <Show Dialog="GazeWelcomeDlg" Before="ProgressDlg" Condition="NOT Installed" />
+        <Show Dialog="GazeMaintenanceDlg" Before="ProgressDlg" Condition="Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH" />
+      </InstallUISequence>
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+
+</Wix>
