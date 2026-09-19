@@ -46,6 +46,8 @@ public partial class App : Application
                     window.Tabs.SelectedIndex = i;
                     window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                     var root = (FrameworkElement)window.Content;
+                    File.AppendAllText(Path.Combine(outputDir, "layout.txt"),
+                        $"tab{i}: window {window.ActualWidth:0}x{window.ActualHeight:0}, root {root.ActualWidth:0}, tabs {window.Tabs.ActualWidth:0}, preview {window.RingPanel.Visibility} {window.RingPanel.ActualWidth:0}, column {window.PreviewColumn.ActualWidth:0} ({window.PreviewColumn.Width}), inner grid {((FrameworkElement)window.Tabs.Parent).ActualWidth:0}, tabs margin {window.Tabs.Margin}\n");
                     var visual = new System.Windows.Media.DrawingVisual();
                     using (var context = visual.RenderOpen())
                     {
@@ -229,6 +231,15 @@ public partial class App : Application
             }
 
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
+
+            // The user's own preset slots survive a trip through app.json's format (exact numbers, empty slots stay empty).
+            var withSlot = new AppSettings();
+            withSlot.QuadViewsSlots[1] = new SavedPreset { SavedAt = new DateTime(2026, 9, 19, 7, 0, 0), Values = new() { ["peripheral_res"] = 4.84.ToString("R", System.Globalization.CultureInfo.InvariantCulture) } };
+            var slotsBack = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(System.Text.Json.JsonSerializer.Serialize(withSlot));
+            var slotsOk = slotsBack is { QuadViewsSlots.Length: AppSettings.SlotCount } && slotsBack.QuadViewsSlots[0] == null &&
+                          slotsBack.QuadViewsSlots[1]?.Values["peripheral_res"] == "4.84" && slotsBack.RingSlots.All(s => s == null);
+            report.WriteLine($"preset slots - {(slotsOk ? "ok  " : "FAIL")} saved values and empty slots round-trip");
+            quadViewsOk &= slotsOk;
 
             // Update check: version parsing and picking, against a canned release list (no network).
             const string canned = """

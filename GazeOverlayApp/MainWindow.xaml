@@ -5,10 +5,6 @@
         WindowStartupLocation="CenterScreen" FontSize="13" UseLayoutRounding="True"
         Background="{StaticResource WindowBack}" Icon="Assets/icon.ico">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,7 +12,7 @@
         </Grid.RowDefinitions>
 
         <!-- Shown when a newer release exists. It only links to the release page; nothing is downloaded by the app. -->
-        <Border x:Name="UpdateBanner" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="10,10,10,0" Padding="14,10"
+        <Border x:Name="UpdateBanner" Visibility="Collapsed" Margin="10,10,10,0" Padding="14,10"
                 Background="#16283A" BorderBrush="#2F6FA8" BorderThickness="1" CornerRadius="6">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -35,7 +31,13 @@
             </Grid>
         </Border>
 
-        <TabControl x:Name="Tabs" Grid.Row="1" Grid.Column="0" Margin="8,8,0,0" Padding="0">
+        <!-- Tabs and the preview share this inner grid, so nothing else can influence the preview column's width. -->
+        <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition x:Name="PreviewColumn" Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TabControl x:Name="Tabs" Grid.Column="0" Margin="8,8,0,0" Padding="0">
             <TabItem Header="Status" Padding="7,4">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="14,10,14,12">
@@ -85,6 +87,7 @@
                                 <Button x:Name="QuadViewsRevert" Content="Revert" Margin="0,2,14,2" Click="OnQuadViewsRevert" />
                                 <TextBlock Text="Presets" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <WrapPanel x:Name="QuadViewsPresets" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <WrapPanel x:Name="QuadViewsSlots" VerticalAlignment="Center" Margin="0,0,14,0" />
                                 <Button Content="File" ToolTip="Open Quad-Views-Foveated's settings file" Margin="0,2,6,2" Click="OnQuadViewsOpenFile" />
                                 <Button Content="Log" ToolTip="Open Quad-Views-Foveated's log" Margin="0,2,0,2" Click="OnQuadViewsOpenLog" />
                             </WrapPanel>
@@ -126,7 +129,7 @@
         </TabControl>
 
         <!-- The ring preview. Hidden on narrow windows and with the Preview switch below, so the app can sit beside a game. -->
-        <Border x:Name="RingPanel" Grid.Row="1" Grid.Column="1" Margin="8,8,8,0" Padding="10" VerticalAlignment="Top" Background="{StaticResource Panel}"
+        <Border x:Name="RingPanel" Grid.Column="1" Margin="8,8,8,0" Padding="10" VerticalAlignment="Top" Background="{StaticResource Panel}"
                 BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6">
             <StackPanel Width="260">
                 <Border Background="Black" Width="260" Height="260">
@@ -143,8 +146,10 @@
             </StackPanel>
         </Border>
 
+        </Grid>
+
         <!-- Ring settings save by themselves; this says when, and whether a running game took them. -->
-        <Grid x:Name="BottomBar" Grid.Row="2" Grid.ColumnSpan="2" Margin="10,4,8,6">
+        <Grid x:Name="BottomBar" Grid.Row="2" Margin="10,4,8,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

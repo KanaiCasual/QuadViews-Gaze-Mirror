@@ -9,8 +9,20 @@ namespace GazeOverlay;
 public sealed record ReleaseInfo(Version Version, string Tag, string Title, bool IsBeta, string Url);
 
 /// <summary>What the app itself remembers (not the ring settings - those live in the layer's own file).</summary>
+/// <summary>One of the user's own preset slots: the values as they were when it was saved.</summary>
+public sealed class SavedPreset
+{
+    public DateTime SavedAt { get; set; }
+    public Dictionary<string, string> Values { get; set; } = [];
+}
+
 public sealed class AppSettings
 {
+    public const int SlotCount = 3;
+    /// <summary>The user's own presets: ring look (Look + Tail tabs) and Quad Views sliders. null = empty slot.</summary>
+    public SavedPreset?[] RingSlots { get; set; } = new SavedPreset?[SlotCount];
+    public SavedPreset?[] QuadViewsSlots { get; set; } = new SavedPreset?[SlotCount];
+
     public bool CheckForUpdates { get; set; } = true;
     public bool IncludeBetas { get; set; }
     public string? SkippedVersion { get; set; }
@@ -28,7 +40,14 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(FilePath)) return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+            if (File.Exists(FilePath))
+            {
+                var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+                // A hand-edited or older file may hold another number of slots.
+                loaded.RingSlots = [.. (loaded.RingSlots ?? []).Concat(new SavedPreset?[SlotCount]).Take(SlotCount)];
+                loaded.QuadViewsSlots = [.. (loaded.QuadViewsSlots ?? []).Concat(new SavedPreset?[SlotCount]).Take(SlotCount)];
+                return loaded;
+            }
         }
         catch
         {

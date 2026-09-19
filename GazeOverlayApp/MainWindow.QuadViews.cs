@@ -92,6 +92,25 @@ public partial class MainWindow
             QuadViewsPresets.Children.Add(button);
         }
 
+        QuadViewsSlots.Children.Add(BuildSlotBar(_appSettings.QuadViewsSlots,
+            capture: () => QuadViewsSetting.All.Where(s => !s.IsToggle).ToDictionary(s => s.Id, s => _quadViewsValues.GetValueOrDefault(s.Id).ToString("R", CultureInfo.InvariantCulture)),
+            apply: values =>
+            {
+                foreach (var setting in QuadViewsSetting.All.Where(s => !s.IsToggle))
+                {
+                    if (!values.TryGetValue(setting.Id, out var text) || !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) continue;
+                    _quadViewsValues[setting.Id] = value;
+                    _quadViewsDirty.Add(setting.Id);
+                    _quadViewsLoading = true;
+                    _quadViewsSetters[setting.Id](value);
+                    _quadViewsLoading = false;
+                }
+                RefreshQuadViewsReadout();
+            },
+            describe: values => string.Join("\n", QuadViewsSetting.All.Where(s => !s.IsToggle && values.ContainsKey(s.Id)).Select(s =>
+                $"{s.Label}: {(double.TryParse(values[s.Id], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v.ToString("0") : values[s.Id])} {s.Suffix}"))
+                + "\n\nLike the presets, a slot sets the sliders only; click Apply afterwards."));
+
         // Pick up what another tool (the Companion, a text editor) saved - when the tab is opened, not on a timer.
         Tabs.SelectionChanged += (_, e) =>
         {

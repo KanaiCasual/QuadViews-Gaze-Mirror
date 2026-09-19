@@ -57,7 +57,7 @@ public partial class MainWindow : Window
         RefreshStatus();
         StartWatchingConfigFile();
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) { UpdateLiveTimer(); UpdatePanels(); } };
-        SizeChanged += (_, _) => UpdatePanels();
+        SizeChanged += (_, _) => Dispatcher.BeginInvoke(UpdatePanels); // after the layout pass that raised it
         Loaded += (_, _) => UpdatePanels();
         Closing += (_, _) => SaveWindowPlacement();
         Activated += (_, _) => UpdateLiveTimer();
@@ -275,8 +275,92 @@ public partial class MainWindow : Window
         var reset = new Button { Content = "Reset all", ToolTip = "Reset every ring setting to its default", Margin = new Thickness(8, 2, 0, 2) };
         reset.Click += OnResetAll;
         bar.Children.Add(reset);
+
+        var slots = BuildSlotBar(_appSettings.RingSlots, CaptureRingSlot,
+            values => ApplyValues(values.Where(kv => Settings.All.Any(d => d.Key == kv.Key && IsRingSlotKey(d))).ToDictionary(kv => kv.Key, kv => kv.Value)),
+            DescribeRingSlot);
+        slots.Margin = new Thickness(14, 0, 0, 0);
+        bar.Children.Add(slots);
         return bar;
     }
+
+    // ---- the user's own preset slots (kept in the app's own app.json, not in any settings file a layer reads)
+
+    /// <summary>
+    /// "Mine: [1] [2] [3] [Save]". A slot button applies what was saved in it; Save opens a menu to store the current values
+    /// in a slot (or clear one). The tooltip of a filled slot says what is in it.
+    /// </summary>
+    private FrameworkElement BuildSlotBar(SavedPreset?[] slots, Func<Dictionary<string, string>> capture,
+        Action<Dictionary<string, string>> apply, Func<Dictionary<string, string>, string> describe)
+    {
+        var bar = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+        bar.Children.Add(new TextBlock { Text = "Mine", Style = (Style)FindResource("Hint"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+        var buttons = new Button[slots.Length];
+        var save = new Button { Content = "Save", Margin = new Thickness(2, 2, 0, 2), ToolTip = "Keep the current values in one of your slots" };
+
+        void Refresh()
+        {
+            for (var i = 0; i < slots.Length; i++)
+            {
+                buttons[i].IsEnabled = slots[i] != null;
+                buttons[i].ToolTip = slots[i] is { } filled
+                    ? WrappedToolTip($"Your slot {i + 1}, saved {filled.SavedAt:g}\n\n{describe(filled.Values)}")
+                    : WrappedToolTip($"Slot {i + 1} is empty. Use Save to keep the current values here.");
+                ToolTipService.SetShowOnDisabled(buttons[i], true);
+                ShowToolTipsPatiently(buttons[i]);
+            }
+        }
+
+        for (var i = 0; i < slots.Length; i++)
+        {
+            var index = i;
+            buttons[i] = new Button { Content = (i + 1).ToString(), MinWidth = 30, Margin = new Thickness(0, 2, 4, 2) };
+            buttons[i].Click += (_, _) => { if (slots[index] is { } filled) apply(new Dictionary<string, string>(filled.Values)); };
+            bar.Children.Add(buttons[i]);
+        }
+
+        save.Click += (_, _) =>
+        {
+            var menu = new ContextMenu { PlacementTarget = save, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var index = i;
+                var item = new MenuItem { Header = slots[i] is { } filled ? $"Save to slot {i + 1} - replaces what was saved {filled.SavedAt:g}" : $"Save to slot {i + 1} (empty)" };
+                item.Click += (_, _) =>
+                {
+                    slots[index] = new SavedPreset { SavedAt = DateTime.Now, Values = capture() };
+                    _appSettings.Save();
+                    Refresh();
+                };
+                menu.Items.Add(item);
+            }
+            if (slots.Any(s => s != null)) menu.Items.Add(new Separator());
+            for (var i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null) continue;
+                var index = i;
+                var item = new MenuItem { Header = $"Clear slot {i + 1}" };
+                item.Click += (_, _) => { slots[index] = null; _appSettings.Save(); Refresh(); };
+                menu.Items.Add(item);
+            }
+            menu.IsOpen = true;
+        };
+        bar.Children.Add(save);
+        Refresh();
+        return bar;
+    }
+
+    /// <summary>A ring slot holds what the built-in ring presets cover: the Look and Tail tabs, but not the on/off switch.</summary>
+    private static bool IsRingSlotKey(SettingDef def) => (def.Group == Settings.GroupLook || def.Group == Settings.GroupTail) && def.Key != "enabled";
+
+    private Dictionary<string, string> CaptureRingSlot() =>
+        Settings.All.Where(IsRingSlotKey).ToDictionary(d => d.Key, d => _values.GetValueOrDefault(d.Key) ?? d.Default);
+
+    private static string DescribeRingSlot(Dictionary<string, string> values) =>
+        string.Join("\n", Settings.All.Where(d => IsRingSlotKey(d) && values.ContainsKey(d.Key)).Select(d =>
+            d.Kind == SettingKind.Slider ? $"{d.Label}: {d.Format(Settings.ParseDouble(values[d.Key], 0))}"
+            : d.Kind == SettingKind.Choice ? $"{d.Label}: {d.Choices.FirstOrDefault(c => c.Value == values[d.Key])?.Label ?? values[d.Key]}"
+            : $"{d.Label}: {values[d.Key]}"));
 
     // ---- layout: the preview and the ring's save bar step aside when they are not wanted or there is no room
 
@@ -288,6 +372,9 @@ public partial class MainWindow : Window
         var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
         var showPreview = !quadViews && PreviewToggle.IsChecked == true && roomForPreview;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
+        // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
+        PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
+        (Tabs.Parent as UIElement)?.InvalidateMeasure();
         Tabs.Margin = showPreview ? new Thickness(8, 8, 0, 0) : new Thickness(8, 8, 8, 0);
         // The Quad Views tab has its own Apply and status; the ring's save line would only confuse there.
         BottomBar.Visibility = quadViews ? Visibility.Collapsed : Visibility.Visible;
