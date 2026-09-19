@@ -21,44 +21,42 @@ public partial class MainWindow
     private readonly Dictionary<string, Action<double>> _quadViewsSetters = [];
     private bool _quadViewsLoading;
     private bool _quadViewsBackedUp;
+    private CheckBox? _quadViewsTurboBox;
 
     private void BuildQuadViewsUi()
     {
         QuadViewsNotice.Visibility = Visibility.Collapsed;
-        PanelQuadViews.Children.Add(new TextBlock { Text = "Quad Views", Style = (Style)FindResource("SectionTitle") });
-        PanelQuadViews.Children.Add(new TextBlock
+        var intro = new TextBlock
         {
-            Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 0, 0, 6),
-            Text = "Quad-Views-Foveated's own settings: how big and how sharp the region that follows your eyes is. They are read when a game starts, " +
-                   "so click Apply and restart the game to see a change. The sliders work like TallyMouse's QuadViews Companion and edit the same file, " +
-                   "with one difference: values are also written where every OpenXR runtime reads them, not only under a list of known headsets.",
-        });
+            Style = (Style)FindResource("Hint"), FontSize = 12, Margin = new Thickness(0, 0, 0, 6),
+            Text = "Quad-Views-Foveated's own settings. They are read when a game starts: Apply, then restart the game.",
+            ToolTip = WrappedToolTip("The sliders work like TallyMouse's QuadViews Companion and edit the same file, with one difference: values are also " +
+                                     "written where every OpenXR runtime reads them, not only under a list of known headsets."),
+        };
+        ShowToolTipsPatiently(intro);
+        PanelQuadViews.Children.Add(intro);
 
         foreach (var setting in QuadViewsSetting.All)
         {
-            var row = new StackPanel { Margin = new Thickness(0, 10, 0, 6) };
+            var row = NewRow(setting.Description);
             if (setting.IsToggle)
             {
-                var box = new CheckBox { Content = setting.Label, FontWeight = FontWeights.SemiBold };
+                var box = new CheckBox { Content = setting.Label, FontWeight = FontWeights.SemiBold, ToolTip = WrappedToolTip(setting.Description) };
+                ShowToolTipsPatiently(box);
                 box.Checked += (_, _) => OnQuadViewsChanged(setting.Id, 1);
                 box.Unchecked += (_, _) => OnQuadViewsChanged(setting.Id, 0);
                 _quadViewsSetters[setting.Id] = v => box.IsChecked = v != 0;
-                row.Children.Add(box);
+                if (setting.Id == "turbo") _quadViewsTurboBox = box;
+                AddRowEditor(row, box, column: 0, span: 3);
             }
             else
             {
-                var header = new Grid();
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var valueText = new TextBlock { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold };
-                Grid.SetColumn(valueText, 1);
-                header.Children.Add(new TextBlock { Text = setting.Label, FontWeight = FontWeights.SemiBold });
-                header.Children.Add(valueText);
-
+                AddRowLabel(row, setting.Label, setting.Description);
+                var valueText = AddRowValue(row);
                 var slider = new Slider
                 {
                     Minimum = setting.Min, Maximum = setting.Max, SmallChange = setting.Step, LargeChange = setting.Step * 5,
-                    TickFrequency = setting.Step, IsSnapToTickEnabled = true, Margin = new Thickness(0, 4, 0, 0),
+                    TickFrequency = setting.Step, IsSnapToTickEnabled = true,
                 };
                 slider.ValueChanged += (_, e) =>
                 {
@@ -70,18 +68,15 @@ public partial class MainWindow
                     slider.Value = Math.Clamp(Math.Round(v / setting.Step) * setting.Step, setting.Min, setting.Max);
                     valueText.Text = $"{slider.Value:0} {setting.Suffix}";
                 };
-                row.Children.Add(header);
-                row.Children.Add(slider);
+                AddRowEditor(row, slider);
             }
-            row.Children.Add(new TextBlock { Text = setting.Description, Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 4, 0, 0) });
             PanelQuadViews.Children.Add(row);
         }
 
-        PanelQuadViews.Children.Add(new TextBlock { Text = "Presets", Style = (Style)FindResource("SectionTitle"), Margin = new Thickness(0, 16, 0, 4) });
-        var presets = new WrapPanel();
+        // Presets sit in the banner at the top, next to Apply, so they are reachable without scrolling.
         foreach (var preset in QuadViewsSetting.Presets)
         {
-            var button = new Button { Content = preset.Name, ToolTip = preset.Description, Margin = new Thickness(0, 0, 8, 8) };
+            var button = new Button { Content = preset.Name, ToolTip = WrappedToolTip(preset.Description), Margin = new Thickness(0, 2, 6, 2) };
             button.Click += (_, _) =>
             {
                 foreach (var (id, value) in preset.Values.Count > 0 ? preset.Values : QuadViewsLayerDefaults())
@@ -94,20 +89,13 @@ public partial class MainWindow
                 }
                 RefreshQuadViewsReadout();
             };
-            presets.Children.Add(button);
+            QuadViewsPresets.Children.Add(button);
         }
-        PanelQuadViews.Children.Add(presets);
 
         // Pick up what another tool (the Companion, a text editor) saved - when the tab is opened, not on a timer.
         Tabs.SelectionChanged += (_, e) =>
         {
-            if (!ReferenceEquals(e.OriginalSource, Tabs)) return;
-            var showing = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
-            // The ring's preview and presets have nothing to do with this tab: give it the whole window.
-            RingPanel.Visibility = showing ? Visibility.Collapsed : Visibility.Visible;
-            Grid.SetColumnSpan(Tabs, showing ? 2 : 1);
-            Tabs.Margin = showing ? new Thickness(10) : new Thickness(10, 10, 0, 10);
-            if (showing && _quadViewsDirty.Count == 0) LoadQuadViews();
+            if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, QuadViewsTab) && _quadViewsDirty.Count == 0) LoadQuadViews();
         };
         // Coming back from the game (or the Companion) with this tab open: show the new game start, again without a timer.
         Activated += (_, _) =>
@@ -158,9 +146,7 @@ public partial class MainWindow
         }
         _quadViewsLoading = false;
 
-        if (!keepStatus) QuadViewsStatus.Text = _quadViewsFile.Existed
-            ? "Loaded " + _quadViewsPath
-            : "There is no settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.";
+        if (!keepStatus) SetQuadViewsStatus(_quadViewsFile.Existed ? "" : "There is no settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.");
         RefreshQuadViewsReadout();
     }
 
@@ -209,23 +195,28 @@ public partial class MainWindow
         // ---- render load
         if (session is { HasResolution: true })
         {
-            QuadViewsLoadLast.Text = session.QuadPixels is { } last
-                ? $"Last game start ({session.When:g}): {last.ToString("N0", culture)} pixels per frame - {100.0 * last / session.StereoPixels:0.0} % of the full {session.StereoWidth}x{session.StereoHeight} per eye. " +
-                  $"Sharp region {session.FocusResolution}, surround {session.PeripheralResolution}. Runtime: {session.RuntimeName}."
-                : $"Last game start ({session.When:g}): the game did not use quad views. Full resolution is {session.StereoWidth}x{session.StereoHeight} per eye.";
             var savedPixels = QuadViewsPixelsFor(saved)!;
             var nextPixels = QuadViewsPixelsFor(next)!;
-            QuadViewsLoadSaved.Text = $"Saved settings: {savedPixels.Total.ToString("N0", culture)} pixels per frame ({100.0 * savedPixels.Total / session.StereoPixels:0.0} % of full).";
+            var lastDetail = session.QuadPixels is { } last
+                ? $"Last game start {session.When:g}: {last.ToString("N0", culture)} px/frame ({100.0 * last / session.StereoPixels:0.0} % of the full {session.StereoWidth}x{session.StereoHeight} per eye), " +
+                  $"sharp {session.FocusResolution}, surround {session.PeripheralResolution}. Runtime: {session.RuntimeName}."
+                : $"Last game start {session.When:g}: the game did not use quad views. Full resolution is {session.StereoWidth}x{session.StereoHeight} per eye.";
+            var gameIsBehind = session.QuadPixels is { } ran && ran != savedPixels.Total;
+            QuadViewsLoadLast.Text = gameIsBehind ? $"The game last ran with {session.QuadPixels!.Value.ToString("N0", culture)} px/frame - restart it to use the saved settings." : "";
+            QuadViewsLoadLast.Visibility = gameIsBehind ? Visibility.Visible : Visibility.Collapsed;
+            QuadViewsLoadSaved.ToolTip = WrappedToolTip(lastDetail + "\n\nPixels are a guide to GPU load, not a frame-rate prediction: a game that is waiting on the CPU will not speed up.");
+            QuadViewsLoadSaved.Text = $"Saved: {savedPixels.Total.ToString("N0", culture)} px/frame ({100.0 * savedPixels.Total / session.StereoPixels:0.0} % of full)";
             var change = 100.0 * (nextPixels.Total - savedPixels.Total) / savedPixels.Total;
-            QuadViewsLoadNext.Text = $"After Apply: {nextPixels.Total.ToString("N0", culture)} pixels per frame ({100.0 * nextPixels.Total / session.StereoPixels:0.0} % of full) - " +
-                                     $"sharp region {nextPixels.FocusWidth}x{nextPixels.FocusHeight}, surround {nextPixels.PeripheralWidth}x{nextPixels.PeripheralHeight}" +
-                                     (Math.Abs(change) < 0.05 ? ". No change." : $". {(change > 0 ? "+" : "")}{change:0.0} % pixels compared to saved.");
+            QuadViewsLoadNext.Text = $"After Apply: {nextPixels.Total.ToString("N0", culture)} px/frame ({100.0 * nextPixels.Total / session.StereoPixels:0.0} %), " +
+                                     $"sharp {nextPixels.FocusWidth}x{nextPixels.FocusHeight}, surround {nextPixels.PeripheralWidth}x{nextPixels.PeripheralHeight}" +
+                                     (Math.Abs(change) < 0.05 ? " - no change" : $" - {(change > 0 ? "+" : "")}{change:0.0} % vs saved");
             QuadViewsLoadNext.Foreground = Math.Abs(change) < 0.05 ? (Brush)FindResource("Muted") : new SolidColorBrush(change > 0 ? Colors.Orange : Colors.MediumSeaGreen);
         }
         else
         {
             double Share(QuadViewsEffective e) { var (h, v) = QuadViewsSections(e); return 100 * QuadViewsPixels.Fraction(e["peripheral_multiplier"], e["focus_multiplier"], h, v); }
             QuadViewsLoadLast.Text = "Quad-Views-Foveated has not logged a game start yet, so your headset's resolution is not known. Run the game once to see real pixel counts here.";
+            QuadViewsLoadLast.Visibility = Visibility.Visible;
             QuadViewsLoadSaved.Text = $"Saved settings: about {Share(saved):0.0} % of the full-resolution pixel count.";
             QuadViewsLoadNext.Text = $"After Apply: about {Share(next):0.0} %.";
             QuadViewsLoadNext.Foreground = (Brush)FindResource("Muted");
@@ -246,17 +237,17 @@ public partial class MainWindow
         var turboNote = session != null && _quadViewsValues.GetValueOrDefault("turbo") != 0 && next["turbo_mode"] == 0 && next.DecidedBy.TryGetValue("turbo_mode", out var turboBy)
             ? $"Turbo mode stays off with your runtime: {turboBy} switches it off on purpose." : null;
 
+        if (_quadViewsTurboBox != null)
+        {
+            _quadViewsTurboBox.Content = turboNote != null ? "Turbo mode (stays off with your runtime)" : "Turbo mode";
+            _quadViewsTurboBox.ToolTip = WrappedToolTip((turboNote != null ? turboNote + "\n\n" : "") + QuadViewsSetting.All.First(s => s.Id == "turbo").Description);
+        }
         if (problems.Count > 0)
         {
             QuadViewsNoticeText.Text =
                 $"Some settings in the file do not reach your game. They are only written under headset sections, and none of those match your OpenXR runtime (\"{session!.RuntimeName}\"):\n  - " +
                 string.Join("\n  - ", problems) + "\nApply also writes them to the common part of the file, which every runtime reads." +
                 (turboNote != null ? "\n" + turboNote : "");
-            QuadViewsNotice.Visibility = Visibility.Visible;
-        }
-        else if (turboNote != null)
-        {
-            QuadViewsNoticeText.Text = turboNote;
             QuadViewsNotice.Visibility = Visibility.Visible;
         }
         else
@@ -282,13 +273,19 @@ public partial class MainWindow
             }
             planned.Save(_quadViewsPath);
             LoadQuadViews();
-            QuadViewsStatus.Text = $"Saved at {DateTime.Now:T}. It takes effect the next time the game starts." +
-                                   (backup != null ? $" Your previous file was kept as {Path.GetFileName(backup)}." : "");
+            SetQuadViewsStatus($"Saved at {DateTime.Now:T}. It takes effect the next time the game starts." +
+                                   (backup != null ? $" Your previous file was kept as {Path.GetFileName(backup)}." : ""));
         }
         catch (Exception error)
         {
-            QuadViewsStatus.Text = "Could not save: " + error.Message;
+            SetQuadViewsStatus("Could not save: " + error.Message);
         }
+    }
+
+    private void SetQuadViewsStatus(string text)
+    {
+        QuadViewsStatus.Text = text;
+        QuadViewsStatus.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnQuadViewsRevert(object sender, RoutedEventArgs e) => LoadQuadViews();
@@ -301,7 +298,7 @@ public partial class MainWindow
     {
         if (!File.Exists(path))
         {
-            QuadViewsStatus.Text = "That file does not exist yet: " + path;
+            SetQuadViewsStatus("That file does not exist yet: " + path);
             return;
         }
         Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });

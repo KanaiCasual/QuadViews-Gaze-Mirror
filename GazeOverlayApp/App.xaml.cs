@@ -11,10 +11,14 @@ namespace GazeOverlay;
 /// </summary>
 public partial class App : Application
 {
+    /// <summary>True for --selftest and --screenshots: nothing about the window is remembered from those runs.</summary>
+    public static bool Headless { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         var args = e.Args;
+        Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots";
 
         if (args.Length >= 2 && args[0] == "--selftest")
         {
@@ -28,6 +32,12 @@ public partial class App : Application
             var outputDir = args[1];
             Directory.CreateDirectory(outputDir);
             var window = new MainWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = 0, ShowInTaskbar = false };
+            // Optional window size (--screenshots <dir> <width> <height>), to check the layout when it is docked small.
+            if (args.Length >= 4 && double.TryParse(args[2], out var width) && double.TryParse(args[3], out var height))
+            {
+                window.Width = width;
+                window.Height = height;
+            }
             window.Show();
             window.Dispatcher.InvokeAsync(() =>
             {

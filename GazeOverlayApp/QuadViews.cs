@@ -365,13 +365,13 @@ public sealed class QuadViewsSetting
         },
         new()
         {
-            Id = "focus_res", Label = "Foveate resolution", Suffix = "% of native resolution", Min = 50, Max = 400, Scale = QuadViewsScale.PixelShare,
+            Id = "focus_res", Label = "Foveate resolution", Suffix = "% of native", Min = 50, Max = 400, Scale = QuadViewsScale.PixelShare,
             Keys = ["focus_multiplier"],
             Description = "Pixel count of the sharp region compared to the headset's normal resolution. Above 100 % is supersampling.",
         },
         new()
         {
-            Id = "peripheral_res", Label = "Peripheral resolution", Suffix = "% of native resolution", Min = 1, Max = 100, Scale = QuadViewsScale.PixelShare,
+            Id = "peripheral_res", Label = "Peripheral resolution", Suffix = "% of native", Min = 1, Max = 100, Scale = QuadViewsScale.PixelShare,
             Keys = ["peripheral_multiplier"],
             Description = "Pixel count of everything outside the sharp region. This is where most of the saving comes from.",
         },

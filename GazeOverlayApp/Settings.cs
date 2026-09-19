@@ -222,7 +222,7 @@ public static class Settings
         {
             Key = "filter_min_cutoff", Group = GroupMotion, Kind = SettingKind.Slider, Default = "1.5",
             Min = 0.3, Max = 6, Step = 0.1, Unit = ValueUnit.Hertz,
-            Label = "Steadiness while looking at something",
+            Label = "Steadiness when fixating",
             Description = "Adaptive smoothing. Lower = steadier ring during a fixation, but it follows slow movements with more lag.",
         },
         new()

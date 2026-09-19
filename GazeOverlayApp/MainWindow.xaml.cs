@@ -33,8 +33,8 @@ public partial class MainWindow : Window
         _liveTimer.Tick += (_, _) => UpdateLive();
         _outsideChangeTimer.Tick += (_, _) => { _outsideChangeTimer.Stop(); ApplyOutsideChange(); };
 
+        RestoreWindowPlacement();
         BuildSettingsUi();
-        BuildPresets();
         BuildQuadViewsUi();
         LoadQuadViews();
         AboutText.Text =
@@ -56,7 +56,10 @@ public partial class MainWindow : Window
         LoadConfig();
         RefreshStatus();
         StartWatchingConfigFile();
-        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) UpdateLiveTimer(); };
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) { UpdateLiveTimer(); UpdatePanels(); } };
+        SizeChanged += (_, _) => UpdatePanels();
+        Loaded += (_, _) => UpdatePanels();
+        Closing += (_, _) => SaveWindowPlacement();
         Activated += (_, _) => UpdateLiveTimer();
         Deactivated += (_, _) => UpdateLiveTimer();
         UpdateLiveTimer();
@@ -82,8 +85,8 @@ public partial class MainWindow : Window
 
         foreach (var (group, panel) in panels)
         {
-            panel.Children.Add(new TextBlock { Text = group, Style = (Style)FindResource("SectionTitle") });
-            panel.Children.Add(new TextBlock { Text = Settings.GroupIntro[group], Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 0, 0, 10) });
+            panel.Children.Add(new TextBlock { Text = Settings.GroupIntro[group], Style = (Style)FindResource("Hint"), FontSize = 12, Margin = new Thickness(0, 0, 0, 6) });
+            if (group == Settings.GroupLook) panel.Children.Add(BuildPresets());
             foreach (var def in Settings.All.Where(d => d.Group == group))
             {
                 panel.Children.Add(BuildRow(def));
@@ -91,32 +94,90 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---- compact rows: label | editor | value | (i). The explanation lives in the tooltip, so a tab fits without scrolling.
+
+    private const double RowLabelWidth = 172, RowValueWidth = 104;
+
+    private static ToolTip WrappedToolTip(string text) => new() { Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 } };
+
+    private static void ShowToolTipsPatiently(DependencyObject element)
+    {
+        ToolTipService.SetInitialShowDelay(element, 250);
+        ToolTipService.SetShowDuration(element, 60000);
+    }
+
+    /// <summary>One settings row. The editor goes in column 1 (or 1-2 when there is no value text); column 3 is the info mark.</summary>
+    private Grid NewRow(string description)
+    {
+        var row = new Grid { MinHeight = 30, Margin = new Thickness(0, 1, 0, 1) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RowLabelWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RowValueWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
+
+        var info = new TextBlock
+        {
+            Text = "", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 14,
+            Foreground = (Brush)FindResource("Muted"), Background = Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Help,
+            VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, ToolTip = WrappedToolTip(description),
+        };
+        ShowToolTipsPatiently(info);
+        Grid.SetColumn(info, 3);
+        row.Children.Add(info);
+        return row;
+    }
+
+    private TextBlock AddRowLabel(Grid row, string label, string description)
+    {
+        var text = new TextBlock
+        {
+            Text = label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 8, 0), ToolTip = WrappedToolTip(label + "\n\n" + description),
+        };
+        ShowToolTipsPatiently(text);
+        row.Children.Add(text);
+        return text;
+    }
+
+    private TextBlock AddRowValue(Grid row)
+    {
+        var value = new TextBlock
+        {
+            Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right, TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        Grid.SetColumn(value, 2);
+        row.Children.Add(value);
+        return value;
+    }
+
+    private static void AddRowEditor(Grid row, FrameworkElement editor, int column = 1, int span = 1)
+    {
+        editor.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(editor, column);
+        Grid.SetColumnSpan(editor, span);
+        row.Children.Add(editor);
+    }
+
     private FrameworkElement BuildRow(SettingDef def)
     {
-        var row = new StackPanel { Margin = new Thickness(0, 10, 0, 6) };
-        var header = new Grid();
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var label = new TextBlock { Text = def.Label, FontWeight = FontWeights.SemiBold };
-        var valueText = new TextBlock { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold };
-        Grid.SetColumn(valueText, 1);
-        header.Children.Add(label);
-        header.Children.Add(valueText);
-
+        var row = NewRow(def.Description);
         switch (def.Kind)
         {
             case SettingKind.Toggle:
             {
-                var box = new CheckBox { Content = def.Label, FontWeight = FontWeights.SemiBold };
+                var box = new CheckBox { Content = def.Label, FontWeight = FontWeights.SemiBold, ToolTip = WrappedToolTip(def.Description) };
+                ShowToolTipsPatiently(box);
                 box.Checked += (_, _) => OnValueChanged(def.Key, "1");
                 box.Unchecked += (_, _) => OnValueChanged(def.Key, "0");
                 _controlSetters[def.Key] = v => box.IsChecked = v != "0";
-                row.Children.Add(box);
-                break;
+                AddRowEditor(row, box, column: 0, span: 3);
+                return row;
             }
             case SettingKind.Choice:
             {
-                var combo = new ComboBox { Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 320 };
+                AddRowLabel(row, def.Label, def.Description);
+                var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
                 foreach (var choice in def.Choices) combo.Items.Add(new ComboBoxItem { Content = choice.Label, Tag = choice.Value });
                 combo.SelectionChanged += (_, _) =>
                 {
@@ -124,16 +185,17 @@ public partial class MainWindow : Window
                 };
                 _controlSetters[def.Key] = v =>
                     combo.SelectedItem = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == v) ?? combo.Items[0];
-                row.Children.Add(header);
-                row.Children.Add(combo);
-                break;
+                AddRowEditor(row, combo, column: 1, span: 2);
+                return row;
             }
             case SettingKind.Slider:
             {
+                AddRowLabel(row, def.Label, def.Description);
+                var valueText = AddRowValue(row);
                 var slider = new Slider
                 {
                     Minimum = def.Min, Maximum = def.Max, SmallChange = def.Step, LargeChange = def.Step * 10,
-                    TickFrequency = def.Step, IsSnapToTickEnabled = true, Margin = new Thickness(0, 4, 0, 0),
+                    TickFrequency = def.Step, IsSnapToTickEnabled = true,
                 };
                 slider.ValueChanged += (_, e) =>
                 {
@@ -145,26 +207,20 @@ public partial class MainWindow : Window
                     slider.Value = Math.Clamp(Settings.ParseDouble(v, Settings.ParseDouble(def.Default, def.Min)), def.Min, def.Max);
                     valueText.Text = def.Format(slider.Value);
                 };
-                row.Children.Add(header);
-                row.Children.Add(slider);
-                break;
+                AddRowEditor(row, slider);
+                return row;
             }
-            case SettingKind.Color:
-            {
-                row.Children.Add(header);
-                row.Children.Add(BuildColorEditor(def, valueText));
-                break;
-            }
+            default:
+                return BuildColorEditor(def, row);
         }
-
-        row.Children.Add(new TextBlock { Text = def.Description, Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 4, 0, 0) });
-        return row;
     }
 
-    private FrameworkElement BuildColorEditor(SettingDef def, TextBlock valueText)
+    /// <summary>Quick picks in the row itself; the full picker is folded away underneath until it is wanted.</summary>
+    private FrameworkElement BuildColorEditor(SettingDef def, Grid row)
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-        var picker = new ColorPicker();
+        AddRowLabel(row, def.Label, def.Description);
+        var valueText = AddRowValue(row);
+        var picker = new ColorPicker { Margin = new Thickness(0, 6, 0, 0) };
 
         void Publish(byte r, byte g, byte b)
         {
@@ -174,8 +230,7 @@ public partial class MainWindow : Window
         }
         picker.ColorChanged += Publish;
 
-        // Quick picks above the full picker.
-        var swatches = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        var swatches = new WrapPanel();
         var presets = new (string Name, string Value)[]
         {
             ("Sky blue", "40,170,245"), ("Cyan", "0,210,255"), ("White", "255,255,255"), ("Green", "80,255,120"),
@@ -186,15 +241,14 @@ public partial class MainWindow : Window
             var (r, g, b) = Settings.ParseColor(value);
             var swatch = new Border
             {
-                Width = 28, Height = 22, Margin = new Thickness(0, 0, 6, 6), CornerRadius = new CornerRadius(4), ToolTip = name,
+                Width = 22, Height = 18, Margin = new Thickness(0, 2, 5, 2), CornerRadius = new CornerRadius(4), ToolTip = name,
                 Background = new SolidColorBrush(Color.FromRgb(r, g, b)), BorderBrush = (Brush)FindResource("Line"),
                 BorderThickness = new Thickness(1), Cursor = System.Windows.Input.Cursors.Hand,
             };
             swatch.MouseLeftButtonUp += (_, _) => { picker.SetColor(r, g, b); Publish(r, g, b); };
             swatches.Children.Add(swatch);
         }
-        panel.Children.Add(swatches);
-        panel.Children.Add(picker);
+        AddRowEditor(row, swatches);
 
         _controlSetters[def.Key] = value =>
         {
@@ -202,17 +256,73 @@ public partial class MainWindow : Window
             picker.SetColor(r, g, b);
             valueText.Text = $"{r},{g},{b}";
         };
+        var panel = new StackPanel();
+        panel.Children.Add(row);
+        panel.Children.Add(new Expander { Header = "Custom colour", Content = picker, Margin = new Thickness(RowLabelWidth, 0, 0, 4) });
         return panel;
     }
 
-    private void BuildPresets()
+    private FrameworkElement BuildPresets()
     {
+        var bar = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+        bar.Children.Add(new TextBlock { Text = "Presets", Style = (Style)FindResource("Hint"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         foreach (var preset in Settings.Presets)
         {
-            var button = new Button { Content = preset.Name, ToolTip = preset.Description, Margin = new Thickness(0, 0, 8, 8) };
+            var button = new Button { Content = preset.Name, ToolTip = WrappedToolTip(preset.Description + " Presets leave motion and placement alone."), Margin = new Thickness(0, 2, 6, 2) };
             button.Click += (_, _) => ApplyValues(preset.Values);
-            PresetButtons.Children.Add(button);
+            bar.Children.Add(button);
         }
+        var reset = new Button { Content = "Reset all", ToolTip = "Reset every ring setting to its default", Margin = new Thickness(8, 2, 0, 2) };
+        reset.Click += OnResetAll;
+        bar.Children.Add(reset);
+        return bar;
+    }
+
+    // ---- layout: the preview and the ring's save bar step aside when they are not wanted or there is no room
+
+    private const double PreviewNeedsWindowWidth = 760;
+
+    private void UpdatePanels()
+    {
+        var quadViews = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
+        var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
+        var showPreview = !quadViews && PreviewToggle.IsChecked == true && roomForPreview;
+        RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
+        Tabs.Margin = showPreview ? new Thickness(8, 8, 0, 0) : new Thickness(8, 8, 8, 0);
+        // The Quad Views tab has its own Apply and status; the ring's save line would only confuse there.
+        BottomBar.Visibility = quadViews ? Visibility.Collapsed : Visibility.Visible;
+        PreviewToggle.IsEnabled = roomForPreview;
+        PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview - widen it to bring it back";
+    }
+
+    private void OnLayoutOptionChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !IsLoaded) return;
+        _appSettings.ShowPreview = PreviewToggle.IsChecked == true;
+        _appSettings.Save();
+        UpdatePanels();
+    }
+
+    private void RestoreWindowPlacement()
+    {
+        _loading = true;
+        PreviewToggle.IsChecked = _appSettings.ShowPreview;
+        _loading = false;
+        if (App.Headless || _appSettings.WindowWidth < MinWidth || _appSettings.WindowHeight < MinHeight) return;
+        // Only if it still lands on a screen (a monitor may have gone since).
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var wanted = new Rect(_appSettings.WindowLeft, _appSettings.WindowTop, _appSettings.WindowWidth, _appSettings.WindowHeight);
+        var visible = Rect.Intersect(screen, wanted);
+        if (visible.IsEmpty || visible.Width < 200 || visible.Height < 120) return;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = wanted.Left; Top = wanted.Top; Width = wanted.Width; Height = wanted.Height;
+    }
+
+    private void SaveWindowPlacement()
+    {
+        if (App.Headless || WindowState != WindowState.Normal) return;
+        _appSettings.WindowLeft = Left; _appSettings.WindowTop = Top; _appSettings.WindowWidth = Width; _appSettings.WindowHeight = Height;
+        _appSettings.Save();
     }
 
     private void ApplyValues(IReadOnlyDictionary<string, string> changes)
@@ -375,7 +485,7 @@ public partial class MainWindow : Window
                        : BgSky.IsChecked == true ? PreviewBackground.Sky
                        : BgBlack.IsChecked == true ? PreviewBackground.Black
                        : PreviewBackground.Cockpit;
-        PreviewImage.Source = RingPreview.Render(_values, background, PreviewMoving.IsChecked == true, 340);
+        PreviewImage.Source = RingPreview.Render(_values, background, PreviewMoving.IsChecked == true, 260);
     }
 
     // ------------------------------------------------------------------ status tab (read-only)
