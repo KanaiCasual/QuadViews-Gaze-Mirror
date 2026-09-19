@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         BuildSettingsUi();
         BuildQuadViewsUi();
         BuildCropUi();
+        BuildMirrorUi();
         LoadQuadViews();
         AboutText.Text =
             "QuadViews Gaze Mirror - unofficial combined fork: foveated rendering (quad views) plus an OBS mirror that shows where you look.\n\n" +

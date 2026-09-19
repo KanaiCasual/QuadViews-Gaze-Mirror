@@ -36,12 +36,19 @@ using the headset resolution from its log. One deliberate difference: values are
 file, because headset sections such as `[Pimax]` only apply when the OpenXR runtime's name contains that word (a Pimax
 driven through SteamVR matches none of them, and silently gets the built-in 35 % focus size).
 
-Its **Crop** tab replaces typing crop percentages into the OBS source: a box locked to a shape (16:9, 9:16, 1:1, ...) is
+Its **Mirror** tab has a crop tool that replaces typing crop percentages into the OBS source: a box locked to a shape (16:9, 9:16, 1:1, ...) is
 dragged and scaled on a picture of the whole mirror image, and the mirror layer then hands OBS only that box - so the
 OBS source *is* the box, and every copy after the layer's compositing moves fewer pixels. The picture is made by the
 running game only when the app asks for one. The box can also **follow your gaze up and down** - like a camera
 operator, it glides just far enough to keep what you look at in frame, since a 16:9 box only covers about half the height
 of the eye image.
+
+The **mirror window** (`MirrorWindow.exe`, opened from the app's Mirror tab) is a second way out for the same picture: an
+ordinary window that anything able to capture a window can use - OBS Window Capture, Discord, ... - with no OBS plugin
+involved. It normally fills a monitor *behind* the game and never comes to the front; the layer signals it after each
+finished frame, and while it is open the OBS plugin can be handed a blank picture so that a forgotten OBS source costs
+nothing. Its output size (the monitor's, a preset such as 1920 x 1080, or any typed size) and its picture rate (at most
+60 or 30 a second) are chosen in the app - it is the dearer of the two ways out, and both settings make it cheaper.
 
 **Nothing polls.** The layers never check the settings file while a game runs: the file is read once at start, and the
 settings app bumps a counter in shared memory when you change something, which the layer compares each frame (a memory
@@ -58,6 +65,7 @@ Requirements: a headset with eye tracking that works with Quad-Views-Foveated, a
 | `Quad-Views-Foveated/`, `OpenXR-Layer-OBSMirror/` | Upstream sources as git submodules, pinned to the commits the patches apply to |
 | `patches/` | **Everything we changed upstream**, as two patch files |
 | `GazeOverlayApp/` | The settings app (WPF, .NET 10, dark theme). Never elevates, never installs anything |
+| `MirrorWindow/` | The capturable mirror window (native Win32 + Direct3D 11, one source file) |
 | `Installer/` | WiX 5 project for the MSI. Purely declarative - no custom code runs during setup |
 | `tools/` | Patch scripts, the logo and installer-artwork generators, an offline ring preview, an MSI inspector, a clip reviewer |
 | `gaze.cfg` | A sample of the layer's settings file |

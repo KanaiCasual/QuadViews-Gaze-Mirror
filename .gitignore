@@ -12,6 +12,8 @@
 !/gaze.cfg
 !/GazeOverlayApp/
 !/Installer/
+!/MirrorWindow/
+!/Build-MirrorWindow.ps1
 !/patches/
 !/tools/
 # Upstream sources, as submodules pinned to the commits our patches apply to.

@@ -1,9 +1,9 @@
 diff --git a/openxr-api-layer/eye_gaze_export.h b/openxr-api-layer/eye_gaze_export.h
 new file mode 100644
-index 0000000..bc85685
+index 0000000..09a836f
 --- /dev/null
 +++ b/openxr-api-layer/eye_gaze_export.h
-@@ -0,0 +1,337 @@
+@@ -0,0 +1,361 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -338,6 +338,30 @@ index 0000000..bc85685
 +        uint32_t cropX, cropY, cropWidth, cropHeight; // The crop box in effect, in mirror image pixels.
 +        uint32_t reserved[5];
 +        uint8_t pixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4];
++    };
++
++    // ---------------------------------------------------------------------------------------------------------------
++    // Mirror window: a second reader of the mirror picture, next to the OBS plugin - an ordinary window that any capture
++    // tool can grab (MirrorWindow.exe). The plugin's own block cannot tell the two readers apart, hence this one.
++    //   readerHeartbeat  bumped by the window while it is open (per frame it shows, and a few times a second when idle);
++    //                    the layer produces frames while this - or the plugin's counter - keeps moving.
++    //   exclusive        1 = while the window is reading, the OBS plugin is handed a tiny blank picture instead of the
++    //                    real one, so a forgotten OBS source costs nothing.
++    //   sharedHandle     written by the layer: the real mirror textures (the plugin's block may hold the blank one).
++    // After every finished frame the layer signals the auto-reset event below, so the window sleeps until there is
++    // something to show instead of looking at a counter.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t MirrorWindowBlockName[] = L"GazeOverlay.MirrorWindow";
++    constexpr uint32_t MirrorWindowMagic = 0x574D4F47; // 'GOMW'
++    constexpr wchar_t MirrorFrameEventName[] = L"GazeOverlay.MirrorFrame";
++
++    struct MirrorWindowBlock {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG readerHeartbeat;
++        volatile LONG exclusive;
++        uint64_t sharedHandle[3];
 +    };
 +
 +} // namespace eye_gaze_export

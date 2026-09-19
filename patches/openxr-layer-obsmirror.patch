@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..e31bbfc 100644
+index 2df1e64..47d1763 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -301,15 +301,18 @@ index 2df1e64..e31bbfc 100644
      bool D3D11Mirror::enabled() const {
          return _obsRunning;
      }
-@@ -492,6 +763,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -492,6 +763,10 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
      void D3D11Mirror::flush() {
          _d3d11MirrorContext->Flush();
          _pMirrorSurfaceData->lastProcessedIndex = _frameCounter;
++        if (_windowReading && _frameEvent) {
++            SetEvent(_frameEvent); // The mirror window sleeps until this: a finished frame has just been submitted.
++        }
 +        _eyePlacement[0].valid = _eyePlacement[1].valid = false;
          if (_targetView) {
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
              float clearRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-@@ -669,7 +941,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -669,7 +944,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view->subImage.imageRect, format, view->subImage.swapchain);
@@ -324,7 +327,7 @@ index 2df1e64..e31bbfc 100644
          else 
          {
              auto it = _sourceData.find(view->subImage.swapchain);
-@@ -763,6 +1041,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -763,6 +1044,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov, view->fov);
@@ -337,7 +340,7 @@ index 2df1e64..e31bbfc 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -821,6 +1105,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -821,6 +1108,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view1->subImage.imageRect, format, view1->subImage.swapchain);
@@ -350,7 +353,7 @@ index 2df1e64..e31bbfc 100644
          }
          else 
          {
-@@ -899,6 +1189,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -899,6 +1192,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov1, view1->fov);
@@ -363,7 +366,7 @@ index 2df1e64..e31bbfc 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -989,6 +1285,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -989,6 +1288,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              // Modify the view port and scissor for offset eye rendering
              XrRect2Di rect = {{0, 0}, view2->subImage.imageRect.extent};
              rect.offset.x = rect.offset.x + static_cast<int32_t>((rect.extent.width * _pMirrorSurfaceData->overlap) / 100);
@@ -376,7 +379,7 @@ index 2df1e64..e31bbfc 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
-@@ -1115,23 +1417,14 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1115,23 +1420,14 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              Log("Creating mirror textures w %u h %u f %d\n", desc.Width, desc.Height, format);
  
              CHECK_DX(_d3d11MirrorDevice->CreateTexture2D(&desc, NULL, _compositorTexture.ReleaseAndGetAddressOf()));
@@ -405,7 +408,7 @@ index 2df1e64..e31bbfc 100644
              Log("Compositor texture description: %d x %d Format %d\n",
                  _comp_desc.Width,
                  _comp_desc.Height,
-@@ -1149,12 +1442,1297 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,14 +1445,1300 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -1507,8 +1510,9 @@ index 2df1e64..e31bbfc 100644
 +        }
 +        _mirrorTextures = std::move(textures);
 +        for (size_t i = 0; i < 3; i++) {
-+            _pMirrorSurfaceData->sharedHandle[i] = handles[i];
++            _realHandles[i] = handles[i];
 +        }
++        publishHandles();
 +        Log("Mirror textures for OBS: %u x %u at %u,%u of %u x %u (crop %s)\n",
 +            crop.width, crop.height, crop.x, crop.y, _comp_desc.Width, _comp_desc.Height,
 +            _gazeConfig.cropEnabled ? "on" : "off");
@@ -1582,9 +1586,9 @@ index 2df1e64..e31bbfc 100644
 +                const D3D11_BOX box = {_cropRect.x, top, 0, _cropRect.x + _cropRect.width, top + _cropRect.height, 1};
 +                _d3d11MirrorContext->CopySubresourceRegion(tex.Get(), 0, 0, 0, 0, _compositorTexture.Get(), 0, &box);
 +            }
-+        }
-+    }
-+
+         }
+     }
+ 
 +    // One picture of the whole mirror image for the settings app's crop tool - only when the app has asked for one
 +    // (it bumps a counter in shared memory; comparing it is all this costs per frame). The picture is a box-filtered
 +    // downscale, read back once; that read-back stalls the mirror device for a moment, which is why it is on demand.
@@ -1686,7 +1690,7 @@ index 2df1e64..e31bbfc 100644
 +            memcpy(block->pixels + static_cast<size_t>(row) * width * 4,
 +                   static_cast<const uint8_t*>(mapped.pData) + static_cast<size_t>(row) * mapped.RowPitch,
 +                   static_cast<size_t>(width) * 4);
-         }
++        }
 +        _d3d11MirrorContext->Unmap(_snapshotStaging.Get(), 0);
 +
 +        block->magic = eye_gaze_export::MirrorSnapshotMagic;
@@ -1701,10 +1705,87 @@ index 2df1e64..e31bbfc 100644
 +        block->cropHeight = _cropRect.height;
 +        InterlockedIncrement(&block->generation);
 +        _snapshotFailed = false;
++    }
++
+     void D3D11Mirror::checkOBSRunning() {
+         static uint32_t frameCounter = 10;
+         static uint32_t lastFrameNum = 0;
+@@ -1172,6 +2754,74 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+             _obsRunning = true;
+ 
+         lastFrameNum = _pMirrorSurfaceData->frameNumber;
++
++        // The mirror window counts as a reader too. Its block and the frame event are created once (by whoever starts
++        // first); after that this is one memory read per frame.
++        if (!_windowBlockTried) {
++            _windowBlockTried = true;
++            if (_windowBlock.open(eye_gaze_export::MirrorWindowBlockName, eye_gaze_export::BlockAccess::Create)) {
++                _windowBlock.data()->magic = eye_gaze_export::MirrorWindowMagic;
++                _windowBlock.data()->version = 1;
++                _lastWindowHeartbeat = _windowBlock.data()->readerHeartbeat;
++            }
++            _frameEvent = CreateEventW(nullptr, FALSE, FALSE, eye_gaze_export::MirrorFrameEventName);
++        }
++        const bool wasReading = _windowReading;
++        if (const auto* window = _windowBlock.data()) {
++            if (window->readerHeartbeat != _lastWindowHeartbeat) {
++                _lastWindowHeartbeat = window->readerHeartbeat;
++                _windowQuietFrames = 0;
++            } else if (_windowQuietFrames < 1000) {
++                _windowQuietFrames++;
++            }
++            _windowReading = _windowQuietFrames <= 10;
++        }
++        _obsRunning = _obsRunning || _windowReading;
++        if (_windowReading != wasReading || (_windowBlock.data() && _windowBlock.data()->exclusive != _publishedExclusive)) {
++            publishHandles(); // The plugin's picture is swapped for a blank one (or back) when the window comes or goes.
++        }
++    }
++
++    // Tells each reader where the mirror picture is. The mirror window always gets the real textures. The OBS plugin gets
++    // them too - unless the window is reading and asked to be the only one, in which case the plugin is handed a tiny
++    // black texture: it keeps working (no errors in OBS's log, unlike an empty handle) but copies next to nothing.
++    void D3D11Mirror::publishHandles() {
++        auto* window = _windowBlock.data();
++        const bool blankPlugin = _windowReading && window && window->exclusive != 0 && _realHandles[0] != 0;
++        _publishedExclusive = window ? window->exclusive : 0;
++        if (_blankTexture) {
++            D3D11_TEXTURE2D_DESC have{};
++            _blankTexture->GetDesc(&have);
++            if (have.Format != _mirrorFormat) { // The game's swapchain format changed.
++                _blankTexture = nullptr;
++                _blankHandle = 0;
++            }
++        }
++        if (blankPlugin && !_blankTexture && _d3d11MirrorDevice && _mirrorFormat != DXGI_FORMAT_UNKNOWN) {
++            CD3D11_TEXTURE2D_DESC desc(_mirrorFormat, 16, 16, 1, 1, D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET);
++            desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
++            ComPtr<ID3D11RenderTargetView> view;
++            ComPtr<IDXGIResource> resource;
++            HANDLE handle = nullptr;
++            if (SUCCEEDED(_d3d11MirrorDevice->CreateTexture2D(&desc, nullptr, _blankTexture.ReleaseAndGetAddressOf())) &&
++                SUCCEEDED(_d3d11MirrorDevice->CreateRenderTargetView(_blankTexture.Get(), nullptr, view.GetAddressOf())) &&
++                SUCCEEDED(_blankTexture.As(&resource)) && SUCCEEDED(resource->GetSharedHandle(&handle))) {
++                const float black[4] = {0.f, 0.f, 0.f, 1.f};
++                _d3d11MirrorContext->ClearRenderTargetView(view.Get(), black);
++                _blankHandle = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(handle));
++            } else {
++                _blankTexture = nullptr;
++            }
++        }
++        const bool useBlank = blankPlugin && _blankHandle != 0;
++        for (size_t i = 0; i < 3; i++) {
++            _pMirrorSurfaceData->sharedHandle[i] = useBlank ? _blankHandle : _realHandles[i];
++            if (window) {
++                window->sharedHandle[i] = _realHandles[i];
++            }
++        }
++        Log("Mirror readers: window %s, OBS plugin gets %s\n", _windowReading ? "reading" : "not reading",
++            useBlank ? "a blank picture" : "the mirror picture");
      }
  
-     void D3D11Mirror::checkOBSRunning() {
-@@ -1203,4 +2781,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+     uint32_t D3D11Mirror::getEyeIndex() const {
+@@ -1203,4 +2853,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1712,7 +1793,7 @@ index 2df1e64..e31bbfc 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..023a78d 100644
+index 098ed77..24704ce 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1750,7 +1831,7 @@ index 098ed77..023a78d 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -106,6 +121,29 @@ namespace Mirror
+@@ -106,13 +121,185 @@ namespace Mirror
          D3D11_TEXTURE2D_DESC _comp_desc{};
          std::vector<ComPtr<ID3D11Texture2D>> _mirrorTextures;
  
@@ -1780,7 +1861,20 @@ index 098ed77..023a78d 100644
          uint32_t _frameCounter = 0;
          bool _obsRunning = false;
  
-@@ -113,6 +151,142 @@ namespace Mirror
++        // The mirror window (MirrorWindow.exe) as a second reader, and what each reader is handed.
++        eye_gaze_export::SharedBlock<eye_gaze_export::MirrorWindowBlock> _windowBlock;
++        bool _windowBlockTried = false;
++        LONG _lastWindowHeartbeat = 0;
++        uint32_t _windowQuietFrames = 1000;
++        bool _windowReading = false;
++        HANDLE _frameEvent = nullptr;
++        uint64_t _realHandles[3] = {};
++        ComPtr<ID3D11Texture2D> _blankTexture;
++        uint64_t _blankHandle = 0;
++        LONG _publishedExclusive = 0;
++        void publishHandles();
++
+         float _fovVertRatio = 1.f;
          float _fovHorizRatio = 1.f;
          XrFovf _hmdFov{0.0f, 0.0f, 0.0f, 0.0f};
          XrFovf _viewFov{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1925,10 +2019,10 @@ index 098ed77..023a78d 100644
  
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
 new file mode 100644
-index 0000000..bc85685
+index 0000000..09a836f
 --- /dev/null
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
-@@ -0,0 +1,337 @@
+@@ -0,0 +1,361 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -2263,6 +2357,30 @@ index 0000000..bc85685
 +        uint32_t cropX, cropY, cropWidth, cropHeight; // The crop box in effect, in mirror image pixels.
 +        uint32_t reserved[5];
 +        uint8_t pixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4];
++    };
++
++    // ---------------------------------------------------------------------------------------------------------------
++    // Mirror window: a second reader of the mirror picture, next to the OBS plugin - an ordinary window that any capture
++    // tool can grab (MirrorWindow.exe). The plugin's own block cannot tell the two readers apart, hence this one.
++    //   readerHeartbeat  bumped by the window while it is open (per frame it shows, and a few times a second when idle);
++    //                    the layer produces frames while this - or the plugin's counter - keeps moving.
++    //   exclusive        1 = while the window is reading, the OBS plugin is handed a tiny blank picture instead of the
++    //                    real one, so a forgotten OBS source costs nothing.
++    //   sharedHandle     written by the layer: the real mirror textures (the plugin's block may hold the blank one).
++    // After every finished frame the layer signals the auto-reset event below, so the window sleeps until there is
++    // something to show instead of looking at a counter.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t MirrorWindowBlockName[] = L"GazeOverlay.MirrorWindow";
++    constexpr uint32_t MirrorWindowMagic = 0x574D4F47; // 'GOMW'
++    constexpr wchar_t MirrorFrameEventName[] = L"GazeOverlay.MirrorFrame";
++
++    struct MirrorWindowBlock {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG readerHeartbeat;
++        volatile LONG exclusive;
++        uint64_t sharedHandle[3];
 +    };
 +
 +} // namespace eye_gaze_export

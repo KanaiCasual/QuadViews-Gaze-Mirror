@@ -76,8 +76,54 @@
             <TabItem Header="Motion" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelMotion" Margin="14,10,14,12" /></ScrollViewer></TabItem>
             <TabItem Header="Placement" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelPlacement" Margin="14,10,14,12" /></ScrollViewer></TabItem>
 
-            <TabItem x:Name="CropTab" Header="Crop" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
-                <DockPanel Margin="14,10,14,8">
+            <TabItem x:Name="CropTab" Header="Mirror" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
+                <!-- The picture takes whatever height is left; in a small window it keeps a usable size and the tab scrolls instead. -->
+                <ScrollViewer x:Name="MirrorScroll" VerticalScrollBarVisibility="Auto">
+                <DockPanel Margin="14,10,14,8" MinHeight="{Binding ViewportHeight, ElementName=MirrorScroll, Converter={StaticResource LessMargin}}">
+                    <!-- The mirror window: a capturable window with the mirror picture (OBS Window Capture, Discord, ...). -->
+                    <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,4,10,6" Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6">
+                        <StackPanel>
+                            <WrapPanel>
+                                <TextBlock Text="Mirror window" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           ToolTip="A window that shows the mirror picture - cropped, with the ring - so that anything which can capture a window can use it: OBS Window Capture, Discord, ... No OBS plugin needed. It normally fills a monitor BEHIND your game and never comes to the front." />
+                                <Button x:Name="MirrorOpen" Content="Open" FontWeight="SemiBold" Margin="0,2,6,2" Click="OnMirrorOpen" />
+                                <Button x:Name="MirrorClose" Content="Close" Margin="0,2,12,2" Click="OnMirrorClose" />
+                                <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Show on" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox x:Name="MirrorPlacement" MinWidth="250" Margin="0,2,12,2" VerticalAlignment="Center"
+                                          ToolTip="Filling a monitor gives capture tools the full resolution of that monitor. The window stays behind every other window there." />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Eye" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox x:Name="MirrorEye" MinWidth="110" Margin="0,2,12,2" VerticalAlignment="Center"
+                                          ToolTip="Which eye's picture is mirrored. (With the OBS plugin this is chosen in the OBS source's properties instead.)" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Size" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox x:Name="MirrorSize" MinWidth="150" Margin="0,2,12,2" VerticalAlignment="Center"
+                                          ToolTip="How many pixels the mirror window's picture has - that is what OBS or Discord get. Smaller costs less graphics card time. With a size chosen, the window sits in the monitor's top left corner (behind everything) instead of covering the monitor." />
+                                <StackPanel x:Name="MirrorCustomSize" Orientation="Horizontal" Visibility="Collapsed" Margin="-6,0,12,0">
+                                    <TextBox x:Name="MirrorCustomWidth" Width="64" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Width in pixels (64 - 16384). Press Enter to apply." />
+                                    <TextBlock Text="x" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <TextBox x:Name="MirrorCustomHeight" Width="64" MinWidth="0" Margin="0,2,0,2" VerticalAlignment="Center" ToolTip="Height in pixels (64 - 16384). Press Enter to apply." />
+                                </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Rate" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox x:Name="MirrorRate" MinWidth="100" Margin="0,2,0,2" VerticalAlignment="Center"
+                                          ToolTip="The mirror window draws at most this many pictures a second, however fast the game runs. 30 halves its cost again - fine for Discord." />
+                                </StackPanel>
+                            </WrapPanel>
+                            <WrapPanel>
+                                <CheckBox x:Name="MirrorExclusive" Content="While it is open, send nothing to the OBS plugin" MinWidth="0" Margin="0,0,16,0"
+                                          ToolTip="An OpenXR Mirror Capture source left in an OBS scene then shows black and costs nothing, instead of copying the whole picture every frame for no reason. Untick to feed both at once." />
+                                <CheckBox x:Name="MirrorTitled" Content="Keep a title bar" MinWidth="0" Margin="0,0,16,0"
+                                          ToolTip="Only when filling a monitor: keep a title bar (pushed off the top of the monitor). Try it if a capture tool does not list the window." />
+                                <TextBlock x:Name="MirrorStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
                     <WrapPanel DockPanel.Dock="Top">
                         <CheckBox x:Name="CropEnabled" Content="Crop the mirror image" FontWeight="SemiBold" MinWidth="0" Margin="0,0,14,0" VerticalAlignment="Center"
                                   ToolTip="Hand OBS only the box instead of the whole eye image" />
@@ -98,10 +144,11 @@
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0"
                                Text="Drag inside the box to move it; drag a corner or use the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform > Fit to screen) once - after that it keeps fitting when the box changes size."
                                ToolTip="Fit to screen gives the source a bounding box the size of your canvas (in Edit Transform: Bounds = Scale to inner bounds). The gaze ring and the calibration are not affected by the crop: they are drawn on the whole image first." />
-                    <Border Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                    <Border Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True" MinHeight="240">
                         <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
                     </Border>
                 </DockPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="QuadViewsTab" Header="Quad Views" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">

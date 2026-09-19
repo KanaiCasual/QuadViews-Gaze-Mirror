@@ -37,6 +37,17 @@ public sealed class AppSettings
     public int MirrorHeight { get; set; }
     /// <summary>Crop tab: the box cannot be moved or resized by mouse (against accidental drags).</summary>
     public bool CropLocked { get; set; }
+    /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
+    /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
+    public int MirrorMonitor { get; set; } = 1;
+    public string MirrorEye { get; set; } = "right";
+    public bool MirrorExclusive { get; set; } = true;
+    public bool MirrorTitled { get; set; }
+    /// <summary>Size of the mirror window's picture in pixels = what a capture tool gets. 0 = fill the monitor.</summary>
+    public int MirrorOutputWidth { get; set; }
+    public int MirrorOutputHeight { get; set; }
+    /// <summary>The mirror window draws at most this many pictures a second (60 or 30).</summary>
+    public int MirrorFps { get; set; } = 60;
 
     /// <summary>This app's own folder: preferences and the saved layer orders.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror");

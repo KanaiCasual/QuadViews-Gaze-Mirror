@@ -393,6 +393,15 @@ public partial class App : Application
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
             quadViewsOk &= SelfTestCrop(report);
 
+            // Mirror window: what this PC offers, and the command line the settings turn into.
+            var mirrorArguments = MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 2, MirrorEye = "left", MirrorExclusive = false, MirrorTitled = true, MirrorOutputWidth = 1920, MirrorOutputHeight = 1080, MirrorFps = 30 });
+            var mirrorOk = mirrorArguments == "--monitor 2 --titled 1 --size 1920x1080 --fps 30 --eye left --exclusive 0" &&
+                           MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 0 }) == "--windowed --size fill --fps 60 --eye right --exclusive 1";
+            report.WriteLine($"mirror window - {(mirrorOk ? "ok  " : "FAIL")} settings become the expected command line");
+            report.WriteLine($"mirror window: program {MirrorWindowControl.FindProgram() ?? "(not found)"}, running={MirrorWindowControl.IsRunning()}, monitors: " +
+                             string.Join(", ", MirrorWindowControl.Monitors().Select(m => $"{m.Number}={m.Width}x{m.Height}")));
+            quadViewsOk &= mirrorOk;
+
             // The user's own preset slots survive a trip through app.json's format (exact numbers, empty slots stay empty).
             var withSlot = new AppSettings();
             withSlot.QuadViewsSlots[1] = new SavedPreset { SavedAt = new DateTime(2026, 9, 19, 7, 0, 0), Values = new() { ["peripheral_res"] = 4.84.ToString("R", System.Globalization.CultureInfo.InvariantCulture) } };

@@ -112,8 +112,7 @@ public partial class MainWindow
             _controlSetters[def.Key] = v =>
             {
                 setter(v);
-                if (def.Key == "crop_follow") CropFollowExpander.IsExpanded = v == "vertical";
-                DrawCrop();
+                DrawCrop(); // (the section stays folded until it is wanted; its header says whether following is on)
             };
         }
 
@@ -256,7 +255,7 @@ public partial class MainWindow
         // Show the gaze-following parts too. Nothing here goes through OnValueChanged, so nothing is saved.
         CropEnabled.IsChecked = true;
         _values["crop_follow"] = "vertical";
-        CropFollowExpander.IsExpanded = true;
+        CropFollowExpander.IsExpanded = false;
         DrawCrop();
     }
 
@@ -338,6 +337,8 @@ public partial class MainWindow
         // Gaze following: the tinted area is how far the box may travel, the two dashed lines bound the zone in which the
         // gaze moves nothing.
         var following = active && _values.GetValueOrDefault("crop_follow") == "vertical";
+        CropFollowExpander.Header = "Follow my gaze (up / down): " +
+            (_values.GetValueOrDefault("crop_follow") != "vertical" ? "off" : active ? "on" : "on, but the crop is off");
         var reachShare = Math.Clamp(Settings.ParseDouble(_values.GetValueOrDefault("crop_follow_reach"), 1), 0, 10);
         var reachTop = Math.Max(box.Top - reachShare * box.Height, _cropShown.Top);
         var reachBottom = Math.Min(box.Bottom + reachShare * box.Height, _cropShown.Bottom);

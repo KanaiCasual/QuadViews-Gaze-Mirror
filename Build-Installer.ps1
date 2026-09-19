@@ -2,13 +2,13 @@
 # Prerequisites: both layers already built (Build-Layers.ps1), the .NET 10 SDK, and internet access the first time (the
 # WiX toolset comes from nuget.org as part of the build).
 #
-#   .\Build-Installer.ps1 -Version 1.1.0                 a normal release
+#   .\Build-Installer.ps1 -Version 1.2.1                 a normal release
 #   .\Build-Installer.ps1 -Version 0.4.1 -Label beta.1   a beta: the app calls itself 0.4.1-beta.1, the MSI is 0.4.1
 #
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '1.1.0',
+    [string]$Version = '1.2.1',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
     [string]$GitHubRepository = 'KanaiCasual/QuadViews-Gaze-Mirror'
@@ -29,6 +29,10 @@ if (Test-Path $appOut) { Remove-Item $appOut -Recurse -Force }
 dotnet publish (Join-Path $root 'GazeOverlayApp\GazeOverlayApp.csproj') -c Release -o $appOut -v q --nologo `
     "-p:Version=$appVersion" "-p:GitHubRepository=$GitHubRepository"
 if ($LASTEXITCODE -ne 0) { throw "Publishing the settings app failed." }
+
+# 2b) The mirror window, next to the settings app (the MSI installs everything in that folder).
+& (Join-Path $root 'Build-MirrorWindow.ps1') | Out-Null
+Copy-Item (Join-Path $root 'MirrorWindow\bin\x64\Release\MirrorWindow.exe') $appOut -Force
 
 # 3) The MSI.
 $payload = Join-Path $root 'GazeOverlayApp\Payload'
