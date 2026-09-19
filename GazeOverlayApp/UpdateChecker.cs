@@ -32,6 +32,9 @@ public sealed class AppSettings
     public double WindowTop { get; set; }
     public double WindowWidth { get; set; }
     public double WindowHeight { get; set; }
+    /// <summary>Size of the mirror image the last crop-tool picture was taken from (the picture itself is a file next to this one).</summary>
+    public int MirrorWidth { get; set; }
+    public int MirrorHeight { get; set; }
 
     /// <summary>This app's own folder: preferences and the saved layer orders.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror");

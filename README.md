@@ -36,6 +36,11 @@ using the headset resolution from its log. One deliberate difference: values are
 file, because headset sections such as `[Pimax]` only apply when the OpenXR runtime's name contains that word (a Pimax
 driven through SteamVR matches none of them, and silently gets the built-in 35 % focus size).
 
+Its **Crop** tab replaces typing crop percentages into the OBS source: a box locked to a shape (16:9, 9:16, 1:1, ...) is
+dragged and scaled on a picture of the whole mirror image, and the mirror layer then hands OBS only that box - so the
+OBS source *is* the box, and every copy after the layer's compositing moves fewer pixels. The picture is made by the
+running game only when the app asks for one.
+
 **Nothing polls.** The layers never check the settings file while a game runs: the file is read once at start, and the
 settings app bumps a counter in shared memory when you change something, which the layer compares each frame (a memory
 read, no system call). With the app closed, nothing is ever re-read. The app itself listens for file-change

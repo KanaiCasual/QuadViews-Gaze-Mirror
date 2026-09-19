@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         RestoreWindowPlacement();
         BuildSettingsUi();
         BuildQuadViewsUi();
+        BuildCropUi();
         LoadQuadViews();
         AboutText.Text =
             "QuadViews Gaze Mirror - unofficial combined fork: foveated rendering (quad views) plus an OBS mirror that shows where you look.\n\n" +
@@ -551,7 +552,9 @@ public partial class MainWindow : Window
     {
         if (MessageBox.Show(this, "Reset every setting to its default?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
-            ApplyValues(Settings.Defaults());
+            // Ring settings only: the crop box belongs to the OBS scene, not to the look of the ring.
+            var cropKeys = Settings.All.Where(d => d.Group == Settings.GroupCrop).Select(d => d.Key).ToHashSet();
+            ApplyValues(Settings.Defaults().Where(kv => !cropKeys.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value));
         }
     }
 

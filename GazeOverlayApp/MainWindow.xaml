@@ -38,7 +38,7 @@
             <ColumnDefinition x:Name="PreviewColumn" Width="Auto" />
         </Grid.ColumnDefinitions>
         <TabControl x:Name="Tabs" Grid.Column="0" Margin="8,8,0,0" Padding="0">
-            <TabItem Header="Status" Padding="7,4">
+            <TabItem Header="Status" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="14,10,14,12">
                         <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="10,2">
@@ -71,12 +71,34 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Look" Padding="7,4"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelLook" Margin="14,10,14,12" /></ScrollViewer></TabItem>
-            <TabItem Header="Tail" Padding="7,4"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelTail" Margin="14,10,14,12" /></ScrollViewer></TabItem>
-            <TabItem Header="Motion" Padding="7,4"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelMotion" Margin="14,10,14,12" /></ScrollViewer></TabItem>
-            <TabItem Header="Placement" Padding="7,4"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelPlacement" Margin="14,10,14,12" /></ScrollViewer></TabItem>
+            <TabItem Header="Look" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelLook" Margin="14,10,14,12" /></ScrollViewer></TabItem>
+            <TabItem Header="Tail" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelTail" Margin="14,10,14,12" /></ScrollViewer></TabItem>
+            <TabItem Header="Motion" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelMotion" Margin="14,10,14,12" /></ScrollViewer></TabItem>
+            <TabItem Header="Placement" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PanelPlacement" Margin="14,10,14,12" /></ScrollViewer></TabItem>
 
-            <TabItem x:Name="QuadViewsTab" Header="Quad Views" Padding="7,4">
+            <TabItem x:Name="CropTab" Header="Crop" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
+                <DockPanel Margin="14,10,14,8">
+                    <WrapPanel DockPanel.Dock="Top">
+                        <CheckBox x:Name="CropEnabled" Content="Crop the mirror image" FontWeight="SemiBold" MinWidth="0" Margin="0,0,14,0" VerticalAlignment="Center"
+                                  ToolTip="Hand OBS only the box instead of the whole eye image" />
+                        <TextBlock Text="Shape" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <ComboBox x:Name="CropAspect" MinWidth="150" Margin="0,2,10,2" VerticalAlignment="Center" />
+                        <Button Content="Centre" ToolTip="Put the box in the middle of the image" Margin="0,2,6,2" Click="OnCropCentre" />
+                        <Button Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
+                        <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Ask the running game for a new picture of the mirror image" Margin="0,2,0,2" Click="OnCropRefresh" />
+                    </WrapPanel>
+                    <TextBlock x:Name="CropReadout" DockPanel.Dock="Top" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <TextBlock x:Name="CropStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,6" />
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0"
+                               Text="Drag to move; drag a corner or use the mouse wheel to resize. In OBS: set the source's own crop values to 0 and give it a bounding box, so it keeps fitting when the box changes size."
+                               ToolTip="Bounding box: right-click the source in OBS > Transform > Edit Transform > Bounding Box Type > Scale to inner bounds, sized to your canvas. The gaze ring and the calibration are not affected by the crop: they are drawn on the whole image first." />
+                    <Border Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                        <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem x:Name="QuadViewsTab" Header="Quad Views" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
                 <DockPanel>
                     <!-- Stays in view while the sliders scroll: what the settings cost, Apply, and the presets. -->
                     <Border DockPanel.Dock="Top" Margin="14,10,14,0" Padding="12,8" Background="{StaticResource Panel}"
@@ -107,7 +129,7 @@
                 </DockPanel>
             </TabItem>
 
-            <TabItem Header="About" Padding="7,4">
+            <TabItem Header="About" Padding="4,4" HeaderTemplate="{StaticResource SmallTabHeader}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="14,10,14,12">
                         <TextBlock Style="{StaticResource SectionTitle}" Text="About" />

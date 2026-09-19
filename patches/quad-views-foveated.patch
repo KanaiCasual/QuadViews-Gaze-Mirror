@@ -1,9 +1,9 @@
 diff --git a/openxr-api-layer/eye_gaze_export.h b/openxr-api-layer/eye_gaze_export.h
 new file mode 100644
-index 0000000..794392c
+index 0000000..bc85685
 --- /dev/null
 +++ b/openxr-api-layer/eye_gaze_export.h
-@@ -0,0 +1,316 @@
+@@ -0,0 +1,337 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -315,8 +315,29 @@ index 0000000..794392c
 +
 +    struct SettingsSignal {
 +        uint32_t magic;
-+        uint32_t version;
++        uint32_t version;              // 2 = snapshotRequest is there.
 +        volatile LONG generation;
++        volatile LONG snapshotRequest; // Bumped by the settings app to ask for ONE picture of the mirror image (crop tool).
++    };
++
++    // ---------------------------------------------------------------------------------------------------------------
++    // Mirror snapshot: a small picture of the whole (uncropped) mirror image, made by the mirror layer only when the
++    // settings app asks for one (SettingsSignal::snapshotRequest), so its crop tool has something to place the box on.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t MirrorSnapshotName[] = L"GazeOverlay.MirrorSnapshot";
++    constexpr uint32_t MirrorSnapshotMagic = 0x4E534F47; // 'GOSN'
++    constexpr uint32_t MirrorSnapshotMaxSize = 640;      // Longest side, pixels.
++
++    struct MirrorSnapshot {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG generation;        // Bumped after a complete picture was written.
++        uint32_t width, height;          // Of the picture below: BGRA, top row first, no padding.
++        uint32_t fullWidth, fullHeight;  // Of the mirror image it was taken from.
++        uint32_t cropX, cropY, cropWidth, cropHeight; // The crop box in effect, in mirror image pixels.
++        uint32_t reserved[5];
++        uint8_t pixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4];
 +    };
 +
 +} // namespace eye_gaze_export

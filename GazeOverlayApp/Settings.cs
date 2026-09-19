@@ -56,8 +56,10 @@ public static class Settings
     public const string GroupTail = "Tail";
     public const string GroupMotion = "Motion";
     public const string GroupPlacement = "Placement";
+    /// <summary>Edited on the Crop tab with its own tool, not as generic rows.</summary>
+    public const string GroupCrop = "Crop";
 
-    public static readonly string[] Groups = [GroupLook, GroupTail, GroupMotion, GroupPlacement];
+    public static readonly string[] Groups = [GroupLook, GroupTail, GroupMotion, GroupPlacement, GroupCrop];
 
     public static readonly Dictionary<string, string> GroupIntro = new()
     {
@@ -65,6 +67,7 @@ public static class Settings
         [GroupTail] = "The teardrop tail that stretches behind the ring when your eyes move (Ghost style).",
         [GroupMotion] = "How the ring follows your eyes: smoothing, blinks, and what happens when you hold your gaze.",
         [GroupPlacement] = "Where the ring lands in the mirrored image. Only change these if the ring looks off-target.",
+        [GroupCrop] = "Hands OBS only a box of the mirror image, so the OBS source is the box.",
     };
 
     public static readonly SettingDef[] All =
@@ -347,6 +350,45 @@ public static class Settings
             Label = "Ignore Quad-Views-Foveated's focus offsets",
             Description = "Legacy placement only. Quad-Views-Foveated lets you shift its sharp region; tick this so that shift does " +
                           "not move the ring as well.",
+        },
+
+        // ---------------------------------------------------------------- Crop (its own tab and tool)
+        new()
+        {
+            Key = "crop_enabled", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "0",
+            Label = "Crop the mirror image",
+            Description = "Hand OBS only the box below instead of the whole eye image. Leave the crop values of the OBS source at 0.",
+        },
+        new()
+        {
+            Key = "crop_aspect", Group = GroupCrop, Kind = SettingKind.Choice, Default = "16:9",
+            Label = "Shape",
+            Description = "Shape of the box, width:height. 0 = free.",
+            Choices =
+            [
+                new("16:9", "16:9  widescreen"), new("9:16", "9:16  vertical / shorts"), new("1:1", "1:1  square"),
+                new("4:3", "4:3"), new("4:5", "4:5  portrait"), new("21:9", "21:9  ultrawide"), new("0", "Free"),
+            ],
+        },
+        new()
+        {
+            Key = "crop_center_x", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.5", Min = 0, Max = 1, Step = 0.0005,
+            Label = "Box centre, across", Description = "Centre of the box, 0 = left edge of the image, 1 = right edge.",
+        },
+        new()
+        {
+            Key = "crop_center_y", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.5", Min = 0, Max = 1, Step = 0.0005,
+            Label = "Box centre, down", Description = "Centre of the box, 0 = top edge of the image, 1 = bottom edge.",
+        },
+        new()
+        {
+            Key = "crop_height", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.5", Min = 0.02, Max = 1, Step = 0.0005,
+            Label = "Box height", Description = "Height of the box as a fraction of the image height. The width follows from the shape.",
+        },
+        new()
+        {
+            Key = "crop_width", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.02, Max = 1, Step = 0.0005,
+            Label = "Box width (free shape)", Description = "Width of the box as a fraction of the image width. Only used with the free shape.",
         },
     ];
 

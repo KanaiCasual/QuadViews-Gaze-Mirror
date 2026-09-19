@@ -41,6 +41,7 @@ public partial class App : Application
                 window.Height = height;
             }
             window.Show();
+            window.ShowCropTestPicture();
             window.Dispatcher.InvokeAsync(() =>
             {
                 for (var i = 0; i < window.Tabs.Items.Count; i++)
@@ -70,6 +71,72 @@ public partial class App : Application
         }
 
         new MainWindow().Show();
+    }
+
+    /// <summary>The crop box arithmetic, and the picture request answered by a stand-in for the mirror layer.</summary>
+    private static bool SelfTestCrop(StreamWriter report)
+    {
+        static bool Near(double a, double b) => Math.Abs(a - b) < 1e-6;
+
+        var box = new CropBox { Aspect = 16.0 / 9.0, ImageAspect = 1, Height = 0.5 };
+        var (w1, h1) = box.Size();
+        box.Height = 1;                                   // a full-height 16:9 box does not fit a square image
+        var (w2, h2) = box.Size();
+        box.Height = 0.5; box.MoveTo(0.95, 0.02);         // pushed into the top right corner
+        var corner = box.Rect();
+        var vertical = new CropBox { Aspect = 9.0 / 16.0, ImageAspect = 1, Height = 1 };
+        var resized = new CropBox { Aspect = 1, ImageAspect = 1 };
+        resized.ResizeFromCorner(0.2, 0.2, 0.9, 0.5);     // pointer went further across than down: the square follows it
+        var free = new CropBox { Aspect = 0, ImageAspect = 1 };
+        free.ResizeFromCorner(0.1, 0.1, 0.6, 0.3);
+
+        // Picture request: play the layer (blocks + answering the request counter).
+        string pictureResult;
+        try
+        {
+            using var existing = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting("GazeOverlay.SettingsSignal");
+            pictureResult = "skipped (a game is running)";
+        }
+        catch (FileNotFoundException)
+        {
+            using var signal = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew("GazeOverlay.SettingsSignal", 16);
+            using var signalView = signal.CreateViewAccessor(0, 16);
+            signalView.Write(0, 0x53534F47u);
+            signalView.Write(4, 2u);
+            const int width = 4, height = 2;
+            using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew(MirrorSnapshot.BlockName, MirrorSnapshot.PixelsOffset + 640 * 640 * 4);
+            using var blockView = block.CreateViewAccessor();
+            var layer = Task.Run(async () =>
+            {
+                for (var i = 0; i < 100 && signalView.ReadInt32(12) == 0; i++) await Task.Delay(10);
+                blockView.Write(0, MirrorSnapshot.BlockMagic);
+                blockView.Write(12, (uint)width); blockView.Write(16, (uint)height);
+                blockView.Write(20, 8192u); blockView.Write(24, 4096u);
+                blockView.Write(28, 100u); blockView.Write(32, 200u); blockView.Write(36, 1920u); blockView.Write(40, 1080u);
+                for (var i = 0; i < width * height * 4; i++) blockView.Write(MirrorSnapshot.PixelsOffset + i, (byte)(i * 7));
+                blockView.Write(8, blockView.ReadInt32(8) + 1);
+            });
+            var (picture, message) = Task.Run(MirrorSnapshot.RequestAsync).GetAwaiter().GetResult();
+            layer.Wait();
+            var pixels = new byte[width * height * 4];
+            picture?.Image.CopyPixels(pixels, width * 4, 0);
+            pictureResult = picture is { FullWidth: 8192, FullHeight: 4096, CropX: 100, CropWidth: 1920 } && picture.Image.PixelWidth == width && pixels[5] == 35
+                ? "ok" : "wrong: " + message;
+        }
+
+        var checks = new (string Name, bool Ok)[]
+        {
+            ("a 16:9 box half the height of a square image is 0.889 of its width", Near(w1, 0.5 * 16 / 9) && Near(h1, 0.5)),
+            ("a box too big for the image is shrunk, keeping its shape", Near(w2, 1) && Near(h2, 9.0 / 16)),
+            ("a box pushed into a corner stays inside the image", Near(corner.Left + corner.Width, 1) && Near(corner.Top, 0)),
+            ("a 9:16 box can take the full height", Near(vertical.Size().Height, 1) && Near(vertical.Size().Width, 9.0 / 16)),
+            ("dragging a corner keeps the opposite corner and the shape", Near(resized.Rect().Left, 0.2) && Near(resized.Rect().Top, 0.2) && Near(resized.Rect().Width, 0.7) && Near(resized.Rect().Height, 0.7)),
+            ("the free shape follows the pointer both ways", Near(free.Rect().Width, 0.5) && Near(free.Rect().Height, 0.2)),
+            ("\"16:9\", \"0\" and plain numbers are understood as shapes", Near(CropBox.ParseAspect("16:9"), 16.0 / 9) && CropBox.ParseAspect("0") == 0 && Near(CropBox.ParseAspect("1.5"), 1.5)),
+            ("a picture request is answered and read back (" + pictureResult + ")", pictureResult == "ok" || pictureResult.StartsWith("skipped")),
+        };
+        foreach (var (name, ok) in checks) report.WriteLine($"crop - {(ok ? "ok  " : "FAIL")} {name}");
+        return checks.All(c => c.Ok);
     }
 
     /// <summary>
@@ -324,6 +391,7 @@ public partial class App : Application
 
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
+            quadViewsOk &= SelfTestCrop(report);
 
             // The user's own preset slots survive a trip through app.json's format (exact numbers, empty slots stay empty).
             var withSlot = new AppSettings();

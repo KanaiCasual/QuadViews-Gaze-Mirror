@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..7c600d5 100644
+index 2df1e64..43d85dd 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -10,7 +10,39 @@ index 2df1e64..7c600d5 100644
  
  #pragma comment(lib, "d3dcompiler.lib")
  #pragma comment(lib, "d3d11.lib")
-@@ -220,6 +221,247 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -142,6 +143,31 @@ psIn vs_quad(vsIn input)
+ 	return output;
+ }
+ 
++)_";
++
++    // Downscale for the crop tool's picture: averages a 6x6 grid of (bilinear) samples over each output pixel's footprint.
++    constexpr char snapshot_ps_code[] = R"_(
++Texture2D shaderTexture : register(t0);
++SamplerState SampleType : register(s0);
++
++struct psIn {
++	float4 pos : SV_POSITION;
++	float2 tex : TEXCOORD0;
++};
++
++float4 ps_snapshot(psIn inputPS) : SV_TARGET
++{
++    float2 stepX = ddx(inputPS.tex);
++    float2 stepY = ddy(inputPS.tex);
++    float3 sum = float3(0.0, 0.0, 0.0);
++    [loop] for (int a = 0; a < 6; a++) {
++        [loop] for (int b = 0; b < 6; b++) {
++            float2 offset = ((a + 0.5) / 6.0 - 0.5) * stepX + ((b + 0.5) / 6.0 - 0.5) * stepY;
++            sum += shaderTexture.SampleLevel(SampleType, inputPS.tex + offset, 0).rgb;
++        }
++    }
++    return float4(sum / 36.0, 1.0);
++}
+ )_";
+ 
+     constexpr char quad_ps_code[] = R"_(
+@@ -220,6 +246,247 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
  
  	return textureColor;
  }
@@ -258,7 +290,7 @@ index 2df1e64..7c600d5 100644
  )_";
  
      float quad_verts[] = {
-@@ -485,6 +727,10 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -485,6 +752,10 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              srcData._texture.Get(), &viewDesc, srcData._quadTextureView.GetAddressOf()));
      }
  
@@ -269,7 +301,7 @@ index 2df1e64..7c600d5 100644
      bool D3D11Mirror::enabled() const {
          return _obsRunning;
      }
-@@ -492,6 +738,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -492,6 +763,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
      void D3D11Mirror::flush() {
          _d3d11MirrorContext->Flush();
          _pMirrorSurfaceData->lastProcessedIndex = _frameCounter;
@@ -277,7 +309,7 @@ index 2df1e64..7c600d5 100644
          if (_targetView) {
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
              float clearRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-@@ -669,7 +916,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -669,7 +941,13 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view->subImage.imageRect, format, view->subImage.swapchain);
@@ -292,7 +324,7 @@ index 2df1e64..7c600d5 100644
          else 
          {
              auto it = _sourceData.find(view->subImage.swapchain);
-@@ -763,6 +1016,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -763,6 +1041,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov, view->fov);
@@ -305,7 +337,7 @@ index 2df1e64..7c600d5 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -821,6 +1080,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -821,6 +1105,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          {
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view1->subImage.imageRect, format, view1->subImage.swapchain);
@@ -318,7 +350,7 @@ index 2df1e64..7c600d5 100644
          }
          else 
          {
-@@ -899,6 +1164,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -899,6 +1189,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov1, view1->fov);
@@ -331,7 +363,7 @@ index 2df1e64..7c600d5 100644
  
              // Set up camera matrices based on OpenXR's predicted viewpoint information
              XMMATRIX mat_projection = XMMatrixOrthographicLH(_fovHorizRatio, _fovVertRatio, 0.01f, 100.0f);
-@@ -989,6 +1260,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -989,6 +1285,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              // Modify the view port and scissor for offset eye rendering
              XrRect2Di rect = {{0, 0}, view2->subImage.imageRect.extent};
              rect.offset.x = rect.offset.x + static_cast<int32_t>((rect.extent.width * _pMirrorSurfaceData->overlap) / 100);
@@ -344,7 +376,36 @@ index 2df1e64..7c600d5 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
-@@ -1149,6 +1426,988 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1115,23 +1417,14 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+             Log("Creating mirror textures w %u h %u f %d\n", desc.Width, desc.Height, format);
+ 
+             CHECK_DX(_d3d11MirrorDevice->CreateTexture2D(&desc, NULL, _compositorTexture.ReleaseAndGetAddressOf()));
+-            desc.Format = info.linear;
+-            uint32_t i = 0;
+-            _mirrorTextures.resize(3, nullptr);
+-            for (auto&& tex : _mirrorTextures) {
+-                CHECK_DX(_d3d11MirrorDevice->CreateTexture2D(&desc, NULL, tex.ReleaseAndGetAddressOf()));
+-
+-                ComPtr<IDXGIResource> pOtherResource = nullptr;
+-                CHECK_DX(tex->QueryInterface(IID_PPV_ARGS(&pOtherResource)));
+-
+-                HANDLE sharedHandle;
+-                pOtherResource->GetSharedHandle(&sharedHandle);
+-                _pMirrorSurfaceData->sharedHandle[i++] = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(sharedHandle));
+-                Log("Shared handle: 0x%p\n", sharedHandle);
+-            }
++            _mirrorFormat = info.linear;
+ 
+             _compositorTexture->GetDesc(&_comp_desc);
+ 
++            // The shared textures OBS reads: the size of the crop box (the whole image when cropping is off).
++            _mirrorTextures.clear();
++            updateCrop();
++
+             Log("Compositor texture description: %d x %d Format %d\n",
+                 _comp_desc.Width,
+                 _comp_desc.Height,
+@@ -1149,12 +1442,1204 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -410,7 +471,7 @@ index 2df1e64..7c600d5 100644
 +            _settingsSignalTried = true;
 +            if (_settingsSignal.open(eye_gaze_export::SettingsSignalName, eye_gaze_export::BlockAccess::Create)) {
 +                _settingsSignal.data()->magic = eye_gaze_export::SettingsSignalMagic;
-+                _settingsSignal.data()->version = 1;
++                _settingsSignal.data()->version = 2;
 +            }
 +        }
 +        const LONG generation = _settingsSignal.data() ? _settingsSignal.data()->generation : 0;
@@ -419,6 +480,7 @@ index 2df1e64..7c600d5 100644
 +        }
 +        _gazeConfigLoaded = true;
 +        _seenSettingsGeneration = generation;
++        _cropDirty = true; // The box may have moved or changed size.
 +
 +        try {
 +            if (_gazeConfigPath.empty()) {
@@ -518,6 +580,19 @@ index 2df1e64..7c600d5 100644
 +                                "# Manual trim on top, in fractions of the image height (+X right, +Y up).\n"
 +                                "offset_x=0\n"
 +                                "offset_y=0\n"
++                                "\n"
++                                "# Crop: 1 = hand OBS only a box of the mirror image instead of the whole eye, so the OBS\n"
++                                "# source IS the box (leave the crop values of the OBS source at 0). Easiest to set with the\n"
++                                "# settings app, which shows the picture to place the box on.\n"
++                                "crop_enabled=0\n"
++                                "# Shape of the box, width:height (16:9, 1:1, 9:16 ...). 0 = free, crop_width is used.\n"
++                                "crop_aspect=16:9\n"
++                                "# Centre of the box (0..1 across / down the image) and its height as a fraction of the image\n"
++                                "# height. crop_width (fraction of the image width) only counts when crop_aspect=0.\n"
++                                "crop_center_x=0.5\n"
++                                "crop_center_y=0.5\n"
++                                "crop_height=0.5\n"
++                                "crop_width=1\n"
 +                                "# Calibration aid: 1 = also show a marker INSIDE the headset where the ring is, so you\n"
 +                                "# can centre it on what you look at. It is only switched on and off here (or in the\n"
 +                                "# settings app) - never by a key in game. While it is on, Ctrl+Alt+arrow keys nudge the\n"
@@ -607,6 +682,23 @@ index 2df1e64..7c600d5 100644
 +                        config.offsetX = std::clamp(std::stof(value), -1.f, 1.f);
 +                    } else if (name == "offset_y") {
 +                        config.offsetY = std::clamp(std::stof(value), -1.f, 1.f);
++                    } else if (name == "crop_enabled") {
++                        config.cropEnabled = std::stoi(value) != 0;
++                    } else if (name == "crop_aspect") {
++                        // "16:9" or a plain number (width / height).
++                        const auto colon = value.find(':');
++                        float aspect = colon == std::string::npos
++                                           ? std::stof(value)
++                                           : std::stof(value.substr(0, colon)) / std::max(std::stof(value.substr(colon + 1)), 0.001f);
++                        config.cropAspect = aspect <= 0.f ? 0.f : std::clamp(aspect, 0.1f, 10.f);
++                    } else if (name == "crop_center_x") {
++                        config.cropCenterX = std::clamp(std::stof(value), 0.f, 1.f);
++                    } else if (name == "crop_center_y") {
++                        config.cropCenterY = std::clamp(std::stof(value), 0.f, 1.f);
++                    } else if (name == "crop_height") {
++                        config.cropHeight = std::clamp(std::stof(value), 0.02f, 1.f);
++                    } else if (name == "crop_width") {
++                        config.cropWidth = std::clamp(std::stof(value), 0.02f, 1.f);
 +                    } else if (name == "tail_space") {
 +                        config.worldAnchored = value != "screen";
 +                    } else if (name == "blend") {
@@ -1330,10 +1422,196 @@ index 2df1e64..7c600d5 100644
 +        _d3d11MirrorContext->DrawIndexed((UINT)_countof(quad_inds), 0, 0);
 +    }
 +
++    // Works out the crop box in pixels and (re)creates the shared mirror textures when its SIZE changed. Moving the box
++    // costs nothing; resizing it makes new textures, which the OBS plugin notices (new shared handle) and re-opens.
++    void D3D11Mirror::updateCrop() {
++        loadGazeConfig(); // Cheap when nothing changed; makes sure the very first textures already have the right size.
++        _cropDirty = false;
++        if (!_compositorTexture || _comp_desc.Width == 0 || _comp_desc.Height == 0) {
++            return;
++        }
++
++        const float imageWidth = static_cast<float>(_comp_desc.Width);
++        const float imageHeight = static_cast<float>(_comp_desc.Height);
++        CropRect crop{0, 0, _comp_desc.Width, _comp_desc.Height};
++        if (_gazeConfig.cropEnabled) {
++            float height = _gazeConfig.cropHeight * imageHeight;
++            float width = _gazeConfig.cropAspect > 0.f ? height * _gazeConfig.cropAspect : _gazeConfig.cropWidth * imageWidth;
++            // Too big for the image: shrink, keeping the shape.
++            const float fit = std::min({1.f, imageWidth / width, imageHeight / height});
++            width *= fit;
++            height *= fit;
++            // Even sizes (video encoders and chroma subsampling like that), and never absurdly small.
++            crop.width = std::clamp(static_cast<uint32_t>(width) & ~1u, 64u & ~1u, _comp_desc.Width);
++            crop.height = std::clamp(static_cast<uint32_t>(height) & ~1u, 64u & ~1u, _comp_desc.Height);
++            const float left = _gazeConfig.cropCenterX * imageWidth - crop.width * 0.5f;
++            const float top = _gazeConfig.cropCenterY * imageHeight - crop.height * 0.5f;
++            crop.x = static_cast<uint32_t>(std::clamp(left, 0.f, static_cast<float>(_comp_desc.Width - crop.width)));
++            crop.y = static_cast<uint32_t>(std::clamp(top, 0.f, static_cast<float>(_comp_desc.Height - crop.height)));
++        }
++
++        const bool sizeChanged = _mirrorTextures.empty() || crop.width != _cropRect.width || crop.height != _cropRect.height;
++        _cropRect = crop;
++        if (!sizeChanged) {
++            return;
++        }
++
++        D3D11_TEXTURE2D_DESC desc = _comp_desc;
++        desc.Width = crop.width;
++        desc.Height = crop.height;
++        desc.Format = _mirrorFormat;
++        std::vector<ComPtr<ID3D11Texture2D>> textures(3, nullptr);
++        uint64_t handles[3] = {};
++        for (size_t i = 0; i < textures.size(); i++) {
++            CHECK_DX(_d3d11MirrorDevice->CreateTexture2D(&desc, NULL, textures[i].ReleaseAndGetAddressOf()));
++            ComPtr<IDXGIResource> pOtherResource = nullptr;
++            CHECK_DX(textures[i]->QueryInterface(IID_PPV_ARGS(&pOtherResource)));
++            HANDLE sharedHandle;
++            pOtherResource->GetSharedHandle(&sharedHandle);
++            handles[i] = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(sharedHandle));
++            Log("Shared handle: 0x%p\n", sharedHandle);
++        }
++        _mirrorTextures = std::move(textures);
++        for (size_t i = 0; i < 3; i++) {
++            _pMirrorSurfaceData->sharedHandle[i] = handles[i];
++        }
++        Log("Mirror textures for OBS: %u x %u at %u,%u of %u x %u (crop %s)\n",
++            crop.width, crop.height, crop.x, crop.y, _comp_desc.Width, _comp_desc.Height,
++            _gazeConfig.cropEnabled ? "on" : "off");
++    }
++
      void D3D11Mirror::copyToMirror() {
          _frameCounter = _frameCounter + 1;
++        if (_cropDirty && _compositorTexture) {
++            updateCrop();
++        }
++        if (_mirrorTextures.empty()) {
++            return;
++        }
          auto& tex = _mirrorTextures[0];
-@@ -1203,4 +2462,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+         if (_compositorTexture && tex) {
+-            _d3d11MirrorContext->CopyResource(tex.Get(), _compositorTexture.Get());
++            if (_cropRect.width == _comp_desc.Width && _cropRect.height == _comp_desc.Height) {
++                _d3d11MirrorContext->CopyResource(tex.Get(), _compositorTexture.Get());
++            } else {
++                const D3D11_BOX box = {_cropRect.x, _cropRect.y, 0, _cropRect.x + _cropRect.width, _cropRect.y + _cropRect.height, 1};
++                _d3d11MirrorContext->CopySubresourceRegion(tex.Get(), 0, 0, 0, 0, _compositorTexture.Get(), 0, &box);
++            }
++        }
++    }
++
++    // One picture of the whole mirror image for the settings app's crop tool - only when the app has asked for one
++    // (it bumps a counter in shared memory; comparing it is all this costs per frame). The picture is a box-filtered
++    // downscale, read back once; that read-back stalls the mirror device for a moment, which is why it is on demand.
++    void D3D11Mirror::serviceSnapshot() {
++        const auto* signal = _settingsSignal.data();
++        if (!signal || signal->snapshotRequest == _seenSnapshotRequest) {
++            return;
++        }
++        _seenSnapshotRequest = signal->snapshotRequest;
++        if (_snapshotFailed || !_compositorTexture || !_d3d11MirrorDevice || _comp_desc.Width == 0 || _comp_desc.Height == 0) {
++            return;
++        }
++        _snapshotFailed = true; // Until everything below worked: a failure is not retried every request for ever.
++
++        if (!_snapshotPShader) {
++            ComPtr<ID3DBlob> compiled, errors;
++            if (FAILED(D3DCompile(snapshot_ps_code, strlen(snapshot_ps_code), nullptr, nullptr, nullptr, "ps_snapshot", "ps_5_0",
++                                  D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
++                                  compiled.GetAddressOf(), errors.GetAddressOf()))) {
++                Log("Mirror snapshot: D3DCompile failed %s\n", errors ? (char*)errors->GetBufferPointer() : "");
++                return;
++            }
++            if (FAILED(_d3d11MirrorDevice->CreatePixelShader(
++                    compiled->GetBufferPointer(), compiled->GetBufferSize(), nullptr, _snapshotPShader.ReleaseAndGetAddressOf()))) {
++                return;
++            }
++        }
++        if (!_snapshotBlock.open(eye_gaze_export::MirrorSnapshotName, eye_gaze_export::BlockAccess::Create)) {
++            return;
++        }
++
++        const float scale = static_cast<float>(eye_gaze_export::MirrorSnapshotMaxSize) / std::max(_comp_desc.Width, _comp_desc.Height);
++        const uint32_t width = std::clamp(static_cast<uint32_t>(_comp_desc.Width * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
++        const uint32_t height = std::clamp(static_cast<uint32_t>(_comp_desc.Height * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
++
++        D3D11_TEXTURE2D_DESC have{};
++        if (_snapshotTarget) {
++            _snapshotTarget->GetDesc(&have);
++        }
++        if (!_snapshotTarget || have.Width != width || have.Height != height) {
++            // An sRGB target: whatever the mirror image's format, the bytes read back are ordinary sRGB.
++            CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, width, height, 1, 1, D3D11_BIND_RENDER_TARGET);
++            if (FAILED(_d3d11MirrorDevice->CreateTexture2D(&desc, nullptr, _snapshotTarget.ReleaseAndGetAddressOf())) ||
++                FAILED(_d3d11MirrorDevice->CreateRenderTargetView(_snapshotTarget.Get(), nullptr, _snapshotView.ReleaseAndGetAddressOf()))) {
++                return;
++            }
++            desc.BindFlags = 0;
++            desc.Usage = D3D11_USAGE_STAGING;
++            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
++            if (FAILED(_d3d11MirrorDevice->CreateTexture2D(&desc, nullptr, _snapshotStaging.ReleaseAndGetAddressOf()))) {
++                return;
++            }
++        }
++
++        ComPtr<ID3D11ShaderResourceView> source;
++        if (FAILED(_d3d11MirrorDevice->CreateShaderResourceView(_compositorTexture.Get(), nullptr, source.GetAddressOf()))) {
++            return;
++        }
++
++        // Same quad, vertex shader and input layout as every other draw here (set once at start-up); everything set
++        // below is set again by those draws themselves before they use it.
++        _d3d11MirrorContext->OMSetRenderTargets(1, _snapshotView.GetAddressOf(), nullptr);
++        const D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(0.f, 0.f, static_cast<float>(width), static_cast<float>(height));
++        _d3d11MirrorContext->RSSetViewports(1, &viewport);
++        const D3D11_RECT scissor = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
++        _d3d11MirrorContext->RSSetScissorRects(1, &scissor);
++        _d3d11MirrorContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
++        _d3d11MirrorContext->PSSetShader(_snapshotPShader.Get(), nullptr, 0);
++        _d3d11MirrorContext->PSSetSamplers(0, 1, _quadSampleState.GetAddressOf());
++        _d3d11MirrorContext->PSSetShaderResources(0, 1, source.GetAddressOf());
++
++        quad_transform_buffer_t transform_buffer;
++        XMStoreFloat4x4(&transform_buffer.viewproj, XMMatrixTranspose(XMMatrixIdentity()));
++        XMStoreFloat4x4(&transform_buffer.world, XMMatrixTranspose(XMMatrixScaling(2.f, 2.f, 1.f) * XMMatrixTranslation(0.f, 0.f, 0.5f)));
++        _d3d11MirrorContext->UpdateSubresource(_quadConstantBuffer.Get(), 0, nullptr, &transform_buffer, 0, 0);
++        _d3d11MirrorContext->DrawIndexed((UINT)_countof(quad_inds), 0, 0);
++
++        // The compositor texture is a render target again next frame: do not leave it bound as an input.
++        ID3D11ShaderResourceView* const none = nullptr;
++        _d3d11MirrorContext->PSSetShaderResources(0, 1, &none);
++        ID3D11RenderTargetView* const noTarget = nullptr;
++        _d3d11MirrorContext->OMSetRenderTargets(1, &noTarget, nullptr);
++
++        _d3d11MirrorContext->CopyResource(_snapshotStaging.Get(), _snapshotTarget.Get());
++        D3D11_MAPPED_SUBRESOURCE mapped{};
++        if (FAILED(_d3d11MirrorContext->Map(_snapshotStaging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
++            return;
++        }
++        auto* block = _snapshotBlock.data();
++        for (uint32_t row = 0; row < height; row++) {
++            memcpy(block->pixels + static_cast<size_t>(row) * width * 4,
++                   static_cast<const uint8_t*>(mapped.pData) + static_cast<size_t>(row) * mapped.RowPitch,
++                   static_cast<size_t>(width) * 4);
+         }
++        _d3d11MirrorContext->Unmap(_snapshotStaging.Get(), 0);
++
++        block->magic = eye_gaze_export::MirrorSnapshotMagic;
++        block->version = 1;
++        block->width = width;
++        block->height = height;
++        block->fullWidth = _comp_desc.Width;
++        block->fullHeight = _comp_desc.Height;
++        block->cropX = _cropRect.x;
++        block->cropY = _cropRect.y;
++        block->cropWidth = _cropRect.width;
++        block->cropHeight = _cropRect.height;
++        InterlockedIncrement(&block->generation);
++        _snapshotFailed = false;
+     }
+ 
+     void D3D11Mirror::checkOBSRunning() {
+@@ -1203,4 +2688,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1341,7 +1619,7 @@ index 2df1e64..7c600d5 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..1441e08 100644
+index 098ed77..5dacb46 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1363,10 +1641,13 @@ index 098ed77..1441e08 100644
          bool enabled() const;
  
          void flush();
-@@ -61,6 +67,12 @@ namespace Mirror
+@@ -61,6 +67,15 @@ namespace Mirror
  
          void copyToMirror();
  
++        // Makes one small picture of the uncropped mirror image when the settings app has asked for it (crop tool).
++        void serviceSnapshot();
++
 +        // Draw the eye gaze indicator (if a gaze producer is present) on top of the mirror image only.
 +        void drawGazeOverlay();
 +
@@ -1376,7 +1657,31 @@ index 098ed77..1441e08 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -113,6 +125,127 @@ namespace Mirror
+@@ -106,6 +121,23 @@ namespace Mirror
+         D3D11_TEXTURE2D_DESC _comp_desc{};
+         std::vector<ComPtr<ID3D11Texture2D>> _mirrorTextures;
+ 
++        // The part of the compositor texture that is handed to OBS. The shared mirror textures have exactly its size,
++        // so the OBS source is the crop box - and everything after the compositor texture moves fewer pixels.
++        struct CropRect {
++            uint32_t x = 0, y = 0, width = 0, height = 0;
++        };
++        CropRect _cropRect;
++        bool _cropDirty = true;
++        DXGI_FORMAT _mirrorFormat = DXGI_FORMAT_UNKNOWN;
++        void updateCrop();
++
++        ComPtr<ID3D11PixelShader> _snapshotPShader;
++        ComPtr<ID3D11Texture2D> _snapshotTarget, _snapshotStaging;
++        ComPtr<ID3D11RenderTargetView> _snapshotView;
++        eye_gaze_export::SharedBlock<eye_gaze_export::MirrorSnapshot> _snapshotBlock;
++        LONG _seenSnapshotRequest = 0;
++        bool _snapshotFailed = false;
++
+         uint32_t _frameCounter = 0;
+         bool _obsRunning = false;
+ 
+@@ -113,6 +145,135 @@ namespace Mirror
          float _fovHorizRatio = 1.f;
          XrFovf _hmdFov{0.0f, 0.0f, 0.0f, 0.0f};
          XrFovf _viewFov{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1420,6 +1725,14 @@ index 098ed77..1441e08 100644
 +            float focusDistance = 0.f; // Meters to the fixated object for that projection. <= 0 means far away.
 +            float offsetX = 0.f;       // Manual trim, fraction of the image height (+X right, +Y up).
 +            float offsetY = 0.f;
++
++            // Crop: hand OBS only a box of the mirror image instead of the whole eye. Fractions of the image.
++            bool cropEnabled = false;
++            float cropAspect = 16.f / 9.f; // Width / height of the box in pixels. 0 = free (cropWidth is used).
++            float cropCenterX = 0.5f;
++            float cropCenterY = 0.5f;
++            float cropHeight = 0.5f;
++            float cropWidth = 1.f;
 +        };
 +
 +        // Where an eye's image landed in the compositor texture for the current frame.
@@ -1506,10 +1819,10 @@ index 098ed77..1441e08 100644
  
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
 new file mode 100644
-index 0000000..794392c
+index 0000000..bc85685
 --- /dev/null
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
-@@ -0,0 +1,316 @@
+@@ -0,0 +1,337 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -1821,13 +2134,34 @@ index 0000000..794392c
 +
 +    struct SettingsSignal {
 +        uint32_t magic;
-+        uint32_t version;
++        uint32_t version;              // 2 = snapshotRequest is there.
 +        volatile LONG generation;
++        volatile LONG snapshotRequest; // Bumped by the settings app to ask for ONE picture of the mirror image (crop tool).
++    };
++
++    // ---------------------------------------------------------------------------------------------------------------
++    // Mirror snapshot: a small picture of the whole (uncropped) mirror image, made by the mirror layer only when the
++    // settings app asks for one (SettingsSignal::snapshotRequest), so its crop tool has something to place the box on.
++    // ---------------------------------------------------------------------------------------------------------------
++
++    constexpr wchar_t MirrorSnapshotName[] = L"GazeOverlay.MirrorSnapshot";
++    constexpr uint32_t MirrorSnapshotMagic = 0x4E534F47; // 'GOSN'
++    constexpr uint32_t MirrorSnapshotMaxSize = 640;      // Longest side, pixels.
++
++    struct MirrorSnapshot {
++        uint32_t magic;
++        uint32_t version;
++        volatile LONG generation;        // Bumped after a complete picture was written.
++        uint32_t width, height;          // Of the picture below: BGRA, top row first, no padding.
++        uint32_t fullWidth, fullHeight;  // Of the mirror image it was taken from.
++        uint32_t cropX, cropY, cropWidth, cropHeight; // The crop box in effect, in mirror image pixels.
++        uint32_t reserved[5];
++        uint8_t pixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4];
 +    };
 +
 +} // namespace eye_gaze_export
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
-index ff60a46..71cd22f 100644
+index ff60a46..60315fe 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 @@ -290,6 +290,9 @@ namespace {
@@ -1848,11 +2182,13 @@ index ff60a46..71cd22f 100644
                                  if (_mirror->getEyeIndex() < 2) {
                                      projView = &projLayer->views[_mirror->getEyeIndex()];
                                      if (isSwapchainHandled(projView->subImage.swapchain)) {
-@@ -704,6 +708,7 @@ namespace {
+@@ -704,7 +708,9 @@ namespace {
                              }
                          }
                      }
 +                    _mirror->drawGazeOverlay();
                      _mirror->copyToMirror();
++                    _mirror->serviceSnapshot();
                  }
              }
+ 
