@@ -25,6 +25,12 @@ head stretches it too), it is smoothed with a One-Euro filter, and it tightens w
 
 A small **settings app** edits the ring's look and behaviour live, and has a calibration mode that shows a marker inside the headset so you can centre the ring on what you look at.
 
+Its **Quad Views** tab edits Quad-Views-Foveated's own `settings.cfg` with the same sliders and value logic as TallyMouse's
+QuadViews Companion, and shows how many pixels per frame the settings make the game render - the layer's own arithmetic,
+using the headset resolution from its log. One deliberate difference: values are also written to the common part of the
+file, because headset sections such as `[Pimax]` only apply when the OpenXR runtime's name contains that word (a Pimax
+driven through SteamVR matches none of them, and silently gets the built-in 35 % focus size).
+
 **Nothing polls.** The layers never check the settings file while a game runs: the file is read once at start, and the
 settings app bumps a counter in shared memory when you change something, which the layer compares each frame (a memory
 read, no system call). With the app closed, nothing is ever re-read. The app itself listens for file-change

@@ -35,6 +35,8 @@ public partial class MainWindow : Window
 
         BuildSettingsUi();
         BuildPresets();
+        BuildQuadViewsUi();
+        LoadQuadViews();
         AboutText.Text =
             "OpenXR Gaze Overlay - unofficial community build.\n\n" +
             "It is made of two modified OpenXR API layers:\n" +
@@ -44,8 +46,11 @@ public partial class MainWindow : Window
             "These are not the authors' official releases - please do not ask them for support with this build. " +
             "The licence texts are installed next to the layers (in the install folder under Program Files).\n\n" +
             "Nothing here is code-signed, so Windows may warn about the installer, and games with anti-cheat may refuse to load the layers.\n\n" +
-            "This app only edits the ring settings file below; it never installs anything or asks for administrator rights.\n\n" +
-            "Settings file:\n  " + _configPath;
+            "The Quad Views tab edits the same settings as QuadViews Companion by TallyMouse, and follows its slider logic so both can be used on the same file. " +
+            "It is not TallyMouse's app and is not endorsed by them.\n\n" +
+            "This app only edits the two settings files below; it never installs anything or asks for administrator rights.\n\n" +
+            "Ring settings:\n  " + _configPath + "\n" +
+            "Quad-Views-Foveated settings:\n  " + QuadViewsFile.DefaultPath;
 
         InitializeUpdateUi();
         LoadConfig();

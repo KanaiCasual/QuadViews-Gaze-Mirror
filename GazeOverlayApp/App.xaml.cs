@@ -6,7 +6,8 @@ namespace GazeOverlay;
 
 /// <summary>
 /// The settings app. It never installs anything, never asks for administrator rights and never touches Program Files or
-/// the system registry - the MSI does all of that. All it writes is the ring's settings file in the user's profile.
+/// the system registry - the MSI does all of that. All it writes is two settings files in the user's profile: the ring's,
+/// and (only when Apply is clicked on the Quad Views tab) Quad-Views-Foveated's.
 /// </summary>
 public partial class App : Application
 {
@@ -55,6 +56,108 @@ public partial class App : Application
         }
 
         new MainWindow().Show();
+    }
+
+    /// <summary>
+    /// Quad Views tab logic against a canned copy of a real case: a Pimax driven through SteamVR, with a settings file
+    /// written by the QuadViews Companion (focus size only under headset sections that SteamVR does not match).
+    /// </summary>
+    private static bool SelfTestQuadViews(string outputDir, StreamWriter report)
+    {
+        const string cannedLog = """
+            2026-09-18 22:19:00 +0100: XR_APILAYER_MBUCCHIA_quad_views_foveated layer (v1.1.4) is active
+            2026-09-18 22:19:01 +0100: Application: DCS (DCS.exe)
+            2026-09-18 22:19:01 +0100: Using OpenXR runtime: SteamVR/OpenXR 2.17.10
+            2026-09-18 22:19:01 +0100: Using OpenXR system: SteamVR/OpenXR : lighthouse
+            2026-09-18 22:19:01 +0100: Trying to locate configuration file at 'Z:\nowhere\settings.cfg'...
+            2026-09-18 22:19:01 +0100: Eye tracking is supported
+            2026-09-18 22:19:01 +0100: Recommended peripheral resolution: 2270x2372 (0.320x density)
+            2026-09-18 22:19:01 +0100: Recommended focus resolution: 3042x3178 (1.225x density)
+            2026-09-18 22:19:01 +0100:   Stereo pixel count was: 105,191,104 (7096x7412)
+            2026-09-18 22:19:01 +0100:   Quad views pixel count is: 30,103,832
+            2026-09-18 22:19:01 +0100:   Savings: -71.4%
+            """;
+        const string cannedFile = """
+            # QuadViews configuration file created using TallyMouse's QuadViews Companion App.
+
+            # Common settings for all headsets (unless overriden below).
+            smoothen_focus_view_edges=0.2
+            sharpen_focus_view=0
+            turbo_mode=1
+            peripheral_multiplier=0.32
+            focus_multiplier=1.225
+
+            [Pimax]
+            # Dynamic Foveated Rendering settings
+            horizontal_focus_section=0.2
+            vertical_focus_section=0.2
+            peripheral_multiplier=0.32
+
+            [SteamVR]
+            # Turbo Mode causes unexplained errors with SteamVR.
+            turbo_mode=0
+
+            [app:SomeGame]
+            horizontal_focus_section=0.6
+            """;
+
+        var logPath = Path.Combine(outputDir, "quadviews-canned.log");
+        File.WriteAllText(logPath, cannedLog);
+        var session = QuadViewsSession.Read(logPath);
+        var file = QuadViewsFile.Parse(cannedFile.Replace("\r\n", "\n"));
+
+        long Pixels(QuadViewsFile f)
+        {
+            var e = QuadViewsFile.Evaluate([("test", f)], session);
+            return QuadViewsPixels.Compute(session!.StereoWidth, session.StereoHeight, e["peripheral_multiplier"], e["focus_multiplier"], e["horizontal_focus_section"], e["vertical_focus_section"]).Total;
+        }
+
+        var before = QuadViewsFile.Evaluate([("test", file)], session);
+        var sliders = QuadViewsSetting.All.ToDictionary(s => s.Id, _ => 0.0);
+        var untouched = QuadViewsFile.Plan(file, sliders, new HashSet<string>());
+        var after = QuadViewsFile.Evaluate([("test", untouched)], session);
+        var again = QuadViewsFile.Plan(untouched, sliders, new HashSet<string>());
+
+        sliders["focus_h"] = 30; sliders["peripheral_res"] = 16; sliders["turbo"] = 1;
+        var edited = QuadViewsFile.Plan(untouched, sliders, new HashSet<string> { "focus_h", "peripheral_res", "turbo" });
+        var editedValues = QuadViewsFile.Evaluate([("test", edited)], session);
+        File.WriteAllText(Path.Combine(outputDir, "quadviews-planned.cfg"), edited.Text);
+
+        var checks = new (string Name, bool Ok)[]
+        {
+            ("log: runtime, game and resolution are read", session is { RuntimeName: "SteamVR/OpenXR 2.17.10", AppName: "DCS", ExeName: "DCS.exe", StereoWidth: 7096, StereoHeight: 7412, QuadPixels: 30103832, EyeTracking: true }),
+            ("a [Pimax] focus size does not reach a SteamVR runtime (the layer's 35 % applies)", before["horizontal_focus_section"] == 0.35),
+            ("pixel count equals what the layer logged (30,103,832)", Pixels(file) == 30103832),
+            ("Apply with nothing changed copies the intended 20 % into the common part", after["horizontal_focus_section"] == 0.2 && after["vertical_focus_section"] == 0.2),
+            ("...which gives 17,081,296 pixels", Pixels(untouched) == 17081296),
+            ("...and leaves values that already reach the game as they were written", untouched.InCommon("peripheral_multiplier") == "0.32"),
+            ("a second Apply changes nothing", again.Text == untouched.Text),
+            ("a changed slider is written to the common part and the headset sections", editedValues["horizontal_focus_section"] == 0.3 && edited.Entries().Count(e => e.Key == "horizontal_focus_section" && e.Value == "0.3") == 2),
+            ("16 % of the pixels is a 0.4 multiplier", edited.InCommon("peripheral_multiplier") == "0.4" && editedValues["peripheral_multiplier"] == 0.4),
+            ("per-game sections are left alone", edited.Entries().Any(e => e.Section == "[app:SomeGame]" && e.Value == "0.6")),
+            ("the [SteamVR] Turbo guard is left alone", editedValues["turbo_mode"] == 0 && edited.InCommon("turbo_mode") == "1"),
+        };
+        foreach (var (name, ok) in checks) report.WriteLine($"quad views - {(ok ? "ok  " : "FAIL")} {name}");
+
+        // This PC's real files, for information only (they change whenever the user changes a setting).
+        var real = QuadViewsSession.Read(QuadViewsSession.LogPath);
+        if (real is { HasResolution: true })
+        {
+            var files = new List<(string, QuadViewsFile)>();
+            var shipped = real.ConfigPaths.FirstOrDefault(p => !string.Equals(p, QuadViewsFile.DefaultPath, StringComparison.OrdinalIgnoreCase));
+            if (shipped != null && File.Exists(shipped)) files.Add(("shipped", QuadViewsFile.Load(shipped)));
+            files.Add(("user", QuadViewsFile.Load(QuadViewsFile.DefaultPath)));
+            var e = QuadViewsFile.Evaluate(files, real);
+            var sections = real.EyeTracking == false ? ("horizontal_fixed_section", "vertical_fixed_section") : ("horizontal_focus_section", "vertical_focus_section");
+            var computed = QuadViewsPixels.Compute(real.StereoWidth, real.StereoHeight, e["peripheral_multiplier"], e["focus_multiplier"], e[sections.Item1], e[sections.Item2]);
+            report.WriteLine($"quad views (this PC): runtime '{real.RuntimeName}', {real.StereoWidth}x{real.StereoHeight}; layer logged {real.QuadPixels}, computed from the files {computed.Total} " +
+                             $"(focus {computed.FocusWidth}x{computed.FocusHeight} vs logged {real.FocusResolution}); focus size in effect {e[sections.Item1]}x{e[sections.Item2]}");
+        }
+        else
+        {
+            report.WriteLine("quad views (this PC): no usable Quad-Views-Foveated log");
+        }
+        return checks.All(c => c.Ok);
     }
 
     /// <summary>Exercises everything without showing a window, writing the results into a folder.</summary>
@@ -115,6 +218,8 @@ public partial class App : Application
                 report.WriteLine($"live link - {(liveOk ? "ok  " : "FAIL")} no game -> {withoutGame}; with a (simulated) game -> {first}, {second}; counter = {generation} (expected 2)");
             }
 
+            var quadViewsOk = SelfTestQuadViews(outputDir, report);
+
             // Update check: version parsing and picking, against a canned release list (no network).
             const string canned = """
                 [
@@ -155,7 +260,7 @@ public partial class App : Application
                     report.WriteLine($"live check of {liveRepo} failed: {liveError.Message}");
                 }
             }
-            return checks.All(c => c.Ok) && liveOk ? 0 : 1;
+            return checks.All(c => c.Ok) && liveOk && quadViewsOk ? 0 : 1;
         }
         catch (Exception ex)
         {
