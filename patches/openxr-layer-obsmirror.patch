@@ -2161,7 +2161,7 @@ index 0000000..bc85685
 +
 +} // namespace eye_gaze_export
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
-index ff60a46..60315fe 100644
+index ff60a46..88aac39 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 @@ -290,6 +290,9 @@ namespace {
@@ -2174,7 +2174,7 @@ index ff60a46..60315fe 100644
              }
  
              return result;
-@@ -649,6 +652,7 @@ namespace {
+@@ -649,13 +652,18 @@ namespace {
                          if (hdr->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
                              projLayer = reinterpret_cast<const XrCompositionLayerProjection*>(hdr);
                              if (projLayer->viewCount >= 2) {
@@ -2182,7 +2182,30 @@ index ff60a46..60315fe 100644
                                  if (_mirror->getEyeIndex() < 2) {
                                      projView = &projLayer->views[_mirror->getEyeIndex()];
                                      if (isSwapchainHandled(projView->subImage.swapchain)) {
-@@ -704,7 +708,9 @@ namespace {
+                                         auto& swapchainState = _swapchains[projView->subImage.swapchain];
+                                         if (swapchainState._dx11LastTexture || swapchainState._dx12LastTexture) {
++                                            // The headset FOV of the eye being mirrored. Upstream always passed the
++                                            // LEFT eye's: on headsets whose two eyes have mirrored, asymmetric FOVs
++                                            // (canted displays, e.g. Pimax) that made the right eye look "modified",
++                                            // so it took the slow scaled path and came out squeezed with black bars.
+                                             _mirror->Blend(projView,
+-                                                           _projectionViews[0].fov,
++                                                           _projectionViews[_mirror->getEyeIndex()].fov,
+                                                            (DXGI_FORMAT)swapchainState._createInfo.format,
+                                                            projLayer ? projLayer->space : NULL,
+                                                            frameEndInfo->displayTime);
+@@ -693,8 +701,9 @@ namespace {
+                                 }
+                                 if (swapchainState._dx11LastTexture || swapchainState._dx12LastTexture) {
+                                     if (projView) {
++                                        // Same here: place quad layers with the FOV of the eye they are drawn into.
+                                         _mirror->Blend(projView,
+-                                                       _projectionViews[0].fov,
++                                                       _projectionViews[_mirror->getEyeIndex() < 2 ? _mirror->getEyeIndex() : 0].fov,
+                                                        quadLayer,
+                                                        (DXGI_FORMAT)swapchainState._createInfo.format,
+                                                        projLayer ? projLayer->space : NULL,
+@@ -704,7 +713,9 @@ namespace {
                              }
                          }
                      }
