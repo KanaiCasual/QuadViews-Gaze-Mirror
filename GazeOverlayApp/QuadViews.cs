@@ -419,7 +419,7 @@ public sealed class QuadViewsSetting
         }),
         ("TM's Favorite", "TallyMouse's own pick in the Companion: a supersampled sharp region with a very low-resolution surround.", new()
         {
-            ["focus_h"] = 33, ["focus_v"] = 32, ["offset_v"] = -10, ["focus_res"] = 200, ["peripheral_res"] = 5,
+            ["focus_h"] = 33, ["focus_v"] = 32, ["offset_v"] = -10, ["focus_res"] = 200, ["peripheral_res"] = 4.84, // 0.22, as the Companion writes it
             ["sharpen"] = 80, ["transition"] = 30,
         }),
         // No values of its own: the window fills it with what the layer does when there is no user file at all - the file
