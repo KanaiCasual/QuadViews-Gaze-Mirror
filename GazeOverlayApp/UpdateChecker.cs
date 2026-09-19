@@ -35,6 +35,8 @@ public sealed class AppSettings
     /// <summary>Size of the mirror image the last crop-tool picture was taken from (the picture itself is a file next to this one).</summary>
     public int MirrorWidth { get; set; }
     public int MirrorHeight { get; set; }
+    /// <summary>Crop tab: the box cannot be moved or resized by mouse (against accidental drags).</summary>
+    public bool CropLocked { get; set; }
 
     /// <summary>This app's own folder: preferences and the saved layer orders.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror");

@@ -390,6 +390,45 @@ public static class Settings
             Key = "crop_width", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.02, Max = 1, Step = 0.0005,
             Label = "Box width (free shape)", Description = "Width of the box as a fraction of the image width. Only used with the free shape.",
         },
+        new()
+        {
+            Key = "crop_follow", Group = GroupCrop, Kind = SettingKind.Choice, Default = "off",
+            Label = "Follow my gaze",
+            Description = "A 16:9 box only covers about half the height of the eye image, so looking far up or down takes your gaze out of frame. " +
+                          "With Up / down, the box glides after your eyes like a camera operator: nothing moves while you look around the middle, " +
+                          "and when your gaze nears the top or bottom the box moves just far enough to keep it in frame. Only eye movement does this - turning your head already moves the whole picture.",
+            Choices = [new("off", "Off - the box stays where I put it"), new("vertical", "Up / down")],
+        },
+        new()
+        {
+            Key = "crop_follow_deadzone", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.4", Min = 0, Max = 0.9, Step = 0.05, Unit = ValueUnit.Percent,
+            Label = "Still zone",
+            Description = "The middle share of the box height in which your gaze moves nothing (shown as two dashed lines on the picture). Smaller = the box reacts sooner and keeps what you look at closer to the middle; larger = a calmer picture.",
+        },
+        new()
+        {
+            Key = "crop_follow_reach", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0, Max = 2, Step = 0.05, Unit = ValueUnit.Percent,
+            Label = "Reach",
+            Description = "How far the box may travel up or down from where you put it, as a share of its own height (100 % = one whole box height each way). Shown on the picture as the tinted area above and below the box. It never leaves the image.",
+        },
+        new()
+        {
+            Key = "crop_follow_glide_ms", Group = GroupCrop, Kind = SettingKind.Slider, Default = "500", Min = 0, Max = 2500, Step = 50, Unit = ValueUnit.Milliseconds, ZeroText = "Instant",
+            Label = "Glide",
+            Description = "How softly the box moves - on the way out and on the way home. Longer is calmer for viewers but lags further behind your eyes. Instant = the box jumps.",
+        },
+        new()
+        {
+            Key = "crop_follow_return", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
+            Label = "Return home",
+            Description = "Go back to where you put the box once your gaze allows it. Off = the box stays wherever it was last pushed.",
+        },
+        new()
+        {
+            Key = "crop_follow_home_ms", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1200", Min = 0, Max = 6000, Step = 50, Unit = ValueUnit.Milliseconds, ZeroText = "At once",
+            Label = "Return after",
+            Description = "How long your gaze has to rest inside the still zone before the box heads home. At once = it is always as close to home as your gaze allows.",
+        },
     ];
 
     public static readonly Preset[] Presets =

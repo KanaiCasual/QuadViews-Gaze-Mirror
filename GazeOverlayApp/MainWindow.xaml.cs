@@ -437,6 +437,7 @@ public partial class MainWindow : Window
         _values[key] = value;
         _dirtyKeys.Add(key);
         if (key == "headset_marker") RefreshStatus();
+        if (key.StartsWith("crop_follow", StringComparison.Ordinal)) DrawCrop();
         if (!_previewTimer.IsEnabled) _previewTimer.Start();
         _saveTimer.Stop(); _saveTimer.Start();
     }

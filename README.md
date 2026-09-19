@@ -12,8 +12,8 @@ and the OpenXR API layer list (on/off, order, order check).
 > [OpenXR-Layer-OBSMirror](https://github.com/Jabbah/OpenXR-Layer-OBSMirror) by Jabbah. They did not build, test or
 > endorse it. Please do not ask them for support with it.
 
-**Status: version 1.0.0 - first release.** Get the installer (`QuadViews-Gaze-Mirror-<version>.msi`) from the
-repository's Releases page.
+**Status: released.** Get the latest installer (`QuadViews-Gaze-Mirror-<version>.msi`) from the repository's Releases
+page; the release notes say what changed.
 
 ## How it works
 
@@ -39,7 +39,9 @@ driven through SteamVR matches none of them, and silently gets the built-in 35 %
 Its **Crop** tab replaces typing crop percentages into the OBS source: a box locked to a shape (16:9, 9:16, 1:1, ...) is
 dragged and scaled on a picture of the whole mirror image, and the mirror layer then hands OBS only that box - so the
 OBS source *is* the box, and every copy after the layer's compositing moves fewer pixels. The picture is made by the
-running game only when the app asks for one.
+running game only when the app asks for one. The box can also **follow your gaze up and down** - like a camera
+operator, it glides just far enough to keep what you look at in frame, since a 16:9 box only covers about half the height
+of the eye image.
 
 **Nothing polls.** The layers never check the settings file while a game runs: the file is read once at start, and the
 settings app bumps a counter in shared memory when you change something, which the layer compares each frame (a memory

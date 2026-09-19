@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..308fc51 100644
+index 2df1e64..e31bbfc 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -405,7 +405,7 @@ index 2df1e64..308fc51 100644
              Log("Compositor texture description: %d x %d Format %d\n",
                  _comp_desc.Width,
                  _comp_desc.Height,
-@@ -1149,12 +1442,1212 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,12 +1442,1297 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -593,6 +593,21 @@ index 2df1e64..308fc51 100644
 +                                "crop_center_y=0.5\n"
 +                                "crop_height=0.5\n"
 +                                "crop_width=1\n"
++                                "# Follow the gaze: vertical = the box glides up/down so that what you look at stays in frame\n"
++                                "# (a 16:9 box only covers about half the height of the eye image). off = the box stays put.\n"
++                                "crop_follow=off\n"
++                                "# Middle share of the box height in which your gaze moves nothing (0..0.9). Smaller = the box\n"
++                                "# reacts sooner and keeps what you look at closer to the middle.\n"
++                                "crop_follow_deadzone=0.4\n"
++                                "# How far the box may travel up or down from where you put it, in box heights (1 = one whole\n"
++                                "# box height each way; it never leaves the image).\n"
++                                "crop_follow_reach=1\n"
++                                "# How softly the box glides (ms, 0 = instantly).\n"
++                                "crop_follow_glide_ms=500\n"
++                                "# 1 = go back to where you put the box once your gaze allows it, after it has rested in the still\n"
++                                "# zone for crop_follow_home_ms (0 = at once). 0 = the box stays where it was last pushed.\n"
++                                "crop_follow_return=1\n"
++                                "crop_follow_home_ms=1200\n"
 +                                "# Calibration aid: 1 = also show a marker INSIDE the headset where the ring is, so you\n"
 +                                "# can centre it on what you look at. It is only switched on and off here (or in the\n"
 +                                "# settings app) - never by a key in game. While it is on, Ctrl+Alt+arrow keys nudge the\n"
@@ -699,6 +714,18 @@ index 2df1e64..308fc51 100644
 +                        config.cropHeight = std::clamp(std::stof(value), 0.02f, 1.f);
 +                    } else if (name == "crop_width") {
 +                        config.cropWidth = std::clamp(std::stof(value), 0.02f, 1.f);
++                    } else if (name == "crop_follow") {
++                        config.cropFollowVertical = value == "vertical";
++                    } else if (name == "crop_follow_deadzone") {
++                        config.cropFollowDeadzone = std::clamp(std::stof(value), 0.f, 0.9f);
++                    } else if (name == "crop_follow_glide_ms") {
++                        config.cropFollowGlideMs = std::clamp(std::stof(value), 0.f, 10000.f);
++                    } else if (name == "crop_follow_home_ms") {
++                        config.cropFollowHomeMs = std::clamp(std::stof(value), 0.f, 60000.f);
++                    } else if (name == "crop_follow_return") {
++                        config.cropFollowReturn = std::stoi(value) != 0;
++                    } else if (name == "crop_follow_reach") {
++                        config.cropFollowReach = std::clamp(std::stof(value), 0.f, 10.f);
 +                    } else if (name == "tail_space") {
 +                        config.worldAnchored = value != "screen";
 +                    } else if (name == "blend") {
@@ -952,7 +979,8 @@ index 2df1e64..308fc51 100644
 +            _markerWriter.publish(false, none, 0.f, black);
 +            _markerPublished = false;
 +        }
-+        if (!_gazeConfig.enabled || !_compositorTexture || !_targetView) {
++        const bool cropFollows = _gazeConfig.cropEnabled && _gazeConfig.cropFollowVertical;
++        if ((!_gazeConfig.enabled && !cropFollows) || !_compositorTexture || !_targetView) {
 +            return;
 +        }
 +
@@ -1188,6 +1216,12 @@ index 2df1e64..308fc51 100644
 +            const float k = _gazeConfig.fadeMs > 0.f ? 1.f - expf(-dtMs / _gazeConfig.fadeMs) : 1.f;
 +            _gazeAlpha += (alphaTarget - _gazeAlpha) * k;
 +        }
++        // The crop box follows the (smoothed) gaze - also when the ring itself is switched off.
++        updateCropFollow(haveTarget, dtMs);
++        if (!_gazeConfig.enabled) {
++            return;
++        }
++
 +        if (!_gazeHasPosition || _gazeAlpha < 0.004f) {
 +            return;
 +        }
@@ -1480,6 +1514,53 @@ index 2df1e64..308fc51 100644
 +            _gazeConfig.cropEnabled ? "on" : "off");
 +    }
 +
++    // Gaze-following crop (up/down). Like a camera operator: while the gaze stays in the middle of the frame nothing
++    // moves; when it nears the top or bottom the box glides just far enough to keep it inside the still zone, stays there,
++    // and drifts back to where the user put it once the gaze has rested for a while. Only eye movement does this - a head
++    // turn moves the whole image, not the gaze within it. Moving the box is free (it is only the source rectangle of the
++    // copy to OBS); nothing is re-created.
++    void D3D11Mirror::updateCropFollow(bool haveTarget, float dtMs) {
++        const bool follows = _gazeConfig.cropEnabled && _gazeConfig.cropFollowVertical && _cropRect.height > 0 &&
++                             _cropRect.height < _comp_desc.Height;
++        if (!follows) {
++            _cropFollowOffset = _cropFollowTarget = _cropFollowStillMs = 0.f;
++            _cropFollowHoming = false;
++            return;
++        }
++
++        const float boxHeight = static_cast<float>(_cropRect.height);
++        const float home = static_cast<float>(_cropRect.y);
++        if (haveTarget && _gazeHasPosition) {
++            // The offsets for which the gaze sits inside the still zone of the box.
++            const float zoneTop = (1.f - _gazeConfig.cropFollowDeadzone) * 0.5f * boxHeight;
++            const float zoneBottom = (1.f + _gazeConfig.cropFollowDeadzone) * 0.5f * boxHeight;
++            const float allowedMin = _gazePos[1] - home - zoneBottom;
++            const float allowedMax = _gazePos[1] - home - zoneTop;
++            const float pushed = std::clamp(_cropFollowTarget, allowedMin, allowedMax);
++            if (pushed != _cropFollowTarget) {
++                _cropFollowTarget = pushed;
++                _cropFollowStillMs = 0.f;
++                _cropFollowHoming = false;
++            } else {
++                _cropFollowStillMs += dtMs;
++                if (_gazeConfig.cropFollowReturn && _cropFollowStillMs >= _gazeConfig.cropFollowHomeMs) {
++                    // Home, as far as the gaze allows.
++                    _cropFollowTarget = std::clamp(0.f, allowedMin, allowedMax);
++                    _cropFollowHoming = true;
++                }
++            }
++        }
++        // Blink or tracking loss: hold. Never further from home than the reach, and never out of the image.
++        const float reach = _gazeConfig.cropFollowReach * boxHeight;
++        _cropFollowTarget = std::clamp(_cropFollowTarget, -reach, reach);
++        _cropFollowTarget = std::clamp(_cropFollowTarget, -home, static_cast<float>(_comp_desc.Height - _cropRect.height) - home);
++
++        // One glide setting governs every movement, the way home included.
++        const float glide = _gazeConfig.cropFollowGlideMs;
++        const float k = glide > 0.f ? 1.f - expf(-dtMs / glide) : 1.f;
++        _cropFollowOffset += (_cropFollowTarget - _cropFollowOffset) * k;
++    }
++
      void D3D11Mirror::copyToMirror() {
          _frameCounter = _frameCounter + 1;
 +        if (_cropDirty && _compositorTexture) {
@@ -1494,7 +1575,11 @@ index 2df1e64..308fc51 100644
 +            if (_cropRect.width == _comp_desc.Width && _cropRect.height == _comp_desc.Height) {
 +                _d3d11MirrorContext->CopyResource(tex.Get(), _compositorTexture.Get());
 +            } else {
-+                const D3D11_BOX box = {_cropRect.x, _cropRect.y, 0, _cropRect.x + _cropRect.width, _cropRect.y + _cropRect.height, 1};
++                const bool follows = _gazeConfig.cropEnabled && _gazeConfig.cropFollowVertical;
++                const float followed = static_cast<float>(_cropRect.y) + (follows ? _cropFollowOffset : 0.f);
++                const uint32_t top = static_cast<uint32_t>(
++                    std::clamp(followed + 0.5f, 0.f, static_cast<float>(_comp_desc.Height - _cropRect.height)));
++                const D3D11_BOX box = {_cropRect.x, top, 0, _cropRect.x + _cropRect.width, top + _cropRect.height, 1};
 +                _d3d11MirrorContext->CopySubresourceRegion(tex.Get(), 0, 0, 0, 0, _compositorTexture.Get(), 0, &box);
 +            }
 +        }
@@ -1619,7 +1704,7 @@ index 2df1e64..308fc51 100644
      }
  
      void D3D11Mirror::checkOBSRunning() {
-@@ -1203,4 +2696,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1203,4 +2781,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1627,7 +1712,7 @@ index 2df1e64..308fc51 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..5dacb46 100644
+index 098ed77..023a78d 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1665,7 +1750,7 @@ index 098ed77..5dacb46 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -106,6 +121,23 @@ namespace Mirror
+@@ -106,6 +121,29 @@ namespace Mirror
          D3D11_TEXTURE2D_DESC _comp_desc{};
          std::vector<ComPtr<ID3D11Texture2D>> _mirrorTextures;
  
@@ -1676,6 +1761,12 @@ index 098ed77..5dacb46 100644
 +        };
 +        CropRect _cropRect;
 +        bool _cropDirty = true;
++        // Gaze-following crop: how far (pixels, + = down) the box currently sits from where the user put it.
++        float _cropFollowOffset = 0.f;
++        float _cropFollowTarget = 0.f;
++        float _cropFollowStillMs = 0.f;
++        bool _cropFollowHoming = false;
++        void updateCropFollow(bool haveTarget, float dtMs);
 +        DXGI_FORMAT _mirrorFormat = DXGI_FORMAT_UNKNOWN;
 +        void updateCrop();
 +
@@ -1689,7 +1780,7 @@ index 098ed77..5dacb46 100644
          uint32_t _frameCounter = 0;
          bool _obsRunning = false;
  
-@@ -113,6 +145,135 @@ namespace Mirror
+@@ -113,6 +151,142 @@ namespace Mirror
          float _fovHorizRatio = 1.f;
          XrFovf _hmdFov{0.0f, 0.0f, 0.0f, 0.0f};
          XrFovf _viewFov{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1741,6 +1832,13 @@ index 098ed77..5dacb46 100644
 +            float cropCenterY = 0.5f;
 +            float cropHeight = 0.5f;
 +            float cropWidth = 1.f;
++            // Follow the gaze: the box glides up/down so that what is being looked at stays in frame.
++            bool cropFollowVertical = false;
++            float cropFollowDeadzone = 0.4f; // Middle share of the box height in which the gaze moves nothing.
++            float cropFollowGlideMs = 500.f; // How softly the box moves.
++            bool cropFollowReturn = true;    // Go back to where the user put the box once the gaze allows it...
++            float cropFollowHomeMs = 1200.f; // ...after the gaze has rested in the still zone for this long. 0 = at once.
++            float cropFollowReach = 1.f;     // How far the box may travel up/down from home, in box heights.
 +        };
 +
 +        // Where an eye's image landed in the compositor texture for the current frame.

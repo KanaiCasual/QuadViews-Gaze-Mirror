@@ -24,6 +24,9 @@ public partial class MainWindow
     private readonly Rectangle _cropFrame = new() { StrokeThickness = 2, Fill = Brushes.Transparent };
     private readonly Rectangle[] _cropHandles = [new(), new(), new(), new()];
     private readonly Line[] _cropThirds = [new(), new(), new(), new()];
+    private readonly Line[] _cropStillZone = [new(), new()];
+    private readonly Rectangle[] _cropReach = [new(), new()];
+    private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
     private readonly TextBlock _cropPlaceholder = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center };
     private Rect _cropShown;                 // Where the picture is drawn inside the canvas.
@@ -50,6 +53,24 @@ public partial class MainWindow
         {
             line.Stroke = new SolidColorBrush(Color.FromArgb(70, 255, 255, 255));
             line.StrokeThickness = 1;
+            line.IsHitTestVisible = false;
+            CropCanvas.Children.Add(line);
+        }
+        // How far the box may follow the gaze: a tint above and below it, inside a dashed outline.
+        foreach (var reach in _cropReach)
+        {
+            reach.Fill = new SolidColorBrush(Color.FromArgb(70, 77, 178, 255));
+            reach.IsHitTestVisible = false;
+            CropCanvas.Children.Add(reach);
+        }
+        _cropReachFrame.Stroke = new SolidColorBrush(Color.FromArgb(190, 77, 178, 255));
+        _cropReachFrame.IsHitTestVisible = false;
+        CropCanvas.Children.Add(_cropReachFrame);
+        foreach (var line in _cropStillZone)
+        {
+            line.Stroke = new SolidColorBrush(Color.FromArgb(200, 255, 190, 60));
+            line.StrokeThickness = 1.5;
+            line.StrokeDashArray = [5, 4];
             line.IsHitTestVisible = false;
             CropCanvas.Children.Add(line);
         }
@@ -81,6 +102,21 @@ public partial class MainWindow
         _controlSetters["crop_height"] = v => { _crop.Height = Settings.ParseDouble(v, 0.5); DrawCrop(); };
         _controlSetters["crop_width"] = v => { _crop.FreeWidth = Settings.ParseDouble(v, 1); DrawCrop(); };
 
+        // Gaze following: ordinary rows, folded away until wanted. The picture shows the still zone.
+        foreach (var def in Settings.All.Where(d => d.Key.StartsWith("crop_follow", StringComparison.Ordinal)))
+        {
+            var row = BuildRow(def);
+            row.Margin = new Thickness(0, 1, 14, 1); // a little air between the two columns
+            PanelCropFollow.Children.Add(row);
+            var setter = _controlSetters[def.Key];
+            _controlSetters[def.Key] = v =>
+            {
+                setter(v);
+                if (def.Key == "crop_follow") CropFollowExpander.IsExpanded = v == "vertical";
+                DrawCrop();
+            };
+        }
+
         CropEnabled.Click += (_, _) => { OnValueChanged("crop_enabled", CropEnabled.IsChecked == true ? "1" : "0"); DrawCrop(); };
         CropAspect.SelectionChanged += (_, _) =>
         {
@@ -94,10 +130,33 @@ public partial class MainWindow
         };
 
         CropCanvas.SizeChanged += (_, _) => DrawCrop();
+        CropFollowExpander.SizeChanged += (_, _) => PanelCropFollow.Columns = CropFollowExpander.ActualWidth >= 780 ? 2 : 1;
         CropCanvas.MouseLeftButtonDown += OnCropMouseDown;
         CropCanvas.MouseMove += OnCropMouseMove;
         CropCanvas.MouseLeftButtonUp += (_, _) => { _cropDrag = CropDrag.None; CropCanvas.ReleaseMouseCapture(); };
-        CropCanvas.MouseWheel += (_, e) => { _crop.Scale(e.Delta > 0 ? 1.04 : 1 / 1.04); CommitCrop(); e.Handled = true; };
+        CropCanvas.MouseWheel += (_, e) =>
+        {
+            // Only over the box itself, and only when it is not locked: scrolling past must not resize it.
+            if (CropLocked.IsChecked == true || !IsInsideCropBox(ToFraction(e.GetPosition(CropCanvas)))) return;
+            _crop.Scale(e.Delta > 0 ? 1.04 : 1 / 1.04);
+            CommitCrop();
+            e.Handled = true;
+        };
+
+        _loading = true;
+        CropLocked.IsChecked = _appSettings.CropLocked;
+        _loading = false;
+        void LockChanged()
+        {
+            CropCentreButton.IsEnabled = CropLargestButton.IsEnabled = CropAspect.IsEnabled = CropLocked.IsChecked != true;
+            if (_loading || !IsLoaded) return;
+            _appSettings.CropLocked = CropLocked.IsChecked == true;
+            _appSettings.Save();
+            DrawCrop();
+        }
+        CropLocked.Checked += (_, _) => LockChanged();
+        CropLocked.Unchecked += (_, _) => LockChanged();
+        LockChanged();
 
         LoadLastCropPicture();
         Tabs.SelectionChanged += async (_, e) =>
@@ -194,6 +253,10 @@ public partial class MainWindow
         _cropFullWidth = _cropFullHeight = 8192;
         _crop.ImageAspect = 1;
         CropStatus.Text = "(made-up picture for the screenshot)";
+        // Show the gaze-following parts too. Nothing here goes through OnValueChanged, so nothing is saved.
+        CropEnabled.IsChecked = true;
+        _values["crop_follow"] = "vertical";
+        CropFollowExpander.IsExpanded = true;
         DrawCrop();
     }
 
@@ -269,6 +332,28 @@ public partial class MainWindow
             (_cropThirds[i + 2].X1, _cropThirds[i + 2].Y1, _cropThirds[i + 2].X2, _cropThirds[i + 2].Y2) = (box.Left, y, box.Right, y);
         }
 
+        var locked = CropLocked.IsChecked == true;
+        foreach (var handle in _cropHandles) handle.Visibility = locked ? Visibility.Collapsed : Visibility.Visible;
+
+        // Gaze following: the tinted area is how far the box may travel, the two dashed lines bound the zone in which the
+        // gaze moves nothing.
+        var following = active && _values.GetValueOrDefault("crop_follow") == "vertical";
+        var reachShare = Math.Clamp(Settings.ParseDouble(_values.GetValueOrDefault("crop_follow_reach"), 1), 0, 10);
+        var reachTop = Math.Max(box.Top - reachShare * box.Height, _cropShown.Top);
+        var reachBottom = Math.Min(box.Bottom + reachShare * box.Height, _cropShown.Bottom);
+        Place(_cropReach[0], new Rect(box.Left, reachTop, box.Width, Math.Max(box.Top - reachTop, 0)));
+        Place(_cropReach[1], new Rect(box.Left, box.Bottom, box.Width, Math.Max(reachBottom - box.Bottom, 0)));
+        Place(_cropReachFrame, new Rect(box.Left, reachTop, box.Width, Math.Max(reachBottom - reachTop, 0)));
+        _cropReach[0].Visibility = _cropReach[1].Visibility = _cropReachFrame.Visibility =
+            following && reachShare > 0 ? Visibility.Visible : Visibility.Collapsed;
+        var zone = Math.Clamp(Settings.ParseDouble(_values.GetValueOrDefault("crop_follow_deadzone"), 0.4), 0, 0.9);
+        for (var i = 0; i < 2; i++)
+        {
+            var y = box.Top + box.Height * (i == 0 ? (1 - zone) / 2 : (1 + zone) / 2);
+            (_cropStillZone[i].X1, _cropStillZone[i].Y1, _cropStillZone[i].X2, _cropStillZone[i].Y2) = (box.Left, y, box.Right, y);
+            _cropStillZone[i].Visibility = following ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         // What OBS will get, in pixels - worked out the way the layer does (even sizes).
         if (_cropFullWidth > 0 && _cropFullHeight > 0)
         {
@@ -299,8 +384,15 @@ public partial class MainWindow
         Math.Clamp((canvasPoint.X - _cropShown.Left) / Math.Max(_cropShown.Width, 1), 0, 1),
         Math.Clamp((canvasPoint.Y - _cropShown.Top) / Math.Max(_cropShown.Height, 1), 0, 1));
 
+    private bool IsInsideCropBox(Point fraction)
+    {
+        var (left, top, width, height) = _crop.Rect();
+        return fraction.X >= left && fraction.X <= left + width && fraction.Y >= top && fraction.Y <= top + height;
+    }
+
     private void OnCropMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (CropLocked.IsChecked == true) return;
         var pointer = e.GetPosition(CropCanvas);
         var (left, top, width, height) = _crop.Rect();
         var corners = new[] { new Point(left, top), new Point(left + width, top), new Point(left, top + height), new Point(left + width, top + height) };
@@ -317,13 +409,8 @@ public partial class MainWindow
             return;
         }
 
-        // Inside the box: move it. Outside: bring the box there first, then move.
-        var inside = fraction.X >= left && fraction.X <= left + width && fraction.Y >= top && fraction.Y <= top + height;
-        if (!inside)
-        {
-            _crop.MoveTo(fraction.X, fraction.Y);
-            CommitCrop();
-        }
+        // Only a drag that starts inside the box moves it; a click anywhere else does nothing.
+        if (!IsInsideCropBox(fraction)) return;
         _cropDrag = CropDrag.Move;
         _cropAnchor = new Point(fraction.X - _crop.CenterX, fraction.Y - _crop.CenterY);
         CropCanvas.CaptureMouse();
@@ -335,9 +422,14 @@ public partial class MainWindow
         if (_cropDrag == CropDrag.None)
         {
             // Show what a click here would do.
+            if (CropLocked.IsChecked == true)
+            {
+                CropCanvas.Cursor = Cursors.Arrow;
+                return;
+            }
             var (left, top, width, height) = _crop.Rect();
             var corners = new[] { new Point(left, top), new Point(left + width, top), new Point(left, top + height), new Point(left + width, top + height) };
-            var cursor = Cursors.SizeAll;
+            var cursor = IsInsideCropBox(ToFraction(pointer)) ? Cursors.SizeAll : Cursors.Arrow;
             for (var i = 0; i < 4; i++)
             {
                 var corner = new Point(_cropShown.Left + corners[i].X * _cropShown.Width, _cropShown.Top + corners[i].Y * _cropShown.Height);
