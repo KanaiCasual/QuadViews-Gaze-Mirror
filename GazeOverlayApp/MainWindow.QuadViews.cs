@@ -84,7 +84,7 @@ public partial class MainWindow
             var button = new Button { Content = preset.Name, ToolTip = preset.Description, Margin = new Thickness(0, 0, 8, 8) };
             button.Click += (_, _) =>
             {
-                foreach (var (id, value) in preset.Values)
+                foreach (var (id, value) in preset.Values.Count > 0 ? preset.Values : QuadViewsLayerDefaults())
                 {
                     _quadViewsValues[id] = value;
                     _quadViewsDirty.Add(id);
@@ -109,6 +109,19 @@ public partial class MainWindow
             Tabs.Margin = showing ? new Thickness(10) : new Thickness(10, 10, 0, 10);
             if (showing && _quadViewsDirty.Count == 0) LoadQuadViews();
         };
+    }
+
+    /// <summary>Slider values for "QV defaults": the shipped settings file alone, as the layer reads it for this runtime.</summary>
+    private Dictionary<string, double> QuadViewsLayerDefaults()
+    {
+        var files = new List<(string, QuadViewsFile)>();
+        var shipped = _quadViewsSession?.ConfigPaths.FirstOrDefault(p => !string.Equals(p, _quadViewsPath, StringComparison.OrdinalIgnoreCase));
+        if (shipped != null && File.Exists(shipped))
+        {
+            try { files.Add(("the file shipped with the layer", QuadViewsFile.Load(shipped))); } catch { /* unreadable: the built-in values remain */ }
+        }
+        var defaults = QuadViewsFile.Evaluate(files, _quadViewsSession);
+        return QuadViewsSetting.All.Where(s => !s.IsToggle).ToDictionary(s => s.Id, s => s.ToSlider(defaults[s.Keys[0]]));
     }
 
     private void OnQuadViewsChanged(string id, double value)

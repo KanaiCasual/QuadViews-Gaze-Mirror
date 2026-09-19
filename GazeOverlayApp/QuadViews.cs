@@ -407,13 +407,24 @@ public sealed class QuadViewsSetting
         },
     ];
 
-    /// <summary>Slider/toggle values by Id. "QV defaults" are the layer's built-in values.</summary>
+    /// <summary>Slider values by Id. They never touch Turbo or the debug switches.</summary>
     public static readonly (string Name, string Description, Dictionary<string, double> Values)[] Presets =
     [
-        ("QV defaults", "Quad-Views-Foveated's own built-in values.", new()
+        // Read off QuadViews Companion 1.0.17. Its resolution presets are round multipliers (0.75, 0.2) that it shows as a
+        // share of the pixel count (56 %, 4 %), so they are given here unrounded to write the same multipliers.
+        ("Give me FPS", "The Companion's frame-rate preset: a small sharp region, low resolutions, strong sharpening.", new()
         {
-            ["focus_h"] = 35, ["focus_v"] = 35, ["offset_v"] = 0, ["focus_res"] = 100, ["peripheral_res"] = 25,
-            ["sharpen"] = 70, ["transition"] = 20,
+            ["focus_h"] = 30, ["focus_v"] = 30, ["offset_v"] = -10, ["focus_res"] = 56.25, ["peripheral_res"] = 4,
+            ["sharpen"] = 75, ["transition"] = 20,
         }),
+        ("TM's Favorite", "TallyMouse's own pick in the Companion: a supersampled sharp region with a very low-resolution surround.", new()
+        {
+            ["focus_h"] = 33, ["focus_v"] = 32, ["offset_v"] = -10, ["focus_res"] = 200, ["peripheral_res"] = 5,
+            ["sharpen"] = 80, ["transition"] = 30,
+        }),
+        // No values of its own: the window fills it with what the layer does when there is no user file at all - the file
+        // shipped with the layer, read for this PC's runtime. (The Companion's button reads that shipped file too, from
+        // mbucchia's original install folder - which is why it fails once this package has replaced that install.)
+        ("QV defaults", "What Quad-Views-Foveated does on this PC when you set nothing: its shipped settings file, read for your headset's runtime.", new()),
     ];
 }
