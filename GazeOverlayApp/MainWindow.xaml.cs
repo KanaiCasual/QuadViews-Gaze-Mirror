@@ -612,66 +612,177 @@ public partial class MainWindow : Window
         if (status.OrderCorrect == false)
         {
             AddStatusRow("Layer order",
-                "OBS Mirror is above Quad-Views-Foveated, so the ring cannot work. Uninstall and reinstall OpenXR Gaze Overlay, or move " +
-                "Quad-Views-Foveated above OBS Mirror with the \"OpenXR API Layers\" tool.", Colors.Firebrick);
+                "OBS Mirror is above Quad-Views-Foveated, so the ring cannot work. Use \"Fix order\" under the layer list below.", Colors.Firebrick);
         }
 
         BuildLayerRows(status.Layers);
     }
 
-    /// <summary>The small layers tool: what is registered, in load order, with an on/off tick box each.</summary>
+    // ---- the small layers tool: what is registered, in load order; on/off, move up/down, and an order check
+
+    /// <summary>An order the user has arranged but not applied yet (per list), so several moves cost one permission prompt.</summary>
+    private List<LayerEntry>? _pendingMachineOrder, _pendingUserOrder;
+
     private void BuildLayerRows(IReadOnlyList<LayerEntry> machineLayers)
     {
         LayerRows.Children.Clear();
         List<LayerEntry> userLayers;
         try { userLayers = LayerStatus.ReadLayers(perUser: true); } catch { userLayers = []; }
 
-        if (machineLayers.Count == 0 && userLayers.Count == 0)
+        // A pending order only survives while it still describes the same entries.
+        static List<LayerEntry>? StillValid(List<LayerEntry>? pending, IReadOnlyList<LayerEntry> actual) =>
+            pending != null && pending.Select(l => l.JsonPath).Order().SequenceEqual(actual.Select(l => l.JsonPath).Order())
+                ? [.. pending.Select(p => actual.First(a => a.JsonPath == p.JsonPath))] : null;
+        _pendingMachineOrder = StillValid(_pendingMachineOrder, machineLayers);
+        _pendingUserOrder = StillValid(_pendingUserOrder, userLayers);
+        var machine = _pendingMachineOrder ?? [.. machineLayers];
+        var user = _pendingUserOrder ?? userLayers;
+        var pending = _pendingMachineOrder != null || _pendingUserOrder != null;
+
+        if (machine.Count == 0 && user.Count == 0)
         {
             LayerRows.Children.Add(new TextBlock { Text = "No OpenXR API layers are registered.", Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 6, 0, 6) });
         }
+
         var position = 1;
-        foreach (var layer in machineLayers.Concat(userLayers))
+        foreach (var group in new[] { machine, user })
         {
-            var ours = layer.LayerName is LayerStatus.QuadViewsLayer or LayerStatus.ObsMirrorLayer;
-            var box = new CheckBox { IsChecked = layer.Enabled, VerticalAlignment = VerticalAlignment.Top, MinWidth = 0, Margin = new Thickness(0, 0, 4, 0) };
-            var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold, Opacity = layer.Enabled ? 1 : 0.55 };
-            title.Inlines.Add($"{position++}. {layer.LayerName ?? "(manifest missing or unreadable)"}");
-            if (layer.PerUser) title.Inlines.Add(new System.Windows.Documents.Run("   this user only") { FontWeight = FontWeights.Normal, Foreground = (Brush)FindResource("Muted") });
-            if (!layer.Enabled) title.Inlines.Add(new System.Windows.Documents.Run("   off") { FontWeight = FontWeights.Normal, Foreground = new SolidColorBrush(Colors.Orange) });
-            var path = new TextBlock { Text = layer.JsonPath, Style = (Style)FindResource("Hint"), FontSize = 11.5 };
-
-            var text = new StackPanel { Margin = new Thickness(0, 5, 0, 0) };
-            text.Children.Add(title);
-            text.Children.Add(path);
-            var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
-            DockPanel.SetDock(box, Dock.Left);
-            row.Children.Add(box);
-            row.Children.Add(text);
-            LayerRows.Children.Add(row);
-
-            box.Click += async (_, _) =>
+            for (var i = 0; i < group.Count; i++)
             {
-                var enable = box.IsChecked == true;
-                box.IsEnabled = false;
-                try
-                {
-                    var changed = await LayerStatus.SetEnabledAsync(layer, enable);
-                    LayerNote.Text = !changed ? "Nothing was changed (the Windows permission prompt was declined)."
-                        : $"{layer.LayerName ?? "The layer"} is now {(enable ? "on" : "off")}. Games pick that up the next time they start." +
-                          (ours && !enable ? " The gaze ring needs both of its layers on." : "");
-                }
-                catch (Exception error)
-                {
-                    LayerNote.Text = "Could not change the layer: " + error.Message;
-                }
-                RefreshStatus(); // Rebuilds the rows from what the registry really says now.
-            };
+                LayerRows.Children.Add(BuildLayerRow(group, i, position++, pending));
+            }
         }
-        if (LayerNote.Text.Length == 0)
+
+        // ---- order check, on the order as shown (so it clears up while arranging)
+        var shown = machine.Concat(user).ToList();
+        var problems = LayerOrder.Problems(shown);
+        LayerProblems.Text = problems.Count == 0 ? "" : "Order problem" + (problems.Count > 1 ? "s" : "") + ":\n  - " + string.Join("\n  - ", problems);
+        LayerProblems.Visibility = problems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+        var suggestion = problems.Count > 0 ? LayerOrder.Suggest(machine) : null;
+        var fixable = suggestion != null && LayerOrder.Problems([.. suggestion, .. user]).Count == 0;
+        LayerFix.Visibility = problems.Count > 0 && !pending ? Visibility.Visible : Visibility.Collapsed;
+        LayerFix.IsEnabled = fixable;
+        LayerFix.ToolTip = fixable ? "Arrange the PC-wide layers so that every known rule holds, moving as few as possible"
+            : "No automatic fix: the rules involve a layer registered for this user only, or contradict each other. Arrange them by hand.";
+        LayerApply.Visibility = LayerCancel.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
+
+        if (pending) LayerNote.Text = "Order changed but not applied yet. Apply asks Windows for permission once.";
+        else if (LayerNote.Text.StartsWith("Order changed", StringComparison.Ordinal) || LayerNote.Text.Length == 0)
         {
-            LayerNote.Text = "To reorder, add or remove layers, use fredemmott's \"OpenXR API Layers\" tool; this list only switches them on and off.";
+            LayerNote.Text = problems.Count == 0 && shown.Count > 1 ? "The order satisfies every rule this app knows about." : "";
         }
+    }
+
+    private FrameworkElement BuildLayerRow(List<LayerEntry> group, int index, int position, bool pending)
+    {
+        var layer = group[index];
+        var ours = layer.LayerName is LayerStatus.QuadViewsLayer or LayerStatus.ObsMirrorLayer;
+        var box = new CheckBox
+        {
+            IsChecked = layer.Enabled, VerticalAlignment = VerticalAlignment.Top, MinWidth = 0, Margin = new Thickness(0, 0, 4, 0),
+            IsEnabled = !pending, ToolTip = pending ? "Apply or cancel the new order first" : "Switch this layer on or off",
+        };
+        ToolTipService.SetShowOnDisabled(box, true);
+
+        var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold, Opacity = layer.Enabled ? 1 : 0.55 };
+        title.Inlines.Add($"{position}. {layer.LayerName ?? "(manifest missing or unreadable)"}");
+        if (layer.PerUser) title.Inlines.Add(new System.Windows.Documents.Run("   this user only") { FontWeight = FontWeights.Normal, Foreground = (Brush)FindResource("Muted") });
+        if (!layer.Enabled) title.Inlines.Add(new System.Windows.Documents.Run("   off") { FontWeight = FontWeights.Normal, Foreground = new SolidColorBrush(Colors.Orange) });
+        var text = new StackPanel { Margin = new Thickness(0, 5, 0, 0) };
+        text.Children.Add(title);
+        text.Children.Add(new TextBlock { Text = layer.JsonPath, Style = (Style)FindResource("Hint"), FontSize = 11.5 });
+
+        Button Arrow(string glyph, string tip, int offset)
+        {
+            var target = index + offset;
+            var button = new Button
+            {
+                Content = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 11 },
+                Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                IsEnabled = target >= 0 && target < group.Count, ToolTip = tip,
+            };
+            button.Click += (_, _) =>
+            {
+                var order = group.ToList();
+                (order[index], order[target]) = (order[target], order[index]);
+                if (layer.PerUser) _pendingUserOrder = order; else _pendingMachineOrder = order;
+                RefreshStatus();
+            };
+            return button;
+        }
+
+        var arrows = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        arrows.Children.Add(Arrow("\uE70E", "Move up: closer to the game", -1));
+        arrows.Children.Add(Arrow("\uE70D", "Move down: closer to the headset runtime", +1));
+
+        var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+        DockPanel.SetDock(box, Dock.Left);
+        DockPanel.SetDock(arrows, Dock.Right);
+        row.Children.Add(box);
+        row.Children.Add(arrows);
+        row.Children.Add(text);
+
+        box.Click += async (_, _) =>
+        {
+            var enable = box.IsChecked == true;
+            box.IsEnabled = false;
+            try
+            {
+                var changed = await LayerStatus.SetEnabledAsync(layer, enable);
+                LayerNote.Text = !changed ? "Nothing was changed (the Windows permission prompt was declined)."
+                    : $"{LayerOrder.Short(layer)} is now {(enable ? "on" : "off")}. Games pick that up the next time they start." +
+                      (ours && !enable ? " The gaze ring needs both of its layers on." : "");
+            }
+            catch (Exception error)
+            {
+                LayerNote.Text = "Could not change the layer: " + error.Message;
+            }
+            RefreshStatus(); // Rebuilds the rows from what the registry really says now.
+        };
+        return row;
+    }
+
+    private async void OnLayerApplyOrder(object sender, RoutedEventArgs e)
+    {
+        LayerApply.IsEnabled = LayerCancel.IsEnabled = false;
+        try
+        {
+            var done = true;
+            if (_pendingUserOrder != null) done &= await LayerOrder.ApplyAsync(perUser: true, _pendingUserOrder);
+            if (done && _pendingMachineOrder != null) done &= await LayerOrder.ApplyAsync(perUser: false, _pendingMachineOrder);
+            if (done)
+            {
+                _pendingMachineOrder = _pendingUserOrder = null;
+                LayerNote.Text = "New order applied. Games use it the next time they start. (The previous order was saved as a .reg file next to this app's preferences.)";
+            }
+            else
+            {
+                LayerNote.Text = "Nothing was changed (the Windows permission prompt was declined). The new order is still waiting.";
+            }
+        }
+        catch (Exception error)
+        {
+            _pendingMachineOrder = _pendingUserOrder = null;
+            LayerNote.Text = "Could not change the order: " + error.Message;
+        }
+        LayerApply.IsEnabled = LayerCancel.IsEnabled = true;
+        var note = LayerNote.Text;
+        RefreshStatus();
+        LayerNote.Text = note;
+    }
+
+    private void OnLayerCancelOrder(object sender, RoutedEventArgs e)
+    {
+        _pendingMachineOrder = _pendingUserOrder = null;
+        LayerNote.Text = "";
+        RefreshStatus();
+    }
+
+    private void OnLayerFixOrder(object sender, RoutedEventArgs e)
+    {
+        if (LayerOrder.Suggest(LayerStatus.ReadLayers()) is { } suggestion) _pendingMachineOrder = suggestion;
+        RefreshStatus();
     }
 
     private static Color HealthColor(LayerHealth health) => health switch

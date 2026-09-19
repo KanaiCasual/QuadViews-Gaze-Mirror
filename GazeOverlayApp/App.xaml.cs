@@ -73,6 +73,86 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// The layers tool: the order rules on made-up lists, and the reordering mechanism itself - a .reg file imported by
+    /// reg.exe - on a scratch key of this app's own under HKCU (no elevation, nothing of OpenXR's is touched).
+    /// </summary>
+    private static bool SelfTestLayerOrder(string outputDir, StreamWriter report)
+    {
+        LayerEntry Layer(string name, params string[] extensions) => new($@"C:\Layers\{name}.json", true, name, null) { Extensions = extensions };
+        var mirror = Layer(LayerStatus.ObsMirrorLayer);
+        var toolkit = Layer("XR_APILAYER_MBUCCHIA_toolkit");
+        var quadViews = Layer(LayerStatus.QuadViewsLayer, "XR_VARJO_quad_views", "XR_VARJO_foveated_rendering");
+        var eyeTracking = Layer("XR_APILAYER_EXAMPLE_eye_tracker", "XR_EXT_eye_gaze_interaction");
+        var unknown = Layer("XR_APILAYER_EXAMPLE_unknown");
+
+        var bad = new List<LayerEntry> { mirror, unknown, eyeTracking, toolkit, quadViews };
+        var problems = LayerOrder.Problems(bad);
+        var suggested = LayerOrder.Suggest(bad);
+        var good = new List<LayerEntry> { quadViews, toolkit, mirror };
+        var mirrorOff = new List<LayerEntry> { mirror with { Enabled = false }, quadViews };
+
+        // The mechanism: values are re-created in the wanted order by one import.
+        const string scratch = @"Software\OpenXRGazeOverlay\SelfTestLayerOrder";
+        var names = new[] { @"C:\Program Files\A\a.json", @"C:\B ""quoted""\b.json", @"C:\C\c.json" };
+        var wanted = new[] { names[2], names[0], names[1] };
+        List<string> after = [];
+        string mechanism;
+        var observable = true;
+        try
+        {
+            // Control first: does deleting values and creating them again reorder them in THIS registry view? In the real
+            // registry it does (a new value goes to the end of the list). A process started from inside a packaged (MSIX)
+            // app sees a virtualised view in which a re-created value returns to its old place, so nothing can be observed.
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(scratch, throwOnMissingSubKey: false);
+            using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(scratch))
+            {
+                foreach (var name in names) key.SetValue(name, 0, Microsoft.Win32.RegistryValueKind.DWord);
+                foreach (var name in names) key.DeleteValue(name);
+                foreach (var name in wanted) key.SetValue(name, 0, Microsoft.Win32.RegistryValueKind.DWord);
+                observable = key.GetValueNames().SequenceEqual(wanted);
+            }
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(scratch, throwOnMissingSubKey: false);
+            using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(scratch))
+            {
+                for (var i = 0; i < names.Length; i++) key.SetValue(names[i], i % 2, Microsoft.Win32.RegistryValueKind.DWord);
+            }
+            var regPath = Path.Combine(outputDir, "layer-order-test.reg");
+            File.WriteAllText(regPath, LayerOrder.RegFile(perUser: true, [.. wanted.Select(n => (n, Array.IndexOf(names, n) % 2))], scratch), System.Text.Encoding.Unicode);
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                Path.Combine(Environment.SystemDirectory, "reg.exe"), $"import \"{regPath}\"") { UseShellExecute = false, CreateNoWindow = true })!;
+            process.WaitForExit();
+            using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(scratch)!)
+            {
+                after = [.. key.GetValueNames()];
+                mechanism = after.SequenceEqual(wanted) && after.All(n => (int)key.GetValue(n)! == Array.IndexOf(names, n) % 2) ? "ok" : "order or data wrong";
+            }
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(scratch, throwOnMissingSubKey: false);
+        }
+        catch (Exception e)
+        {
+            mechanism = e.Message;
+        }
+
+        var checks = new (string Name, bool Ok)[]
+        {
+            ("a bad order is reported (mirror under quad views and under the overlay layer, toolkit under quad views, quad views and toolkit above the eye tracker)",
+                problems.Count == 5 && problems.Any(p => p.StartsWith("MBUCCHIA_quad_views_foveated must be above NOVENDOR_OBSMirror")) &&
+                problems.Any(p => p.StartsWith("MBUCCHIA_quad_views_foveated must be above EXAMPLE_eye_tracker"))),
+            ("the suggested order satisfies every rule and leaves unrelated layers where they were",
+                suggested != null && LayerOrder.Problems(suggested).Count == 0 && suggested.IndexOf(unknown) < suggested.IndexOf(eyeTracking)),
+            ("a good order has no problems", LayerOrder.Problems(good).Count == 0),
+            ("a layer that is switched off is not complained about", LayerOrder.Problems(mirrorOff).Count == 0),
+            (observable ? "reg.exe import re-creates the values in the wanted order, names with spaces and quotes included (" + mechanism + ")"
+                        : "reordering by reg.exe import: NOT TESTABLE HERE - this registry view is virtualised and always sorted; run the selftest from a normal terminal",
+                !observable || mechanism == "ok"),
+        };
+        foreach (var (name, ok) in checks) report.WriteLine($"layer order - {(ok ? "ok  " : "FAIL")} {name}");
+        if (problems.Count != 5) foreach (var p in problems) report.WriteLine("    reported: " + p);
+        if (observable && mechanism != "ok") report.WriteLine("    after import: " + string.Join(" | ", after));
+        return checks.All(c => c.Ok);
+    }
+
+    /// <summary>
     /// Quad Views tab logic against a canned copy of a real case: a Pimax driven through SteamVR, with a settings file
     /// written by the QuadViews Companion (focus size only under headset sections that SteamVR does not match).
     /// </summary>
@@ -243,6 +323,7 @@ public partial class App : Application
             }
 
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
+            quadViewsOk &= SelfTestLayerOrder(outputDir, report);
 
             // The user's own preset slots survive a trip through app.json's format (exact numbers, empty slots stay empty).
             var withSlot = new AppSettings();

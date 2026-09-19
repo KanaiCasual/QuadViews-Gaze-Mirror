@@ -8,7 +8,11 @@ namespace GazeOverlay;
 public enum LayerHealth { NotActive, GazeBuild, OriginalWithoutGaze, Duplicate }
 
 /// <param name="PerUser">Registered for this Windows user only (HKCU) rather than for the whole PC (HKLM).</param>
-public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName, string? DllPath, bool PerUser = false);
+public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName, string? DllPath, bool PerUser = false)
+{
+    /// <summary>The OpenXR extensions the layer's manifest says it provides - what ordering rules such as "above whatever provides eye tracking" go by.</summary>
+    public IReadOnlyList<string> Extensions { get; init; } = [];
+}
 
 public sealed record LayerReport(LayerHealth Health, string Detail);
 
@@ -43,11 +47,19 @@ public static class LayerStatus
         {
             var enabled = key.GetValue(name) is int flag && flag == 0;
             string? layerName = null, dllPath = null;
+            var extensions = new List<string>();
             try
             {
                 using var doc = JsonDocument.Parse(File.ReadAllText(name));
                 var layer = doc.RootElement.GetProperty("api_layer");
                 layerName = layer.GetProperty("name").GetString();
+                if (layer.TryGetProperty("instance_extensions", out var listed) && listed.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var extension in listed.EnumerateArray())
+                    {
+                        if (extension.TryGetProperty("name", out var extensionName) && extensionName.GetString() is { } text) extensions.Add(text);
+                    }
+                }
                 var library = layer.GetProperty("library_path").GetString();
                 if (library != null) dllPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(name)!, library));
             }
@@ -55,7 +67,7 @@ public static class LayerStatus
             {
                 // Missing or unreadable manifest: still list it so the order is visible.
             }
-            layers.Add(new LayerEntry(name, enabled, layerName, dllPath, perUser));
+            layers.Add(new LayerEntry(name, enabled, layerName, dllPath, perUser) { Extensions = extensions });
         }
         return layers;
     }

@@ -53,11 +53,17 @@
 
                         <TextBlock Style="{StaticResource SectionTitle}" Text="OpenXR API layers" Margin="0,14,0,2" />
                         <TextBlock x:Name="LayerHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
-                                   Text="In the order games load them - top is closest to the game. Untick a layer to switch it off (Windows asks for permission)." />
+                                   Text="In the order games load them - top is closest to the game. Tick boxes switch a layer on or off, the arrows reorder (Windows asks for permission)." />
                         <Border BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="10,2">
                             <StackPanel x:Name="LayerRows" />
                         </Border>
-                        <TextBlock x:Name="LayerNote" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" />
+                        <TextBlock x:Name="LayerProblems" Foreground="Orange" TextWrapping="Wrap" FontSize="12" Margin="0,6,0,0" Visibility="Collapsed" />
+                        <WrapPanel Margin="0,6,0,0">
+                            <Button x:Name="LayerFix" Content="Fix order" FontWeight="SemiBold" Margin="0,0,6,0" Visibility="Collapsed" Click="OnLayerFixOrder" />
+                            <Button x:Name="LayerApply" Content="Apply order" FontWeight="SemiBold" Margin="0,0,6,0" Visibility="Collapsed" Click="OnLayerApplyOrder" />
+                            <Button x:Name="LayerCancel" Content="Cancel" Visibility="Collapsed" Click="OnLayerCancelOrder" />
+                        </WrapPanel>
+                        <TextBlock x:Name="LayerNote" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" />
 
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,12,0,0"
                                    Text="In OBS: add an &quot;OpenXR Mirror Capture&quot; source and pick the eye to record. The ring follows that eye and only appears while a game runs with eye tracking active." />
