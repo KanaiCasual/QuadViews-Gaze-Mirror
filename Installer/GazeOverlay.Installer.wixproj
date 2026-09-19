@@ -4,9 +4,11 @@
     <OutputName>QuadViews-Gaze-Mirror</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <!-- Set by Build-Installer.ps1; the defaults let the project build on its own too. -->
-    <ProductVersion Condition="'$(ProductVersion)' == ''">1.1.2</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.1.0</ProductVersion>
     <PayloadDir Condition="'$(PayloadDir)' == ''">$(MSBuildProjectDirectory)\..\GazeOverlayApp\Payload</PayloadDir>
     <AppDir Condition="'$(AppDir)' == ''">$(MSBuildProjectDirectory)\..\dist\app</AppDir>
+    <!-- ICE61 objects to AllowSameVersionUpgrades, which is deliberate (see Package.wxs). -->
+    <SuppressIces>ICE61</SuppressIces>
     <DefineConstants>ProductVersion=$(ProductVersion);PayloadDir=$(PayloadDir);AppDir=$(AppDir)</DefineConstants>
   </PropertyGroup>
 

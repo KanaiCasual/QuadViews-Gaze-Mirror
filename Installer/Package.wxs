@@ -13,7 +13,12 @@
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
 
     <SummaryInformation Description="Foveated rendering (quad views) plus an OBS mirror that shows where you look. Unofficial combined fork of Quad-Views-Foveated and OpenXR-Layer-OBSMirror." />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <!--
+      AllowSameVersionUpgrades: test builds made between releases keep the number of the release they lead up to, and
+      each one has to install over the previous one. (Windows Installer otherwise treats an equal version as "not an
+      upgrade" and would install a second copy next to the first.) Released versions still always go up.
+    -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <!--
