@@ -2,13 +2,13 @@
 # Prerequisites: both layers already built (Build-Layers.ps1), the .NET 10 SDK, and internet access the first time (the
 # WiX toolset comes from nuget.org as part of the build).
 #
-#   .\Build-Installer.ps1 -Version 0.5.0                 a normal release
+#   .\Build-Installer.ps1 -Version 0.5.1                 a normal release
 #   .\Build-Installer.ps1 -Version 0.4.1 -Label beta.1   a beta: the app calls itself 0.4.1-beta.1, the MSI is 0.4.1
 #
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '0.5.0',
+    [string]$Version = '0.5.1',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
     [string]$GitHubRepository = 'KanaiCasual/OpenXR-Gaze-Overlay'

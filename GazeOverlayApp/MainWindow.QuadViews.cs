@@ -109,6 +109,11 @@ public partial class MainWindow
             Tabs.Margin = showing ? new Thickness(10) : new Thickness(10, 10, 0, 10);
             if (showing && _quadViewsDirty.Count == 0) LoadQuadViews();
         };
+        // Coming back from the game (or the Companion) with this tab open: show the new game start, again without a timer.
+        Activated += (_, _) =>
+        {
+            if (ReferenceEquals(Tabs.SelectedItem, QuadViewsTab) && _quadViewsDirty.Count == 0) LoadQuadViews(keepStatus: true);
+        };
     }
 
     /// <summary>Slider values for "QV defaults": the shipped settings file alone, as the layer reads it for this runtime.</summary>
@@ -132,7 +137,7 @@ public partial class MainWindow
         RefreshQuadViewsReadout();
     }
 
-    private void LoadQuadViews()
+    private void LoadQuadViews(bool keepStatus = false)
     {
         _quadViewsSession = QuadViewsSession.Read(QuadViewsSession.LogPath);
         _quadViewsFile = QuadViewsFile.Load(_quadViewsPath);
@@ -153,7 +158,7 @@ public partial class MainWindow
         }
         _quadViewsLoading = false;
 
-        QuadViewsStatus.Text = _quadViewsFile.Existed
+        if (!keepStatus) QuadViewsStatus.Text = _quadViewsFile.Existed
             ? "Loaded " + _quadViewsPath
             : "There is no settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.";
         RefreshQuadViewsReadout();
