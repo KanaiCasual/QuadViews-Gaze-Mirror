@@ -90,8 +90,8 @@
                     <TextBlock x:Name="CropReadout" DockPanel.Dock="Top" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock x:Name="CropStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,6" />
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0"
-                               Text="Drag to move; drag a corner or use the mouse wheel to resize. In OBS: set the source's own crop values to 0 and give it a bounding box, so it keeps fitting when the box changes size."
-                               ToolTip="Bounding box: right-click the source in OBS > Transform > Edit Transform > Bounding Box Type > Scale to inner bounds, sized to your canvas. The gaze ring and the calibration are not affected by the crop: they are drawn on the whole image first." />
+                               Text="Drag to move; drag a corner or use the mouse wheel to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform > Fit to screen) once - after that it keeps fitting when the box changes size."
+                               ToolTip="Fit to screen gives the source a bounding box the size of your canvas (in Edit Transform: Bounds = Scale to inner bounds). The gaze ring and the calibration are not affected by the crop: they are drawn on the whole image first." />
                     <Border Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
                         <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
                     </Border>
