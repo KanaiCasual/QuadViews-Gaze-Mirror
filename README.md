@@ -12,7 +12,8 @@ and the OpenXR API layer list (on/off, order, order check).
 > [OpenXR-Layer-OBSMirror](https://github.com/Jabbah/OpenXR-Layer-OBSMirror) by Jabbah. They did not build, test or
 > endorse it. Please do not ask them for support with it.
 
-**Status: pre-release, not published yet.**
+**Status: version 1.0.0 - first release.** Get the installer (`QuadViews-Gaze-Mirror-<version>.msi`) from the
+repository's Releases page.
 
 ## How it works
 
@@ -77,7 +78,7 @@ The app checks this repository's GitHub releases when it opens and shows a banne
 to the release page; it never downloads or installs anything. Betas are GitHub *pre-releases* and are only announced to
 people who ticked "Also tell me about beta versions".
 
-**Every release - beta or not - must have its own `x.y.z` number** (tag `v0.4.0`, `v0.4.1-beta`, ...). Windows Installer
+**Every release - beta or not - must have its own `x.y.z` number** (tag `v1.0.0`, `v1.0.1-beta`, ...). Windows Installer
 only upgrades to a higher number, and the update check compares the numbers, so a beta and its final release cannot share
 one.
 
