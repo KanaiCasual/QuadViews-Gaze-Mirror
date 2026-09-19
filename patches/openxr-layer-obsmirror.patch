@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..43d85dd 100644
+index 2df1e64..308fc51 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -405,7 +405,7 @@ index 2df1e64..43d85dd 100644
              Log("Compositor texture description: %d x %d Format %d\n",
                  _comp_desc.Width,
                  _comp_desc.Height,
-@@ -1149,12 +1442,1204 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,12 +1442,1212 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -1559,6 +1559,14 @@ index 2df1e64..43d85dd 100644
 +            return;
 +        }
 +
++        // The quad's texture coordinates are rewritten by every draw that uses it (the gaze overlay leaves them at the
++        // small box around the ring): put them back to the whole image, or the picture is a zoomed-in part of it.
++        if (FAILED(_d3d11MirrorContext->Map(_quadVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &_mappedQuadVertexBuffer))) {
++            return;
++        }
++        memcpy(_mappedQuadVertexBuffer.pData, quad_verts, sizeof(quad_verts));
++        _d3d11MirrorContext->Unmap(_quadVertexBuffer.Get(), 0);
++
 +        // Same quad, vertex shader and input layout as every other draw here (set once at start-up); everything set
 +        // below is set again by those draws themselves before they use it.
 +        _d3d11MirrorContext->OMSetRenderTargets(1, _snapshotView.GetAddressOf(), nullptr);
@@ -1611,7 +1619,7 @@ index 2df1e64..43d85dd 100644
      }
  
      void D3D11Mirror::checkOBSRunning() {
-@@ -1203,4 +2688,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1203,4 +2696,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }

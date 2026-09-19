@@ -105,6 +105,11 @@ public partial class MainWindow
             // Opening the tab asks the running game for a fresh picture once - an event, not a timer.
             if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, CropTab)) await RefreshCropPictureAsync(quietWhenNoGame: true);
         };
+        // Coming back to the app with this tab open (from the game, from OBS): a fresh picture too. Still an event.
+        Activated += async (_, _) =>
+        {
+            if (ReferenceEquals(Tabs.SelectedItem, CropTab) && CropRefresh.IsEnabled) await RefreshCropPictureAsync(quietWhenNoGame: true);
+        };
     }
 
     private void LoadLastCropPicture()
