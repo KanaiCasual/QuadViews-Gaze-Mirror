@@ -46,7 +46,7 @@ foreach ($r in $actions) { '  {0,-34} type={1,-5} source={2} target={3}' -f $r[0
 '--- Files'
 $files = Invoke-MsiQuery 'SELECT `FileName` FROM `File`' 1
 $names = $files | ForEach-Object { ($_[0] -split '\|')[-1] }
-"  $($files.Count) files. Key ones: " + (($names | Where-Object { $_ -match 'quad_views_foveated\.dll|OBSMirror\.(dll|json)|openxr-api-layer\.json|win-openxr\.dll|^GazeOverlay\.(exe|dll)$' }) -join ', ')
+"  $($files.Count) files. Key ones: " + (($names | Where-Object { $_ -match 'quad_views_foveated\.dll|OBSMirror\.(dll|json)|openxr-api-layer\.json|win-openxr\.dll|^QuadViewsGazeMirror\.(exe|dll)$' }) -join ', ')
 '--- Shortcuts'
 foreach ($r in (Invoke-MsiQuery 'SELECT `Name`, `Target` FROM `Shortcut`' 2)) { '  {0} -> {1}' -f $r[0], $r[1] }
 '--- Properties'

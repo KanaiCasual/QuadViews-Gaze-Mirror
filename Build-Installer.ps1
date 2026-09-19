@@ -1,17 +1,17 @@
-# Builds dist\OpenXR-Gaze-Overlay-<version>.msi: both OpenXR layers, the OBS plugin and the settings app.
+# Builds dist\QuadViews-Gaze-Mirror-<version>.msi: both OpenXR layers, the OBS plugin and the settings app.
 # Prerequisites: both layers already built (Build-Layers.ps1), the .NET 10 SDK, and internet access the first time (the
 # WiX toolset comes from nuget.org as part of the build).
 #
-#   .\Build-Installer.ps1 -Version 0.9.0                 a normal release
+#   .\Build-Installer.ps1 -Version 0.10.0                a normal release
 #   .\Build-Installer.ps1 -Version 0.4.1 -Label beta.1   a beta: the app calls itself 0.4.1-beta.1, the MSI is 0.4.1
 #
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '0.9.0',
+    [string]$Version = '0.10.0',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
-    [string]$GitHubRepository = 'KanaiCasual/OpenXR-Gaze-Overlay'
+    [string]$GitHubRepository = 'KanaiCasual/QuadViews-Gaze-Mirror'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,8 +36,8 @@ dotnet build (Join-Path $root 'Installer\GazeOverlay.Installer.wixproj') -c Rele
     "-p:ProductVersion=$Version" "-p:PayloadDir=$payload" "-p:AppDir=$appOut"
 if ($LASTEXITCODE -ne 0) { throw "Building the MSI failed." }
 
-$msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'OpenXR-Gaze-Overlay.msi' |
+$msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'QuadViews-Gaze-Mirror.msi' |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
-$target = Join-Path $dist "OpenXR-Gaze-Overlay-$appVersion.msi"
+$target = Join-Path $dist "QuadViews-Gaze-Mirror-$appVersion.msi"
 Copy-Item $msi.FullName $target -Force
 '{0}  ({1:N1} MB)' -f $target, ((Get-Item $target).Length / 1MB)

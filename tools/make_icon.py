@@ -1,4 +1,4 @@
-# Draws the OpenXR Gaze Overlay logo from code (no image libraries needed) and writes:
+# Draws the QuadViews Gaze Mirror logo from code (no image libraries needed) and writes:
 #   <out_dir>\icon.ico         multi-size Windows icon (16..128 as 32-bit bitmaps, 256 as PNG)
 #   <out_dir>\logo-256.png     the 256 px version
 #   <out_dir>\logo-concepts.png  three concepts side by side, to choose from

@@ -38,7 +38,7 @@ public partial class MainWindow : Window
         BuildQuadViewsUi();
         LoadQuadViews();
         AboutText.Text =
-            "OpenXR Gaze Overlay - unofficial community build.\n\n" +
+            "QuadViews Gaze Mirror - unofficial combined fork: foveated rendering (quad views) plus an OBS mirror that shows where you look.\n\n" +
             "It is made of two modified OpenXR API layers:\n" +
             "  - Quad-Views-Foveated by Matthieu Bucchianeri (MIT licence). Change: it also publishes where your eyes are looking.\n" +
             "  - OpenXR-Layer-OBSMirror by Jabbah (MIT licence). Changes: it draws the gaze indicator on the mirror image, and fixes a texture leak.\n" +

@@ -6,13 +6,13 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>GazeOverlay</AssemblyName>
+    <AssemblyName>QuadViewsGazeMirror</AssemblyName>
     <RootNamespace>GazeOverlay</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-    <Version>0.9.0</Version>
-    <Product>OpenXR Gaze Overlay</Product>
-    <Description>Settings for the eye-gaze overlay drawn on the OBS mirror. Installing is done by the MSI, not by this app.</Description>
+    <Version>0.10.0</Version>
+    <Product>QuadViews Gaze Mirror</Product>
+    <Description>Settings for quad views foveated rendering, the OBS mirror and its eye-gaze ring. Installing is done by the MSI, not by this app.</Description>
 
     <!-- Self-contained so no .NET install is needed, but as a plain folder of files that the MSI installs. Deliberately NOT
          a single-file/compressed exe and with nothing embedded: a self-extracting exe that carried the layer DLLs and

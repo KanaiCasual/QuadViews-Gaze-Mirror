@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <!--
-    OpenXR Gaze Overlay: both modified OpenXR API layers, the (unmodified) OBS plugin, and the settings app.
+    QuadViews Gaze Mirror (called "OpenXR Gaze Overlay" up to 0.9.0): both modified OpenXR API layers, the (unmodified) OBS plugin, and the settings app.
 
     Everything here is declarative - files and registry values that Windows Installer (msiexec) puts in place and removes
     again. There are no custom actions and no code of ours runs during setup. That is deliberate: an exe that installed
@@ -9,13 +9,18 @@
     For the same reason this package never edits another product's registry entries: if the original layers are
     installed, it stops and asks the user to remove them first.
   -->
-  <Package Name="OpenXR Gaze Overlay" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
+  <Package Name="QuadViews Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
 
-    <SummaryInformation Description="Eye-gaze ring for VR streams, drawn on the OBS mirror only. Unofficial modified builds of Quad-Views-Foveated and OpenXR-Layer-OBSMirror." />
+    <SummaryInformation Description="Foveated rendering (quad views) plus an OBS mirror that shows where you look. Unofficial combined fork of Quad-Views-Foveated and OpenXR-Layer-OBSMirror." />
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
+    <!--
+      Renamed from "OpenXR Gaze Overlay" in 0.10.0. The UpgradeCode is the same, so this replaces the old product. The
+      registry keys below keep the old identifier (OpenXRGazeOverlay) on purpose: nobody sees them, and the remembered
+      desktop-shortcut choice carries over without any migration.
+    -->
     <!-- Shown in Windows' installed-apps list and on the Start menu shortcut. -->
     <Icon Id="AppIcon.ico" SourceFile="..\GazeOverlayApp\Assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
@@ -55,7 +60,7 @@
     </Property>
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="OpenXR-Gaze-Overlay">
+      <Directory Id="INSTALLFOLDER" Name="QuadViews-Gaze-Mirror">
         <Directory Id="QuadViewsDir" Name="QuadViewsFoveated" />
         <Directory Id="ObsMirrorDir" Name="OBSMirror" />
       </Directory>
@@ -75,7 +80,7 @@
       </Directory>
     </Directory>
 
-    <Feature Id="Main" Title="OpenXR Gaze Overlay" Level="1">
+    <Feature Id="Main" Title="QuadViews Gaze Mirror" Level="1">
       <ComponentGroupRef Id="QuadViewsFiles" />
       <ComponentGroupRef Id="ObsMirrorFiles" />
       <ComponentRef Id="LayerRegistration" />
@@ -90,7 +95,7 @@
     <UIRef Id="GazeOverlayUI" />
     <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;OpenXR Gaze Overlay&quot; from the Start menu to set up the ring. In OBS, add an &quot;OpenXR Mirror Capture&quot; source to your scene. Running this installer again offers Repair and Uninstall." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;QuadViews Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add an &quot;OpenXR Mirror Capture&quot; source to your scene. Running this installer again offers Repair and Uninstall." />
   </Package>
 
   <Fragment>
@@ -148,16 +153,16 @@
 
     <StandardDirectory Id="ProgramMenuFolder">
       <Component Id="StartMenuShortcut" Guid="4E1B7C36-0A92-4D8F-B5E7-9F3A6C2D1B48">
-        <Shortcut Id="SettingsShortcut" Name="OpenXR Gaze Overlay" Description="Settings for the eye-gaze ring on your OBS mirror"
-                  Target="[INSTALLFOLDER]GazeOverlay.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+        <Shortcut Id="SettingsShortcut" Name="QuadViews Gaze Mirror" Description="Quad views, OBS mirror and gaze ring settings"
+                  Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Condition="DESKTOPSHORTCUT = &quot;1&quot;">
-        <Shortcut Id="SettingsDesktopShortcut" Name="OpenXR Gaze Overlay" Description="Settings for the eye-gaze ring on your OBS mirror"
-                  Target="[INSTALLFOLDER]GazeOverlay.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+        <Shortcut Id="SettingsDesktopShortcut" Name="QuadViews Gaze Mirror" Description="Quad views, OBS mirror and gaze ring settings"
+                  Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>

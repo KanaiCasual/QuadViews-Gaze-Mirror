@@ -1,4 +1,8 @@
-# Publishing plan — VR eye-gaze overlay for OBS
+# Publishing plan — QuadViews Gaze Mirror
+
+> **Name (decided 2026-09-19):** "QuadViews Gaze Mirror", repo `QuadViews-Gaze-Mirror`. Chosen for search: "quadviews" is what the
+> community types, "foveated rendering" is what less technical people type (it lives in the description and the GitHub
+> topics), and the exact phrase had no other hits. Called "OpenXR Gaze Overlay" up to 0.9.0.
 
 Notes captured 2026-09-18 for when we make this public. Nothing here has been built yet.
 
@@ -66,7 +70,7 @@ files copied into the OBS install folder (`obs-plugins\64bit` and `data\obs-plug
 
 The self-installing exe described in the next section was abandoned the same evening: an antivirus quarantined it and
 rolled back a real install, leaving no active OpenXR layers (recovered with `Repair-Layers.ps1`). Replacement:
-`Build-Installer.ps1` builds `dist\OpenXR-Gaze-Overlay-<version>.msi` with WiX 5 - fully declarative, no custom actions of
+`Build-Installer.ps1` builds `dist\QuadViews-Gaze-Mirror-<version>.msi` with WiX 5 - fully declarative, no custom actions of
 ours, never edits other products' registry entries (it blocks and asks the user to uninstall the originals instead), OBS
 plugin never overwritten/never removed. The settings app (`GazeOverlayApp\`) is now a plain non-elevated program the MSI
 installs; it only writes the ring's cfg. `tools\Inspect-Msi.ps1` inspects a built MSI read-only.

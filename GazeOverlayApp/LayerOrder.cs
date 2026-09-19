@@ -131,7 +131,7 @@ public static class LayerOrder
 
     // ------------------------------------------------------------------ writing an order
 
-    private static string DataFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenXRGazeOverlay");
+    private static string DataFolder => AppSettings.Folder;
 
     /// <summary>
     /// A .reg file that removes the given values and creates them again in the given order. The loader goes by the order

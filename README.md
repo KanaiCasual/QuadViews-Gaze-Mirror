@@ -1,7 +1,11 @@
-# OpenXR Gaze Overlay
+# QuadViews Gaze Mirror
 
-Shows stream viewers where you are looking in VR: a ring - in the style of Tobii Ghost - drawn on your **OBS mirror only**.
-It is never visible in the headset.
+Foveated rendering (quad views) plus an OBS mirror that shows your viewers where you look: a ring - in the style of Tobii
+Ghost - drawn on your **OBS mirror only**, never in the headset. One installer replaces both Quad-Views-Foveated and
+the OpenXR OBS Mirror layer, and its settings app also covers the quad views settings (focus size, resolutions, presets)
+and the OpenXR API layer list (on/off, order, order check).
+
+*Called "OpenXR Gaze Overlay" up to version 0.9.0.*
 
 > **Unofficial community build.** This project contains modified builds of
 > [Quad-Views-Foveated](https://github.com/mbucchia/Quad-Views-Foveated) by Matthieu Bucchianeri and
@@ -59,7 +63,7 @@ Needs Visual Studio 2022 (C++ workload), the .NET 10 SDK and Python 3 (upstream'
 git clone --recurse-submodules <this repo>
 .\tools\Apply-Patches.ps1        # once, on a fresh clone
 .\Build-Layers.ps1               # both OpenXR layers
-.\Build-Installer.ps1            # settings app + dist\OpenXR-Gaze-Overlay-<version>.msi
+.\Build-Installer.ps1            # settings app + dist\QuadViews-Gaze-Mirror-<version>.msi
 ```
 
 `Build-Installer.ps1` needs the unmodified OBS plugin (`win-openxr.dll` and its data files) from an upstream
@@ -88,7 +92,7 @@ one.
   shows one page with **Repair** and **Uninstall**. Repair puts the layer files back and re-enables both layers in the
   right order. Uninstall leaves your settings files and the OBS plugin. To update, just run the newer installer.
 - A first install offers a desktop shortcut (ticked by default); the choice is remembered for later versions.
-  Silent install without it: `msiexec /i OpenXR-Gaze-Overlay-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
+  Silent install without it: `msiexec /i QuadViews-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
 - Setup is a plain MSI on purpose. An earlier self-installing `.exe` was quarantined by antivirus heuristics half-way
   through an install.
 

@@ -142,7 +142,7 @@ public static class LayerStatus
         {
             return new LayerReport(LayerHealth.NotActive, layers.Any(l => l.LayerName == layerName)
                 ? $"{friendlyName} is installed but switched off, so games do not load it."
-                : $"Not installed. Run the OpenXR Gaze Overlay installer (.msi).");
+                : $"Not installed. Run the QuadViews Gaze Mirror installer (.msi).");
         }
         if (active.Count > 1)
         {
@@ -157,7 +157,7 @@ public static class LayerStatus
         return isGazeBuild
             ? new LayerReport(LayerHealth.GazeBuild, $"Active, with gaze support ({folder}).")
             : new LayerReport(LayerHealth.OriginalWithoutGaze,
-                $"The original {friendlyName} is active ({folder}). It works, but it cannot drive the gaze ring. Uninstall it, then run the OpenXR Gaze Overlay installer.");
+                $"The original {friendlyName} is active ({folder}). It works, but it cannot drive the gaze ring. Uninstall it, then run the QuadViews Gaze Mirror installer.");
     }
 
     public static string? FindObs()

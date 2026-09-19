@@ -1,4 +1,4 @@
-# Gathers the files that get embedded into GazeOverlay.exe. Run before building/publishing the app.
+# Gathers the files that get installed next to the settings app by the MSI. Run before building/publishing the app.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $payload = Join-Path $PSScriptRoot 'Payload'

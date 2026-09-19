@@ -33,11 +33,30 @@ public sealed class AppSettings
     public double WindowWidth { get; set; }
     public double WindowHeight { get; set; }
 
-    private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenXRGazeOverlay", "app.json");
+    /// <summary>This app's own folder: preferences and the saved layer orders.</summary>
+    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror");
+
+    private static string FilePath => Path.Combine(Folder, "app.json");
+
+    /// <summary>Up to 0.9.0 the product was called OpenXR Gaze Overlay; preset slots and the rest come along on first start.</summary>
+    private static void AdoptOldFolder()
+    {
+        try
+        {
+            var old = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenXRGazeOverlay", "app.json");
+            if (File.Exists(FilePath) || !File.Exists(old)) return;
+            Directory.CreateDirectory(Folder);
+            File.Copy(old, FilePath);
+        }
+        catch
+        {
+            // Starting with default preferences is not worth an error.
+        }
+    }
 
     public static AppSettings Load()
     {
+        AdoptOldFolder();
         try
         {
             if (File.Exists(FilePath))
@@ -96,7 +115,7 @@ public static partial class UpdateChecker
     public static async Task<ReleaseInfo?> CheckAsync(string repository, bool includeBetas, CancellationToken cancellation = default)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("OpenXR-Gaze-Overlay/" + CurrentVersion.ToString(3));
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("QuadViews-Gaze-Mirror/" + CurrentVersion.ToString(3));
         http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         var json = await http.GetStringAsync($"https://api.github.com/repos/{repository}/releases?per_page=30", cancellation);
         return PickUpdate(ParseReleases(json, repository), CurrentVersion, includeBetas);
