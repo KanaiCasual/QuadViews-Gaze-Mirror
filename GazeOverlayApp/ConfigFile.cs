@@ -59,7 +59,8 @@ public static class ConfigFile
             }
         }
 
-        var unknown = values.Where(kv => !known.Contains(kv.Key)).ToList();
+        // ("mouse_": settings of the gaze mouse, an experiment that was taken out again - not carried along.)
+        var unknown = values.Where(kv => !known.Contains(kv.Key) && !kv.Key.StartsWith("mouse_", StringComparison.Ordinal)).ToList();
         if (unknown.Count > 0)
         {
             text.AppendLine();

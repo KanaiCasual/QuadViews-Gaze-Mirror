@@ -10,7 +10,7 @@
     <RootNamespace>GazeOverlay</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
     <Product>QuadViews Gaze Mirror</Product>
     <Description>Settings for quad views foveated rendering, the OBS mirror and its eye-gaze ring. Installing is done by the MSI, not by this app.</Description>
 

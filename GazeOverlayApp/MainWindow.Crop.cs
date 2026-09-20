@@ -27,6 +27,8 @@ public partial class MainWindow
     private readonly Line[] _cropStillZone = [new(), new()];
     private readonly Rectangle[] _cropReach = [new(), new()];
     private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
+    private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
+    private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
     private readonly TextBlock _cropPlaceholder = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center };
     private Rect _cropShown;                 // Where the picture is drawn inside the canvas.
@@ -66,6 +68,16 @@ public partial class MainWindow
         _cropReachFrame.Stroke = new SolidColorBrush(Color.FromArgb(190, 77, 178, 255));
         _cropReachFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropReachFrame);
+        // Room for the picture steadying: a band of another colour all around the box. The box cannot enter it.
+        foreach (var band in _cropSteadyRoom)
+        {
+            band.Fill = new SolidColorBrush(Color.FromArgb(85, 70, 220, 150));
+            band.IsHitTestVisible = false;
+            CropCanvas.Children.Add(band);
+        }
+        _cropSteadyFrame.Stroke = new SolidColorBrush(Color.FromArgb(200, 70, 220, 150));
+        _cropSteadyFrame.IsHitTestVisible = false;
+        CropCanvas.Children.Add(_cropSteadyFrame);
         foreach (var line in _cropStillZone)
         {
             line.Stroke = new SolidColorBrush(Color.FromArgb(200, 255, 190, 60));
@@ -116,6 +128,27 @@ public partial class MainWindow
             };
         }
 
+        // Stabilisation: the same kind of fold-away section.
+        foreach (var def in Settings.All.Where(d => d.Key.StartsWith("stabilize", StringComparison.Ordinal)))
+        {
+            var row = BuildRow(def);
+            row.Margin = new Thickness(0, 1, 14, 1);
+            PanelStabilize.Children.Add(row);
+            var setter = _controlSetters[def.Key];
+            _controlSetters[def.Key] = v =>
+            {
+                setter(v);
+                ApplyCropMargin(moveBox: false); // loading: show it; the box is only moved when the user changes something
+            };
+        }
+        StabilizeExpander.SizeChanged += (_, _) => PanelStabilize.Columns = StabilizeExpander.ActualWidth >= 780 ? 2 : 1;
+        MirrorSections.SizeChanged += (_, _) =>
+        {
+            var sideBySide = MirrorSections.ActualWidth >= 760;
+            MirrorSections.Columns = sideBySide ? 2 : 1;
+            CropFollowExpander.Margin = new Thickness(0, 0, sideBySide ? 6 : 0, 6);
+        };
+
         CropEnabled.Click += (_, _) => { OnValueChanged("crop_enabled", CropEnabled.IsChecked == true ? "1" : "0"); DrawCrop(); };
         CropAspect.SelectionChanged += (_, _) =>
         {
@@ -157,44 +190,24 @@ public partial class MainWindow
         CropLocked.Unchecked += (_, _) => LockChanged();
         LockChanged();
 
+        BuildCaptureUi();
         LoadLastCropPicture();
         Tabs.SelectionChanged += async (_, e) =>
         {
             // Opening the tab asks the running game for a fresh picture once - an event, not a timer.
-            if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, CropTab)) await RefreshCropPictureAsync(quietWhenNoGame: true);
+            if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, CropTab)) await RefreshCropPictureAsync(quietWhenNoGame: true, automatic: true);
         };
         // Coming back to the app with this tab open (from the game, from OBS): a fresh picture too. Still an event.
         Activated += async (_, _) =>
         {
-            if (ReferenceEquals(Tabs.SelectedItem, CropTab) && CropRefresh.IsEnabled) await RefreshCropPictureAsync(quietWhenNoGame: true);
+            if (ReferenceEquals(Tabs.SelectedItem, CropTab) && CropRefresh.IsEnabled) await RefreshCropPictureAsync(quietWhenNoGame: true, automatic: true);
         };
     }
 
-    private void LoadLastCropPicture()
+    private async Task RefreshCropPictureAsync(bool quietWhenNoGame, bool automatic = false)
     {
-        try
-        {
-            if (!File.Exists(LastPicturePath) || _appSettings.MirrorWidth < 1 || _appSettings.MirrorHeight < 1) return;
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad; // Do not keep the file open: it is replaced by the next picture.
-            image.UriSource = new Uri(LastPicturePath);
-            image.EndInit();
-            image.Freeze();
-            _cropImage.Source = image;
-            _cropFullWidth = _appSettings.MirrorWidth;
-            _cropFullHeight = _appSettings.MirrorHeight;
-            _crop.ImageAspect = (double)_cropFullWidth / _cropFullHeight;
-            CropStatus.Text = "Showing the last picture that was taken. Refresh picture gets a new one from the running game.";
-        }
-        catch
-        {
-            // No picture is fine: the box still works on an empty frame.
-        }
-    }
-
-    private async Task RefreshCropPictureAsync(bool quietWhenNoGame)
-    {
+        // A picture captured with the key was set up on purpose: only the button replaces it. Nor while a capture is armed.
+        if (automatic && (_appSettings.MirrorPictureKept || _captureArmed)) return;
         CropRefresh.IsEnabled = false;
         var (picture, message) = await MirrorSnapshot.RequestAsync();
         CropRefresh.IsEnabled = true;
@@ -204,29 +217,8 @@ public partial class MainWindow
             return;
         }
 
-        _cropPicture = picture;
-        _cropImage.Source = picture.Image;
-        _cropFullWidth = picture.FullWidth;
-        _cropFullHeight = picture.FullHeight;
-        _crop.ImageAspect = (double)picture.FullWidth / picture.FullHeight;
-        _crop.Normalize();
+        ShowNewPicture(picture, kept: false);
         CropStatus.Text = $"Picture taken at {DateTime.Now:T}.";
-        DrawCrop();
-
-        try
-        {
-            Directory.CreateDirectory(AppSettings.Folder);
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(picture.Image));
-            using (var file = File.Create(LastPicturePath)) encoder.Save(file);
-            _appSettings.MirrorWidth = picture.FullWidth;
-            _appSettings.MirrorHeight = picture.FullHeight;
-            _appSettings.Save();
-        }
-        catch
-        {
-            // Not being able to keep the picture for next time is not worth bothering anyone about.
-        }
     }
 
     /// <summary>Development aid for --screenshots: a made-up picture, so the tab can be looked at without a game.</summary>
@@ -248,7 +240,7 @@ public partial class MainWindow
         }
         var image = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgr32, null, pixels, size * 4);
         image.Freeze();
-        _cropImage.Source = image;
+        _cropImage.Source = _pictureFirst = image;
         _cropFullWidth = _cropFullHeight = 8192;
         _crop.ImageAspect = 1;
         CropStatus.Text = "(made-up picture for the screenshot)";
@@ -256,7 +248,15 @@ public partial class MainWindow
         CropEnabled.IsChecked = true;
         _values["crop_follow"] = "vertical";
         CropFollowExpander.IsExpanded = false;
-        DrawCrop();
+        _values["stabilize"] = "1";
+        _crop.MoveTo(0, _crop.CenterY); // against the left wall: the steadying room has to hold it off
+        ApplyCropMargin(moveBox: false);
+        ShowSelectedPicture();
+        if (Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_ARMED") == "1")
+        {
+            _captureArmed = true; // only the look of it: nothing is armed anywhere
+            UpdateCaptureUi();
+        }
     }
 
     private async void OnCropRefresh(object sender, RoutedEventArgs e) => await RefreshCropPictureAsync(quietWhenNoGame: false);
@@ -276,6 +276,27 @@ public partial class MainWindow
     }
 
     /// <summary>Writes the box to the settings (saved and sent to the game by the usual debounced save) and redraws it.</summary>
+    /// <summary>
+    /// With the picture steadying on, the box keeps its "room to move" free on every side: that band is part of the box as
+    /// far as the edges of the image are concerned. Switching it on (or widening it) pushes or shrinks the box to fit.
+    /// </summary>
+    private void ApplyCropMargin(bool moveBox)
+    {
+        _crop.Margin = _values.GetValueOrDefault("stabilize") == "1"
+            ? Math.Clamp(Settings.ParseDouble(_values.GetValueOrDefault("stabilize_room"), 0.02), 0, 0.25) : 0;
+        var before = (_crop.CenterX, _crop.CenterY, _crop.Height, _crop.FreeWidth);
+        if (moveBox)
+        {
+            _crop.Normalize();
+            if (before != (_crop.CenterX, _crop.CenterY, _crop.Height, _crop.FreeWidth))
+            {
+                CommitCrop();
+                return;
+            }
+        }
+        DrawCrop();
+    }
+
     private void CommitCrop()
     {
         var c = CultureInfo.InvariantCulture;
@@ -339,9 +360,28 @@ public partial class MainWindow
         var following = active && _values.GetValueOrDefault("crop_follow") == "vertical";
         CropFollowExpander.Header = "Follow my gaze (up / down): " +
             (_values.GetValueOrDefault("crop_follow") != "vertical" ? "off" : active ? "on" : "on, but the crop is off");
+        StabilizeExpander.Header = "Steady the picture: " +
+            (_values.GetValueOrDefault("stabilize") != "1" ? "off" : active ? "on" : "on, but the crop is off");
+        // The steadying's room to move lies OUTSIDE everywhere the box can be: around the box, and - when the box follows
+        // the gaze - around the whole reach. So the reach stops short of the picture's top and bottom by that room (the
+        // layer does the same), and the band never leaves the picture.
+        var steadying = active && _crop.Margin > 0;
+        var steadyX = steadying ? _crop.Margin * _cropShown.Width : 0;
+        var steadyY = steadying ? _crop.Margin * _cropShown.Height : 0;
         var reachShare = Math.Clamp(Settings.ParseDouble(_values.GetValueOrDefault("crop_follow_reach"), 1), 0, 10);
-        var reachTop = Math.Max(box.Top - reachShare * box.Height, _cropShown.Top);
-        var reachBottom = Math.Min(box.Bottom + reachShare * box.Height, _cropShown.Bottom);
+        var reachTop = Math.Min(Math.Max(box.Top - reachShare * box.Height, _cropShown.Top + steadyY), box.Top);
+        var reachBottom = Math.Max(Math.Min(box.Bottom + reachShare * box.Height, _cropShown.Bottom - steadyY), box.Bottom);
+        var travelTop = following && reachShare > 0 ? reachTop : box.Top;
+        var travelBottom = following && reachShare > 0 ? reachBottom : box.Bottom;
+        var outer = new Rect(new Point(Math.Max(box.Left - steadyX, _cropShown.Left), Math.Max(travelTop - steadyY, _cropShown.Top)),
+                             new Point(Math.Min(box.Right + steadyX, _cropShown.Right), Math.Min(travelBottom + steadyY, _cropShown.Bottom)));
+        Place(_cropSteadyRoom[0], new Rect(outer.Left, outer.Top, outer.Width, Math.Max(travelTop - outer.Top, 0)));
+        Place(_cropSteadyRoom[1], new Rect(outer.Left, travelBottom, outer.Width, Math.Max(outer.Bottom - travelBottom, 0)));
+        Place(_cropSteadyRoom[2], new Rect(outer.Left, travelTop, Math.Max(box.Left - outer.Left, 0), Math.Max(travelBottom - travelTop, 0)));
+        Place(_cropSteadyRoom[3], new Rect(box.Right, travelTop, Math.Max(outer.Right - box.Right, 0), Math.Max(travelBottom - travelTop, 0)));
+        Place(_cropSteadyFrame, outer);
+        foreach (var band in _cropSteadyRoom) band.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
+        _cropSteadyFrame.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
         Place(_cropReach[0], new Rect(box.Left, reachTop, box.Width, Math.Max(box.Top - reachTop, 0)));
         Place(_cropReach[1], new Rect(box.Left, box.Bottom, box.Width, Math.Max(reachBottom - box.Bottom, 0)));
         Place(_cropReachFrame, new Rect(box.Left, reachTop, box.Width, Math.Max(reachBottom - reachTop, 0)));
@@ -354,6 +394,7 @@ public partial class MainWindow
             (_cropStillZone[i].X1, _cropStillZone[i].Y1, _cropStillZone[i].X2, _cropStillZone[i].Y2) = (box.Left, y, box.Right, y);
             _cropStillZone[i].Visibility = following ? Visibility.Visible : Visibility.Collapsed;
         }
+        DrawCaptureOverlays(box, reachTop, reachBottom, following && reachShare > 0);
 
         // What OBS will get, in pixels - worked out the way the layer does (even sizes).
         if (_cropFullWidth > 0 && _cropFullHeight > 0)

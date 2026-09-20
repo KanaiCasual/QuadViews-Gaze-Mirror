@@ -429,6 +429,30 @@ public static class Settings
             Label = "Return after",
             Description = "How long your gaze has to rest inside the still zone before the box heads home. At once = it is always as close to home as your gaze allows.",
         },
+        new()
+        {
+            Key = "stabilize", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "0",
+            Label = "Steady the picture",
+            Description = "Takes small head movements (tremor, engine shake, breathing) out of the mirror picture: the crop box counter-moves them inside the room around it, which costs nothing. Needs the crop to be on, and only has as much travel as the box has room. Deliberate head turns still come through. Tilting the head sideways is not corrected.",
+        },
+        new()
+        {
+            Key = "stabilize_min_cutoff", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.1, Max = 5, Step = 0.1, Unit = ValueUnit.Hertz,
+            Label = "Steadiness",
+            Description = "How strongly head movement is smoothed (One-Euro filter). LOWER = steadier, more like a camera on a gimbal, but the picture trails further behind your head and needs more room to move. Around 1 Hz and above only takes out tremor and is hard to see; 0.2 - 0.4 Hz smooths ordinary head sway visibly.",
+        },
+        new()
+        {
+            Key = "stabilize_beta", Group = GroupCrop, Kind = SettingKind.Slider, Default = "8", Min = 0, Max = 40, Step = 1,
+            Label = "Follow quick turns",
+            Description = "How strongly the steadying lets go when you turn your head on purpose. Higher = quick turns come through with less lag; lower = smoother, but the picture trails behind and catches up.",
+        },
+        new()
+        {
+            Key = "stabilize_room", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.02", Min = 0.01, Max = 0.1, Step = 0.01, Unit = ValueUnit.Percent,
+            Label = "Room to move",
+            Description = "How far the box may counter-move each way, as a share of the mirror image. Shown on the picture as the green band around the box; the box cannot enter it, so it always stays inside the image. The steadier you make the picture, the more room it needs: when the room runs out during a head turn, the picture simply turns with your head until you stop.",
+        },
     ];
 
     public static readonly Preset[] Presets =

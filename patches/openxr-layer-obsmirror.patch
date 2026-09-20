@@ -1,5 +1,5 @@
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
-index 2df1e64..47d1763 100644
+index 2df1e64..e9b554b 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.cpp
 @@ -11,6 +11,7 @@
@@ -317,7 +317,7 @@ index 2df1e64..47d1763 100644
              // If FOV is the same then use fast copy
              copyPerspectiveTex(view->subImage.imageRect, format, view->subImage.swapchain);
 -        } 
-+            setEyePlacement(std::min(_pMirrorSurfaceData->eyeIndex, 1u),
++            setEyePlacement(std::min(getEyeIndex(), 1u),
 +                            0.f,
 +                            static_cast<float>(view->subImage.imageRect.extent.width),
 +                            static_cast<float>(view->subImage.imageRect.extent.height),
@@ -327,11 +327,20 @@ index 2df1e64..47d1763 100644
          else 
          {
              auto it = _sourceData.find(view->subImage.swapchain);
+@@ -727,7 +1008,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+             psCB1.blendEndX = 0.0f;
+             psCB1.alphaOverride = 1.0f;
+ 
+-            if (srcDesc.ArraySize > 1 && _pMirrorSurfaceData->eyeIndex == 1)
++            if (srcDesc.ArraySize > 1 && getEyeIndex() == 1)
+                 psCB1.texIndex = 1.0f;
+             else
+                 psCB1.texIndex = 0.0f;
 @@ -763,6 +1044,12 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _d3d11MirrorContext->OMSetRenderTargets(1, _targetView.GetAddressOf(), nullptr);
  
              checkFOVs(hmdFov, view->fov);
-+            setEyePlacement(std::min(_pMirrorSurfaceData->eyeIndex, 1u),
++            setEyePlacement(std::min(getEyeIndex(), 1u),
 +                            0.f,
 +                            static_cast<float>(view->subImage.imageRect.extent.width),
 +                            static_cast<float>(view->subImage.imageRect.extent.height),
@@ -379,6 +388,15 @@ index 2df1e64..47d1763 100644
              D3D11_VIEWPORT viewport = CD3D11_VIEWPORT(static_cast<float>(rect.offset.x),
                                                        static_cast<float>(rect.offset.y),
                                                        static_cast<float>(rect.extent.width),
+@@ -1075,7 +1380,7 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+ 
+         float separation = 0.0f;
+ 
+-        if (_pMirrorSurfaceData->eyeIndex == 2) {
++        if (getEyeIndex() == 2) {
+             separation = _pMirrorSurfaceData->overlap / 100.0f;
+         }
+ 
 @@ -1115,23 +1420,14 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              Log("Creating mirror textures w %u h %u f %d\n", desc.Width, desc.Height, format);
  
@@ -408,7 +426,7 @@ index 2df1e64..47d1763 100644
              Log("Compositor texture description: %d x %d Format %d\n",
                  _comp_desc.Width,
                  _comp_desc.Height,
-@@ -1149,14 +1445,1300 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1149,12 +1445,1492 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
          }
      }
  
@@ -435,6 +453,11 @@ index 2df1e64..47d1763 100644
 +    // the same world direction shows up under the current one. Only rotation is considered (the point is treated as
 +    // infinitely far away), which is what makes the indicator's motion relative to the world instead of the head.
 +    bool D3D11Mirror::reprojectToCurrentView(const EyePlacement& placement, float& x, float& y) const {
++        return reproject(placement, _gazePrevOrientation, placement.orientation, x, y);
++    }
++
++    // The same for any two head orientations: where a point seen under `from` shows up under `to`.
++    bool D3D11Mirror::reproject(const EyePlacement& placement, const XrQuaternionf& from, const XrQuaternionf& to, float& x, float& y) {
 +        const float tanLeft = tanf(placement.fov.angleLeft);
 +        const float tanRight = tanf(placement.fov.angleRight);
 +        const float tanDown = tanf(placement.fov.angleDown);
@@ -451,8 +474,8 @@ index 2df1e64..47d1763 100644
 +            XMVectorSet(tanLeft + (tanRight - tanLeft) * u, tanUp + (tanDown - tanUp) * v, -1.f, 0.f);
 +
 +        // Previous view -> world -> current view.
-+        const XMVECTOR world = XMVector3Rotate(previousDirection, XMLoadFloat4((const XMFLOAT4*)&_gazePrevOrientation));
-+        const XMVECTOR current = XMVector3InverseRotate(world, XMLoadFloat4((const XMFLOAT4*)&placement.orientation));
++        const XMVECTOR world = XMVector3Rotate(previousDirection, XMLoadFloat4((const XMFLOAT4*)&from));
++        const XMVECTOR current = XMVector3InverseRotate(world, XMLoadFloat4((const XMFLOAT4*)&to));
 +        const float depth = -XMVectorGetZ(current);
 +        if (depth < 0.05f) {
 +            // Ended up beside/behind the viewer.
@@ -474,7 +497,7 @@ index 2df1e64..47d1763 100644
 +            _settingsSignalTried = true;
 +            if (_settingsSignal.open(eye_gaze_export::SettingsSignalName, eye_gaze_export::BlockAccess::Create)) {
 +                _settingsSignal.data()->magic = eye_gaze_export::SettingsSignalMagic;
-+                _settingsSignal.data()->version = 2;
++                _settingsSignal.data()->version = 3;
 +            }
 +        }
 +        const LONG generation = _settingsSignal.data() ? _settingsSignal.data()->generation : 0;
@@ -605,6 +628,15 @@ index 2df1e64..47d1763 100644
 +                                "# How far the box may travel up or down from where you put it, in box heights (1 = one whole\n"
 +                                "# box height each way; it never leaves the image).\n"
 +                                "crop_follow_reach=1\n"
++                                "# Stabilisation (needs the crop: the box counter-moves small head movements inside the room\n"
++                                "# around it). stabilize_min_cutoff (Hz): lower = steadier. stabilize_beta: higher = quick head\n"
++                                "# turns are followed with less lag.\n"
++                                "stabilize=0\n"
++                                "stabilize_min_cutoff=1\n"
++                                "stabilize_beta=8\n"
++                                "# How far the box may counter-move each way, as a share of the image (the settings app keeps\n"
++                                "# that much room free around the box).\n"
++                                "stabilize_room=0.02\n"
 +                                "# How softly the box glides (ms, 0 = instantly).\n"
 +                                "crop_follow_glide_ms=500\n"
 +                                "# 1 = go back to where you put the box once your gaze allows it, after it has rested in the still\n"
@@ -729,6 +761,14 @@ index 2df1e64..47d1763 100644
 +                        config.cropFollowReturn = std::stoi(value) != 0;
 +                    } else if (name == "crop_follow_reach") {
 +                        config.cropFollowReach = std::clamp(std::stof(value), 0.f, 10.f);
++                    } else if (name == "stabilize") {
++                        config.stabilize = std::stoi(value) != 0;
++                    } else if (name == "stabilize_min_cutoff") {
++                        config.stabilizeMinCutoff = std::clamp(std::stof(value), 0.02f, 30.f);
++                    } else if (name == "stabilize_beta") {
++                        config.stabilizeBeta = std::clamp(std::stof(value), 0.f, 200.f);
++                    } else if (name == "stabilize_room") {
++                        config.stabilizeRoom = std::clamp(std::stof(value), 0.f, 0.25f);
 +                    } else if (name == "tail_space") {
 +                        config.worldAnchored = value != "screen";
 +                    } else if (name == "blend") {
@@ -917,6 +957,15 @@ index 2df1e64..47d1763 100644
 +    // marker switch is NOT written: only the settings app owns it, so a nudge can never switch calibration back on after
 +    // the user switched it off there.
 +    void D3D11Mirror::persistCalibration() {
++        char x[32], y[32];
++        snprintf(x, sizeof(x), "%.4f", _gazeConfig.offsetX);
++        snprintf(y, sizeof(y), "%.4f", _gazeConfig.offsetY);
++        persistKeys({{"offset_x", x}, {"offset_y", y}});
++        Log("Gaze overlay: saved trim %.4f, %.4f\n", _gazeConfig.offsetX, _gazeConfig.offsetY);
++    }
++
++    // Rewrites only the given lines of the settings file (everything else, comments included, stays as it is).
++    void D3D11Mirror::persistKeys(const std::vector<std::pair<std::string, std::string>>& values) {
 +        try {
 +            if (_gazeConfigPath.empty()) {
 +                return;
@@ -950,11 +999,9 @@ index 2df1e64..47d1763 100644
 +                text += key + "=" + value + "\n";
 +            };
 +
-+            char number[32];
-+            snprintf(number, sizeof(number), "%.4f", _gazeConfig.offsetX);
-+            setKey("offset_x", number);
-+            snprintf(number, sizeof(number), "%.4f", _gazeConfig.offsetY);
-+            setKey("offset_y", number);
++            for (const auto& [key, value] : values) {
++                setKey(key, value);
++            }
 +
 +            // Write-then-swap, so nothing ever reads a half-written file.
 +            auto temp = _gazeConfigPath;
@@ -966,10 +1013,25 @@ index 2df1e64..47d1763 100644
 +            std::filesystem::rename(temp, _gazeConfigPath);
 +
 +            // We already hold these values, so there is nothing to reload; the settings app notices the file change itself.
-+            Log("Gaze overlay: saved trim %.4f, %.4f\n", _gazeConfig.offsetX, _gazeConfig.offsetY);
 +        } catch (...) {
 +            // Never let a settings problem take the game down.
 +        }
++    }
++
++    // The gaze producer (Quad-Views-Foveated) might not be present, or might show up later. Look again later, backing
++    // off quickly: in a game without quad views it never shows up, and that must not turn into a steady drip of lookups
++    // (1 s, 2 s, 4 s ... capped at about 30 s at 90 fps).
++    bool D3D11Mirror::gazeReaderReady() {
++        if (_gazeReaderRetryCountdown > 0) {
++            _gazeReaderRetryCountdown--;
++            return false;
++        }
++        if (!_gazeReader.open()) {
++            _gazeReaderRetryCountdown = _gazeReaderRetryInterval;
++            _gazeReaderRetryInterval = std::min(_gazeReaderRetryInterval * 2, 2700u);
++            return false;
++        }
++        return true;
 +    }
 +
 +    void D3D11Mirror::drawGazeOverlay() {
@@ -982,21 +1044,17 @@ index 2df1e64..47d1763 100644
 +            _markerWriter.publish(false, none, 0.f, black);
 +            _markerPublished = false;
 +        }
++        if (_eyeOverride >= 0) {
++            // This frame shows the other eye, for the settings app's picture only: no ring, and nothing of the ring's
++            // state (which belongs to the mirrored eye) is touched.
++            return;
++        }
 +        const bool cropFollows = _gazeConfig.cropEnabled && _gazeConfig.cropFollowVertical;
 +        if ((!_gazeConfig.enabled && !cropFollows) || !_compositorTexture || !_targetView) {
 +            return;
 +        }
 +
-+        // The gaze producer (Quad-Views-Foveated) might not be present, or might show up later.
-+        if (_gazeReaderRetryCountdown > 0) {
-+            _gazeReaderRetryCountdown--;
-+            return;
-+        }
-+        if (!_gazeReader.open()) {
-+            // No gaze producer yet. Look again later, backing off quickly: in a game without quad views it never shows up,
-+            // and that must not turn into a steady drip of lookups (1 s, 2 s, 4 s ... capped at about 30 s at 90 fps).
-+            _gazeReaderRetryCountdown = _gazeReaderRetryInterval;
-+            _gazeReaderRetryInterval = std::min(_gazeReaderRetryInterval * 2, 2700u);
++        if (!gazeReaderReady()) {
 +            return;
 +        }
 +
@@ -1557,7 +1615,12 @@ index 2df1e64..47d1763 100644
 +        // Blink or tracking loss: hold. Never further from home than the reach, and never out of the image.
 +        const float reach = _gazeConfig.cropFollowReach * boxHeight;
 +        _cropFollowTarget = std::clamp(_cropFollowTarget, -reach, reach);
-+        _cropFollowTarget = std::clamp(_cropFollowTarget, -home, static_cast<float>(_comp_desc.Height - _cropRect.height) - home);
++        // With the picture steadying on, the travel also stops short of the image's top and bottom by the steadying's
++        // room, so that there is still something to counter-move in when the box is at the end of its reach.
++        const float keep = _gazeConfig.stabilize ? _gazeConfig.stabilizeRoom * static_cast<float>(_comp_desc.Height) : 0.f;
++        const float highest = std::min(-home + keep, 0.f);
++        const float lowest = std::max(static_cast<float>(_comp_desc.Height - _cropRect.height) - home - keep, 0.f);
++        _cropFollowTarget = std::clamp(_cropFollowTarget, highest, lowest);
 +
 +        // One glide setting governs every movement, the way home included.
 +        const float glide = _gazeConfig.cropFollowGlideMs;
@@ -1565,11 +1628,89 @@ index 2df1e64..47d1763 100644
 +        _cropFollowOffset += (_cropFollowTarget - _cropFollowOffset) * k;
 +    }
 +
++    // Stabilisation. The head orientation goes through a One-Euro filter: smoothed hard while the head is nearly still
++    // (tremor, engine shake, breathing), hardly at all during a deliberate turn, so the picture steadies without trailing
++    // behind. The picture cannot be re-rendered from the smoothed orientation, but the crop box can be put where its
++    // centre WOULD be under it - the room around the box is the travel - and moving the box is free. Rotation about the
++    // viewing axis (tilting the head) is not corrected: that would need a resampling pass instead of a plain copy.
++    void D3D11Mirror::updateStabilizer() {
++        const EyePlacement& reference = _eyePlacement[_eyePlacement[0].valid ? 0 : 1];
++        const bool roomToMove = _cropRect.width < _comp_desc.Width || _cropRect.height < _comp_desc.Height;
++        if (!_gazeConfig.stabilize || !_gazeConfig.cropEnabled || !roomToMove || !reference.valid) {
++            _stabHasOrientation = false;
++            _stabOffset[0] = _stabOffset[1] = 0.f;
++            return;
++        }
++
++        const auto now = std::chrono::steady_clock::now();
++        const float dt = std::chrono::duration<float>(now - _stabLastUpdate).count();
++        _stabLastUpdate = now;
++        const XMVECTOR raw = XMQuaternionNormalize(XMLoadFloat4((const XMFLOAT4*)&reference.orientation));
++        const auto angleBetween = [](XMVECTOR a, XMVECTOR b) {
++            const float dot = std::min(fabsf(XMVectorGetX(XMQuaternionDot(a, b))), 1.f);
++            return 2.f * acosf(dot);
++        };
++        XMVECTOR smoothed = XMLoadFloat4((const XMFLOAT4*)&_stabOrientation);
++        // Start (or start over after a pause, a recentre, or anything else that makes the two views unrelated).
++        if (!_stabHasOrientation || dt <= 0.f || dt > 0.25f || angleBetween(smoothed, raw) > 0.5f) {
++            smoothed = raw;
++            _stabSpeed = 0.f;
++            _stabHasOrientation = true;
++        } else {
++            const auto alphaFor = [dt](float cutoffHz) {
++                const float tau = 1.f / (2.f * 3.14159265f * std::max(cutoffHz, 0.001f));
++                return 1.f / (1.f + tau / dt);
++            };
++            const float rawSpeed = angleBetween(XMLoadFloat4((const XMFLOAT4*)&_stabRawPrev), raw) / dt;
++            _stabSpeed += (rawSpeed - _stabSpeed) * alphaFor(1.f);
++            const float k = alphaFor(_gazeConfig.stabilizeMinCutoff + _gazeConfig.stabilizeBeta * _stabSpeed);
++            smoothed = XMQuaternionNormalize(XMQuaternionSlerp(smoothed, raw, k));
++        }
++        XMStoreFloat4((XMFLOAT4*)&_stabOrientation, smoothed);
++        XMStoreFloat4((XMFLOAT4*)&_stabRawPrev, raw);
++
++        // Where the middle of the box, as seen from the smoothed orientation, is in the image we actually have.
++        const float centreX = static_cast<float>(_cropRect.x) + _cropRect.width * 0.5f;
++        const float centreY = static_cast<float>(_cropRect.y) + _cropRect.height * 0.5f + _cropFollowOffset;
++        float x = centreX, y = centreY;
++        if (reproject(reference, _stabOrientation, reference.orientation, x, y)) {
++            // Never further than the room that is kept free around the box for this. When the smoothed view has fallen
++            // further behind than that (a long or fast head turn), it is pulled along so that it sits exactly at the
++            // edge of the room: the picture then turns with the head, and eases to rest the moment the head stops -
++            // instead of first having to catch up from far behind.
++            const float roomX = std::max(_gazeConfig.stabilizeRoom * static_cast<float>(_comp_desc.Width), 1.f);
++            const float roomY = std::max(_gazeConfig.stabilizeRoom * static_cast<float>(_comp_desc.Height), 1.f);
++            float offsetX = x - centreX, offsetY = y - centreY;
++            const float over = std::max(fabsf(offsetX) / roomX, fabsf(offsetY) / roomY);
++            if (over > 1.f) {
++                smoothed = XMQuaternionNormalize(XMQuaternionSlerp(smoothed, raw, 1.f - 1.f / over));
++                XMStoreFloat4((XMFLOAT4*)&_stabOrientation, smoothed);
++                offsetX /= over;
++                offsetY /= over;
++            }
++            _stabOffset[0] = std::clamp(offsetX, -roomX, roomX);
++            _stabOffset[1] = std::clamp(offsetY, -roomY, roomY);
++
++            // A line in the log every 30 seconds or so, so that "is it doing anything?" has an answer.
++            _stabLogLargest = std::max({_stabLogLargest, fabsf(_stabOffset[0]), fabsf(_stabOffset[1])});
++            if (++_stabLogFrames >= 2700) {
++                Log("Picture steadying: on (%.2f Hz, follow %.1f). Largest counter-move lately %.0f px of %.0f px room.\n",
++                    _gazeConfig.stabilizeMinCutoff, _gazeConfig.stabilizeBeta, _stabLogLargest, std::min(roomX, roomY));
++                _stabLogFrames = 0;
++                _stabLogLargest = 0.f;
++            }
++        }
++    }
++
      void D3D11Mirror::copyToMirror() {
++        if (_eyeOverride >= 0) {
++            return; // The other eye, composited for the settings app's picture: readers keep the previous frame.
++        }
          _frameCounter = _frameCounter + 1;
 +        if (_cropDirty && _compositorTexture) {
 +            updateCrop();
 +        }
++        updateStabilizer();
 +        if (_mirrorTextures.empty()) {
 +            return;
 +        }
@@ -1580,28 +1721,116 @@ index 2df1e64..47d1763 100644
 +                _d3d11MirrorContext->CopyResource(tex.Get(), _compositorTexture.Get());
 +            } else {
 +                const bool follows = _gazeConfig.cropEnabled && _gazeConfig.cropFollowVertical;
-+                const float followed = static_cast<float>(_cropRect.y) + (follows ? _cropFollowOffset : 0.f);
++                const float followed = static_cast<float>(_cropRect.y) + (follows ? _cropFollowOffset : 0.f) + _stabOffset[1];
 +                const uint32_t top = static_cast<uint32_t>(
 +                    std::clamp(followed + 0.5f, 0.f, static_cast<float>(_comp_desc.Height - _cropRect.height)));
-+                const D3D11_BOX box = {_cropRect.x, top, 0, _cropRect.x + _cropRect.width, top + _cropRect.height, 1};
++                const uint32_t left = static_cast<uint32_t>(std::clamp(static_cast<float>(_cropRect.x) + _stabOffset[0] + 0.5f, 0.f,
++                                                                       static_cast<float>(_comp_desc.Width - _cropRect.width)));
++                const D3D11_BOX box = {left, top, 0, left + _cropRect.width, top + _cropRect.height, 1};
 +                _d3d11MirrorContext->CopySubresourceRegion(tex.Get(), 0, 0, 0, 0, _compositorTexture.Get(), 0, &box);
 +            }
-         }
-     }
- 
++        }
++    }
++
 +    // One picture of the whole mirror image for the settings app's crop tool - only when the app has asked for one
 +    // (it bumps a counter in shared memory; comparing it is all this costs per frame). The picture is a box-filtered
 +    // downscale, read back once; that read-back stalls the mirror device for a moment, which is why it is on demand.
++    // A pending picture of the other eye: composite that eye this frame (see serviceSnapshot).
++    void D3D11Mirror::beginSnapshotFrame() {
++        if (_snapshotSecondPending) {
++            _snapshotSecondPending = false;
++            if (_pMirrorSurfaceData->eyeIndex < 2) {
++                _eyeOverride = 1 - static_cast<int>(_pMirrorSurfaceData->eyeIndex);
++            } else {
++                finishSnapshot();
++            }
++        }
++    }
++
 +    void D3D11Mirror::serviceSnapshot() {
-+        const auto* signal = _settingsSignal.data();
-+        if (!signal || signal->snapshotRequest == _seenSnapshotRequest) {
++        if (_eyeOverride >= 0) {
++            // Second half of a request: this frame was composited for the other eye.
++            const uint32_t eye = static_cast<uint32_t>(_eyeOverride);
++            _eyeOverride = -1;
++            uint32_t width = 0, height = 0;
++            auto* block = _snapshotBlock.data();
++            if (block && renderSnapshot(block->secondPixels, width, height) && width == block->width && height == block->height) {
++                block->secondEye = eye;
++            }
++            finishSnapshot();
++            return;
++        }
++        auto* signal = _settingsSignal.data();
++        if (!signal) {
++            return;
++        }
++        // "Capture with key" armed in the settings app: the key is looked at here, inside the game, because a game that
++        // has the focus can keep system hot keys from other programs. Only while armed (otherwise this is one memory
++        // read), and one press only - the layer disarms it itself.
++        bool keyPressed = false;
++        const LONG captureKey = signal->captureKey;
++        if (captureKey > 0 && captureKey < 256) {
++            const bool down = (GetAsyncKeyState(static_cast<int>(captureKey)) & 0x8000) != 0;
++            if (!down) {
++                _captureKeyReady = true;
++            } else if (_captureKeyReady) {
++                keyPressed = true;
++                _captureKeyReady = false;
++                signal->captureKey = 0;
++            }
++        } else {
++            _captureKeyReady = false;
++        }
++        if (!keyPressed && signal->snapshotRequest == _seenSnapshotRequest) {
 +            return;
 +        }
 +        _seenSnapshotRequest = signal->snapshotRequest;
++        if (keyPressed) {
++            _snapshotFailed = false; // Asked for in person: worth another try.
++        }
 +        if (_snapshotFailed || !_compositorTexture || !_d3d11MirrorDevice || _comp_desc.Width == 0 || _comp_desc.Height == 0) {
 +            return;
 +        }
 +        _snapshotFailed = true; // Until everything below worked: a failure is not retried every request for ever.
++        if (!_snapshotBlock.open(eye_gaze_export::MirrorSnapshotName, eye_gaze_export::BlockAccess::Create)) {
++            return;
++        }
++        auto* block = _snapshotBlock.data();
++        uint32_t width = 0, height = 0;
++        if (!renderSnapshot(block->pixels, width, height)) {
++            return;
++        }
++        block->magic = eye_gaze_export::MirrorSnapshotMagic;
++        block->version = 2;
++        block->width = width;
++        block->height = height;
++        block->fullWidth = _comp_desc.Width;
++        block->fullHeight = _comp_desc.Height;
++        block->cropX = _cropRect.x;
++        block->cropY = _cropRect.y;
++        block->cropWidth = _cropRect.width;
++        block->cropHeight = _cropRect.height;
++        block->eye = _pMirrorSurfaceData->eyeIndex;
++        block->secondEye = eye_gaze_export::MirrorSnapshotNoEye;
++        _snapshotFailed = false;
++        if (_pMirrorSurfaceData->eyeIndex < 2) {
++            _snapshotSecondPending = true; // The other eye follows next frame; the app is told when both are there.
++        } else {
++            finishSnapshot();
++        }
++    }
++
++    // Hands the picture(s) over.
++    void D3D11Mirror::finishSnapshot() {
++        auto* block = _snapshotBlock.data();
++        if (!block) {
++            return;
++        }
++        InterlockedIncrement(&block->generation);
++    }
++
++    // A box-filtered downscale of the compositor texture, read back into `destination` (BGRA, top row first).
++    bool D3D11Mirror::renderSnapshot(uint8_t* destination, uint32_t& width, uint32_t& height) {
 +
 +        if (!_snapshotPShader) {
 +            ComPtr<ID3DBlob> compiled, errors;
@@ -1609,20 +1838,16 @@ index 2df1e64..47d1763 100644
 +                                  D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
 +                                  compiled.GetAddressOf(), errors.GetAddressOf()))) {
 +                Log("Mirror snapshot: D3DCompile failed %s\n", errors ? (char*)errors->GetBufferPointer() : "");
-+                return;
++                return false;
 +            }
 +            if (FAILED(_d3d11MirrorDevice->CreatePixelShader(
 +                    compiled->GetBufferPointer(), compiled->GetBufferSize(), nullptr, _snapshotPShader.ReleaseAndGetAddressOf()))) {
-+                return;
++                return false;
 +            }
 +        }
-+        if (!_snapshotBlock.open(eye_gaze_export::MirrorSnapshotName, eye_gaze_export::BlockAccess::Create)) {
-+            return;
-+        }
-+
 +        const float scale = static_cast<float>(eye_gaze_export::MirrorSnapshotMaxSize) / std::max(_comp_desc.Width, _comp_desc.Height);
-+        const uint32_t width = std::clamp(static_cast<uint32_t>(_comp_desc.Width * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
-+        const uint32_t height = std::clamp(static_cast<uint32_t>(_comp_desc.Height * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
++        width = std::clamp(static_cast<uint32_t>(_comp_desc.Width * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
++        height = std::clamp(static_cast<uint32_t>(_comp_desc.Height * scale), 1u, eye_gaze_export::MirrorSnapshotMaxSize);
 +
 +        D3D11_TEXTURE2D_DESC have{};
 +        if (_snapshotTarget) {
@@ -1633,25 +1858,25 @@ index 2df1e64..47d1763 100644
 +            CD3D11_TEXTURE2D_DESC desc(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, width, height, 1, 1, D3D11_BIND_RENDER_TARGET);
 +            if (FAILED(_d3d11MirrorDevice->CreateTexture2D(&desc, nullptr, _snapshotTarget.ReleaseAndGetAddressOf())) ||
 +                FAILED(_d3d11MirrorDevice->CreateRenderTargetView(_snapshotTarget.Get(), nullptr, _snapshotView.ReleaseAndGetAddressOf()))) {
-+                return;
++                return false;
 +            }
 +            desc.BindFlags = 0;
 +            desc.Usage = D3D11_USAGE_STAGING;
 +            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 +            if (FAILED(_d3d11MirrorDevice->CreateTexture2D(&desc, nullptr, _snapshotStaging.ReleaseAndGetAddressOf()))) {
-+                return;
++                return false;
 +            }
 +        }
 +
 +        ComPtr<ID3D11ShaderResourceView> source;
 +        if (FAILED(_d3d11MirrorDevice->CreateShaderResourceView(_compositorTexture.Get(), nullptr, source.GetAddressOf()))) {
-+            return;
++            return false;
 +        }
 +
 +        // The quad's texture coordinates are rewritten by every draw that uses it (the gaze overlay leaves them at the
 +        // small box around the ring): put them back to the whole image, or the picture is a zoomed-in part of it.
 +        if (FAILED(_d3d11MirrorContext->Map(_quadVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &_mappedQuadVertexBuffer))) {
-+            return;
++            return false;
 +        }
 +        memcpy(_mappedQuadVertexBuffer.pData, quad_verts, sizeof(quad_verts));
 +        _d3d11MirrorContext->Unmap(_quadVertexBuffer.Get(), 0);
@@ -1683,34 +1908,19 @@ index 2df1e64..47d1763 100644
 +        _d3d11MirrorContext->CopyResource(_snapshotStaging.Get(), _snapshotTarget.Get());
 +        D3D11_MAPPED_SUBRESOURCE mapped{};
 +        if (FAILED(_d3d11MirrorContext->Map(_snapshotStaging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
-+            return;
-+        }
-+        auto* block = _snapshotBlock.data();
++            return false;
+         }
 +        for (uint32_t row = 0; row < height; row++) {
-+            memcpy(block->pixels + static_cast<size_t>(row) * width * 4,
++            memcpy(destination + static_cast<size_t>(row) * width * 4,
 +                   static_cast<const uint8_t*>(mapped.pData) + static_cast<size_t>(row) * mapped.RowPitch,
 +                   static_cast<size_t>(width) * 4);
 +        }
 +        _d3d11MirrorContext->Unmap(_snapshotStaging.Get(), 0);
-+
-+        block->magic = eye_gaze_export::MirrorSnapshotMagic;
-+        block->version = 1;
-+        block->width = width;
-+        block->height = height;
-+        block->fullWidth = _comp_desc.Width;
-+        block->fullHeight = _comp_desc.Height;
-+        block->cropX = _cropRect.x;
-+        block->cropY = _cropRect.y;
-+        block->cropWidth = _cropRect.width;
-+        block->cropHeight = _cropRect.height;
-+        InterlockedIncrement(&block->generation);
-+        _snapshotFailed = false;
-+    }
-+
++        return true;
+     }
+ 
      void D3D11Mirror::checkOBSRunning() {
-         static uint32_t frameCounter = 10;
-         static uint32_t lastFrameNum = 0;
-@@ -1172,6 +2754,74 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+@@ -1172,10 +2948,78 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              _obsRunning = true;
  
          lastFrameNum = _pMirrorSurfaceData->frameNumber;
@@ -1785,7 +1995,12 @@ index 2df1e64..47d1763 100644
      }
  
      uint32_t D3D11Mirror::getEyeIndex() const {
-@@ -1203,4 +2853,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
+-        return _pMirrorSurfaceData->eyeIndex;
++        return _eyeOverride >= 0 ? static_cast<uint32_t>(_eyeOverride) : _pMirrorSurfaceData->eyeIndex;
+     }
+ 
+     void D3D11Mirror::createMirrorSurface() {
+@@ -1203,4 +3047,4 @@ float4 ps_quad(psIn inputPS) : SV_TARGET
              throw std::string("Could not map view of file");
          }
      }
@@ -1793,7 +2008,7 @@ index 2df1e64..47d1763 100644
 \ No newline at end of file
 +} // Mirror namespace
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
-index 098ed77..24704ce 100644
+index 098ed77..709503c 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/dx11mirror.h
 @@ -1,5 +1,8 @@
@@ -1815,7 +2030,7 @@ index 098ed77..24704ce 100644
          bool enabled() const;
  
          void flush();
-@@ -61,6 +67,15 @@ namespace Mirror
+@@ -61,9 +67,19 @@ namespace Mirror
  
          void copyToMirror();
  
@@ -1831,7 +2046,11 @@ index 098ed77..24704ce 100644
          void checkOBSRunning();
  
          uint32_t getEyeIndex() const;
-@@ -106,13 +121,185 @@ namespace Mirror
++        void beginSnapshotFrame();
+ 
+       private:
+         void createMirrorSurface();
+@@ -106,13 +122,212 @@ namespace Mirror
          D3D11_TEXTURE2D_DESC _comp_desc{};
          std::vector<ComPtr<ID3D11Texture2D>> _mirrorTextures;
  
@@ -1848,6 +2067,17 @@ index 098ed77..24704ce 100644
 +        float _cropFollowStillMs = 0.f;
 +        bool _cropFollowHoming = false;
 +        void updateCropFollow(bool haveTarget, float dtMs);
++        // Stabilisation: the head orientation put through a One-Euro filter, and how far (pixels) the box has to sit
++        // from its place for the picture to look as if it had been rendered from that smoothed orientation.
++        XrQuaternionf _stabOrientation{0.f, 0.f, 0.f, 1.f};
++        XrQuaternionf _stabRawPrev{0.f, 0.f, 0.f, 1.f};
++        bool _stabHasOrientation = false;
++        float _stabSpeed = 0.f; // Filtered angular speed of the head, rad/s.
++        float _stabOffset[2] = {0.f, 0.f};
++        uint32_t _stabLogFrames = 0; // For a line in the log now and then: how much it has been doing.
++        float _stabLogLargest = 0.f;
++        std::chrono::steady_clock::time_point _stabLastUpdate{};
++        void updateStabilizer();
 +        DXGI_FORMAT _mirrorFormat = DXGI_FORMAT_UNKNOWN;
 +        void updateCrop();
 +
@@ -1856,6 +2086,14 @@ index 098ed77..24704ce 100644
 +        ComPtr<ID3D11RenderTargetView> _snapshotView;
 +        eye_gaze_export::SharedBlock<eye_gaze_export::MirrorSnapshot> _snapshotBlock;
 +        LONG _seenSnapshotRequest = 0;
++        // A picture request is answered with both eyes: the mirrored eye at once, the other one from the next frame, which
++        // is composited for that eye and NOT handed to OBS (OBS shows the previous frame once more).
++        bool _snapshotSecondPending = false;
++        int _eyeOverride = -1; // The eye composited this frame instead of the chosen one; -1 = none.
++        bool renderSnapshot(uint8_t* destination, uint32_t& width, uint32_t& height);
++        void finishSnapshot();
++        // "Capture with key": the key has to be seen UP once after arming before a press counts.
++        bool _captureKeyReady = false;
 +        bool _snapshotFailed = false;
 +
          uint32_t _frameCounter = 0;
@@ -1933,6 +2171,11 @@ index 098ed77..24704ce 100644
 +            bool cropFollowReturn = true;    // Go back to where the user put the box once the gaze allows it...
 +            float cropFollowHomeMs = 1200.f; // ...after the gaze has rested in the still zone for this long. 0 = at once.
 +            float cropFollowReach = 1.f;     // How far the box may travel up/down from home, in box heights.
++            // Stabilisation: the crop box counter-moves small head movements (One-Euro filter on the head orientation).
++            bool stabilize = false;
++            float stabilizeMinCutoff = 1.f;  // Hz. Lower = steadier picture (and more lag behind slow head movement).
++            float stabilizeBeta = 8.f;       // Higher = deliberate head turns are followed with less lag.
++            float stabilizeRoom = 0.02f;     // How far the box may counter-move each way, as a share of the image.
 +        };
 +
 +        // Where an eye's image landed in the compositor texture for the current frame.
@@ -1954,9 +2197,12 @@ index 098ed77..24704ce 100644
 +                             bool scaled,
 +                             const XrCompositionLayerProjectionView* view);
 +        bool reprojectToCurrentView(const EyePlacement& placement, float& x, float& y) const;
++        static bool reproject(const EyePlacement& placement, const XrQuaternionf& from, const XrQuaternionf& to, float& x, float& y);
 +        void loadGazeConfig();
 +        void handleCalibrationKeys();
 +        void persistCalibration();
++        void persistKeys(const std::vector<std::pair<std::string, std::string>>& values);
++        bool gazeReaderReady();
 +        bool createGazeResources();
 +
 +        GazeConfig _gazeConfig;
@@ -2019,10 +2265,10 @@ index 098ed77..24704ce 100644
  
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
 new file mode 100644
-index 0000000..09a836f
+index 0000000..b49c4fc
 --- /dev/null
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/eye_gaze_export.h
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,371 @@
 +// MIT License
 +//
 +// Shared-memory export of the projected eye gaze, so that other in-process API layers or external tools (eg: an OBS
@@ -2334,9 +2580,14 @@ index 0000000..09a836f
 +
 +    struct SettingsSignal {
 +        uint32_t magic;
-+        uint32_t version;              // 2 = snapshotRequest is there.
++        uint32_t version;              // 2 = snapshotRequest is there, 3 = captureKey too.
 +        volatile LONG generation;
 +        volatile LONG snapshotRequest; // Bumped by the settings app to ask for ONE picture of the mirror image (crop tool).
++        volatile LONG captureKey;      // "Capture with key" is armed in the settings app: the virtual-key code that takes
++                                       // ONE picture when pressed, 0 = not armed. The LAYER watches the key - only while
++                                       // this is set - because it runs inside the game: a game that has the focus can
++                                       // keep system hot keys from every other program. The layer sets it back to 0
++                                       // when the picture has been taken.
 +    };
 +
 +    // ---------------------------------------------------------------------------------------------------------------
@@ -2347,6 +2598,7 @@ index 0000000..09a836f
 +    constexpr wchar_t MirrorSnapshotName[] = L"GazeOverlay.MirrorSnapshot";
 +    constexpr uint32_t MirrorSnapshotMagic = 0x4E534F47; // 'GOSN'
 +    constexpr uint32_t MirrorSnapshotMaxSize = 640;      // Longest side, pixels.
++    constexpr uint32_t MirrorSnapshotNoEye = 0xFFFFFFFF;
 +
 +    struct MirrorSnapshot {
 +        uint32_t magic;
@@ -2355,8 +2607,12 @@ index 0000000..09a836f
 +        uint32_t width, height;          // Of the picture below: BGRA, top row first, no padding.
 +        uint32_t fullWidth, fullHeight;  // Of the mirror image it was taken from.
 +        uint32_t cropX, cropY, cropWidth, cropHeight; // The crop box in effect, in mirror image pixels.
-+        uint32_t reserved[5];
++        // Version 2:
++        uint32_t eye;                    // The eye `pixels` shows: 0 = left, 1 = right, 2 = both blended.
++        uint32_t secondEye;              // The eye `secondPixels` shows (taken one frame later), or MirrorSnapshotNoEye.
++        uint32_t reserved[3];
 +        uint8_t pixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4];
++        uint8_t secondPixels[MirrorSnapshotMaxSize * MirrorSnapshotMaxSize * 4]; // Same size as `pixels`.
 +    };
 +
 +    // ---------------------------------------------------------------------------------------------------------------
@@ -2385,7 +2641,7 @@ index 0000000..09a836f
 +
 +} // namespace eye_gaze_export
 diff --git a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
-index ff60a46..88aac39 100644
+index ff60a46..8444cd5 100644
 --- a/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 +++ b/XR_APILAYER_NOVENDOR_OBSMirror/layer.cpp
 @@ -290,6 +290,9 @@ namespace {
@@ -2398,7 +2654,15 @@ index ff60a46..88aac39 100644
              }
  
              return result;
-@@ -649,13 +652,18 @@ namespace {
+@@ -637,6 +640,7 @@ namespace {
+                     auto& sessionState = _sessions[session];
+                     const XrCompositionLayerProjectionView* projView = &_projectionViews[0];
+                     const XrCompositionLayerProjection* projLayer = nullptr;
++                    _mirror->beginSnapshotFrame();
+ 
+                     _projectionViews[0].subImage.imageRect.offset.x = 0;
+                     _projectionViews[0].subImage.imageRect.offset.y = 0;
+@@ -649,13 +653,18 @@ namespace {
                          if (hdr->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
                              projLayer = reinterpret_cast<const XrCompositionLayerProjection*>(hdr);
                              if (projLayer->viewCount >= 2) {
@@ -2418,7 +2682,7 @@ index ff60a46..88aac39 100644
                                                             (DXGI_FORMAT)swapchainState._createInfo.format,
                                                             projLayer ? projLayer->space : NULL,
                                                             frameEndInfo->displayTime);
-@@ -693,8 +701,9 @@ namespace {
+@@ -693,8 +702,9 @@ namespace {
                                  }
                                  if (swapchainState._dx11LastTexture || swapchainState._dx12LastTexture) {
                                      if (projView) {
@@ -2429,7 +2693,7 @@ index ff60a46..88aac39 100644
                                                         quadLayer,
                                                         (DXGI_FORMAT)swapchainState._createInfo.format,
                                                         projLayer ? projLayer->space : NULL,
-@@ -704,7 +713,9 @@ namespace {
+@@ -704,7 +714,9 @@ namespace {
                              }
                          }
                      }

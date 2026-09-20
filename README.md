@@ -39,9 +39,14 @@ driven through SteamVR matches none of them, and silently gets the built-in 35 %
 Its **Mirror** tab has a crop tool that replaces typing crop percentages into the OBS source: a box locked to a shape (16:9, 9:16, 1:1, ...) is
 dragged and scaled on a picture of the whole mirror image, and the mirror layer then hands OBS only that box - so the
 OBS source *is* the box, and every copy after the layer's compositing moves fewer pixels. The picture is made by the
-running game only when the app asks for one. The box can also **follow your gaze up and down** - like a camera
+running game only when the app asks for one - at once, or with **Capture from headset**: arm it, put the headset on, sit
+the way you play and press the key (Pause by default). The key is watched by the mirror layer, inside the game and only
+while armed, because a game that has the focus can keep system hot keys from other programs. That takes one picture of
+each eye, and such a picture is kept until you ask for a new one. The box can also **follow your gaze up and down** - like a camera
 operator, it glides just far enough to keep what you look at in frame, since a 16:9 box only covers about half the height
-of the eye image.
+of the eye image. And it can **steady the picture**: the head orientation goes through a One-Euro filter, and the box
+counter-moves the small stuff (tremor, engine shake, breathing) inside the room around it, while deliberate head turns
+come through. Moving the box is only a different source rectangle for the copy, so both cost nothing.
 
 The **mirror window** (`MirrorWindow.exe`, opened from the app's Mirror tab) is a second way out for the same picture: an
 ordinary window that anything able to capture a window can use - OBS Window Capture, Discord, ... - with no OBS plugin

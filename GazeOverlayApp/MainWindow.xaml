@@ -133,18 +133,44 @@
                         <Button x:Name="CropLargestButton" Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
                         <CheckBox x:Name="CropLocked" Content="Lock box" MinWidth="0" Margin="4,0,10,0" VerticalAlignment="Center"
                                   ToolTip="Locked: the box cannot be moved or resized with the mouse, so a stray click or scroll changes nothing" />
-                        <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Ask the running game for a new picture of the mirror image" Margin="0,2,0,2" Click="OnCropRefresh" />
+                        <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Ask the running game for a new picture of the mirror image, right now" Margin="0,2,6,2" Click="OnCropRefresh" />
+                        <Button x:Name="CropCapture" Content="Capture from headset" FontWeight="SemiBold" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,2,2" Click="OnCaptureArm"
+                                ToolTip="Take the picture from inside the headset instead of from the desk: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off again. The picture is kept until you press Refresh picture." />
+                        <Button x:Name="CropCaptureKey" Content="Key: Pause" Margin="0,2,10,2" Click="OnCaptureKeyClick"
+                                ToolTip="The key that takes the picture while a capture is armed (it does nothing otherwise). Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there (Pause only pauses most sims)." />
+                        <ComboBox x:Name="CropPictureEye" MinWidth="140" Margin="0,2,10,2" VerticalAlignment="Center" Visibility="Collapsed"
+                                  ToolTip="Which eye's picture is shown behind the box. The box itself is the same for both eyes." />
                     </WrapPanel>
+                    <!-- Capture from the headset, armed: impossible to miss, and says what to do. -->
+                    <Border x:Name="CaptureBanner" DockPanel.Dock="Top" Margin="0,6,0,0" Padding="14,10" Visibility="Collapsed"
+                            Background="#3A2A0C" BorderBrush="#E09A2B" BorderThickness="2" CornerRadius="6">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Cancel" Margin="12,0,0,0" VerticalAlignment="Center" Click="OnCaptureCancel" />
+                            <StackPanel>
+                                <TextBlock FontSize="16" FontWeight="Bold" Foreground="#FFC35A" Text="CAPTURE ARMED - waiting for the key" />
+                                <TextBlock TextWrapping="Wrap" Margin="0,3,0,0">
+                                    <Run Text="1. Put the headset on.  2. Sit the way you play and look straight ahead.  3. Press" />
+                                    <Run x:Name="CaptureBannerKey" FontWeight="Bold" Foreground="#FFC35A" Text="Pause" /><Run Text=".  A sound tells you the picture was taken; this then switches itself off." />
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
                     <TextBlock x:Name="CropReadout" DockPanel.Dock="Top" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" />
-                    <TextBlock x:Name="CropStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,4" />
-                    <Expander x:Name="CropFollowExpander" DockPanel.Dock="Top" Header="Follow my gaze (up / down)" Margin="0,0,0,6">
+                    <TextBlock x:Name="CropStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap" />
+                    <!-- The two fold-away sections sit side by side when there is room (set in code). -->
+                    <UniformGrid x:Name="MirrorSections" DockPanel.Dock="Top" Columns="1">
+                    <Expander x:Name="CropFollowExpander" Header="Follow my gaze (up / down)" Margin="0,0,0,6" VerticalAlignment="Top">
                         <!-- Two columns when there is room (set in code), so the settings take little height from the picture. -->
                         <UniformGrid x:Name="PanelCropFollow" Columns="1" Margin="0,4,0,0" />
                     </Expander>
+                    <Expander x:Name="StabilizeExpander" Header="Steady the picture (head movement)" Margin="0,0,0,6" VerticalAlignment="Top">
+                        <UniformGrid x:Name="PanelStabilize" Columns="1" Margin="0,4,0,0" />
+                    </Expander>
+                    </UniformGrid>
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0"
                                Text="Drag inside the box to move it; drag a corner or use the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform > Fit to screen) once - after that it keeps fitting when the box changes size."
                                ToolTip="Fit to screen gives the source a bounding box the size of your canvas (in Edit Transform: Bounds = Scale to inner bounds). The gaze ring and the calibration are not affected by the crop: they are drawn on the whole image first." />
-                    <Border Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True" MinHeight="240">
+                    <Border x:Name="CropFrameBorder" Background="#0B0C0E" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True" MinHeight="240">
                         <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
                     </Border>
                 </DockPanel>

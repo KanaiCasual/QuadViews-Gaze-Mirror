@@ -37,6 +37,14 @@ public sealed class AppSettings
     public int MirrorHeight { get; set; }
     /// <summary>Crop tab: the box cannot be moved or resized by mouse (against accidental drags).</summary>
     public bool CropLocked { get; set; }
+    /// <summary>The crop picture: which eye each stored picture shows (-1 = unknown / none), and which one is looked at.</summary>
+    public int MirrorPictureEye { get; set; } = -1;
+    public int MirrorPictureOtherEye { get; set; } = -1;
+    public bool MirrorPictureShowOther { get; set; }
+    /// <summary>The picture was taken with the capture key: it is not replaced by the automatic refreshes.</summary>
+    public bool MirrorPictureKept { get; set; }
+    /// <summary>Virtual-key code of the key that takes the picture while a capture is armed (the mirror layer watches it). 0x13 = Pause.</summary>
+    public int CaptureKey { get; set; } = 0x13;
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;

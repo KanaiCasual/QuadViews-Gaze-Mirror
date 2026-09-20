@@ -7,7 +7,14 @@ using System.Windows.Media.Imaging;
 namespace GazeOverlay;
 
 /// <summary>A picture of the whole mirror image, as the layer made it, and what it says about the image and the box in effect.</summary>
-public sealed record MirrorPicture(BitmapSource Image, int FullWidth, int FullHeight, int CropX, int CropY, int CropWidth, int CropHeight);
+public sealed record MirrorPicture(BitmapSource Image, int FullWidth, int FullHeight, int CropX, int CropY, int CropWidth, int CropHeight)
+{
+    /// <summary>The eye <see cref="Image"/> shows: 0 = left, 1 = right, 2 = both blended, -1 = not known (older layer).</summary>
+    public int Eye { get; init; } = -1;
+    /// <summary>The other eye, taken one frame later (newer layers), and which eye that is.</summary>
+    public BitmapSource? OtherImage { get; init; }
+    public int OtherEye { get; init; } = -1;
+}
 
 /// <summary>
 /// Asks the running game for ONE small picture of the mirror image (for the crop tool) and reads it from shared memory.
@@ -21,6 +28,65 @@ public static class MirrorSnapshot
     public const string BlockName = "GazeOverlay.MirrorSnapshot";
     public const uint BlockMagic = 0x4E534F47; // 'GOSN'
     public const int PixelsOffset = 64;
+    public const int MaxSize = 640;
+    public const int SecondPixelsOffset = PixelsOffset + MaxSize * MaxSize * 4;
+    public const int BlockSize = SecondPixelsOffset + MaxSize * MaxSize * 4;
+    private const string SurfaceName = "OpenXROBSMirrorSurface";
+
+    /// <summary>
+    /// Arms "capture with key" in the running game: the LAYER then watches that key (virtual-key code) and takes one picture
+    /// when it is pressed - it runs inside the game, where the game's hold on the keyboard does not matter. 0 disarms.
+    /// False = no game, or a layer that cannot do it.
+    /// </summary>
+    public static bool ArmCaptureKey(int virtualKey)
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(SignalName, MemoryMappedFileRights.ReadWrite);
+            using var view = mapping.CreateViewAccessor(0, 20, MemoryMappedFileAccess.ReadWrite);
+            if (view.ReadUInt32(0) != 0x53534F47u || view.ReadUInt32(4) < 3) return false;
+            view.Write(16, virtualKey);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>True while the layer is still waiting for the key, false once it has taken it back, null = no game any more.</summary>
+    public static bool? IsCaptureKeyArmed()
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(SignalName, MemoryMappedFileRights.Read);
+            using var view = mapping.CreateViewAccessor(0, 20, MemoryMappedFileAccess.Read);
+            return view.ReadInt32(16) != 0;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// "Somebody is reading the mirror picture": the layer only works on the mirror image while that counter moves (OBS
+    /// showing the source, or the mirror window, do it). While a capture is armed the app says so itself, so that the key
+    /// works with neither of them open.
+    /// </summary>
+    public static void KeepMirrorAlive()
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(SurfaceName, MemoryMappedFileRights.ReadWrite);
+            using var view = mapping.CreateViewAccessor(0, 8, MemoryMappedFileAccess.ReadWrite);
+            view.Write(4, view.ReadUInt32(4) + 1);
+        }
+        catch
+        {
+            // No game running (yet).
+        }
+    }
 
     public static async Task<(MirrorPicture? Picture, string Message)> RequestAsync()
     {
@@ -53,7 +119,7 @@ public static class MirrorSnapshot
         }
     }
 
-    private static int? ReadGeneration()
+    public static int? ReadGeneration()
     {
         try
         {
@@ -82,8 +148,22 @@ public static class MirrorSnapshot
         }
         var image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr32, null, pixels, width * 4);
         image.Freeze();
-        return new MirrorPicture(image, (int)header.ReadUInt32(20), (int)header.ReadUInt32(24),
+        var picture = new MirrorPicture(image, (int)header.ReadUInt32(20), (int)header.ReadUInt32(24),
             (int)header.ReadUInt32(28), (int)header.ReadUInt32(32), (int)header.ReadUInt32(36), (int)header.ReadUInt32(40));
+        if (header.ReadUInt32(4) < 2) return picture;
+
+        // Version 2: which eye it is, and the other eye's picture.
+        BitmapSource? other = null;
+        var otherEye = (int)header.ReadUInt32(48);
+        if (otherEye is 0 or 1)
+        {
+            var otherPixels = new byte[pixels.Length];
+            using var body = mapping.CreateViewAccessor(SecondPixelsOffset, otherPixels.Length, MemoryMappedFileAccess.Read);
+            body.ReadArray(0, otherPixels, 0, otherPixels.Length);
+            other = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr32, null, otherPixels, width * 4);
+            other.Freeze();
+        }
+        return picture with { Eye = (int)header.ReadUInt32(44), OtherImage = other, OtherEye = other != null ? otherEye : -1 };
     }
 }
 
@@ -98,18 +178,21 @@ public sealed class CropBox
     public double Aspect = 16.0 / 9.0;
     /// <summary>Mirror image width / height in pixels (1 for the usual square eye image).</summary>
     public double ImageAspect = 1;
+    /// <summary>Share of the image kept free on every side of the box (room for the picture steadying). The box cannot enter it.</summary>
+    public double Margin;
 
     public const double MinSize = 0.04;
 
     /// <summary>Width and height as fractions of the image, after fitting the box into it.</summary>
     public (double Width, double Height) Size()
     {
-        var height = Math.Clamp(Height, MinSize, 1);
-        var width = Aspect > 0 ? height * Aspect / ImageAspect : Math.Clamp(FreeWidth, MinSize, 1);
-        if (width > 1)
+        var most = 1 - 2 * Margin;
+        var height = Math.Clamp(Height, MinSize, most);
+        var width = Aspect > 0 ? height * Aspect / ImageAspect : Math.Clamp(FreeWidth, MinSize, most);
+        if (width > most)
         {
-            if (Aspect > 0) height /= width;
-            width = 1;
+            if (Aspect > 0) height *= most / width;
+            width = most;
         }
         return (width, height);
     }
@@ -117,8 +200,8 @@ public sealed class CropBox
     public (double Left, double Top, double Width, double Height) Rect()
     {
         var (width, height) = Size();
-        var left = Math.Clamp(CenterX - width / 2, 0, 1 - width);
-        var top = Math.Clamp(CenterY - height / 2, 0, 1 - height);
+        var left = Math.Clamp(CenterX - width / 2, Margin, 1 - Margin - width);
+        var top = Math.Clamp(CenterY - height / 2, Margin, 1 - Margin - height);
         return (left, top, width, height);
     }
 
@@ -152,8 +235,8 @@ public sealed class CropBox
     {
         var right = pointerX >= anchorX;
         var down = pointerY >= anchorY;
-        var roomX = right ? 1 - anchorX : anchorX;
-        var roomY = down ? 1 - anchorY : anchorY;
+        var roomX = Math.Max((right ? 1 - anchorX : anchorX) - Margin, 0);
+        var roomY = Math.Max((down ? 1 - anchorY : anchorY) - Margin, 0);
         var dx = Math.Min(Math.Abs(pointerX - anchorX), roomX);
         var dy = Math.Min(Math.Abs(pointerY - anchorY), roomY);
 

@@ -89,6 +89,14 @@ public partial class App : Application
         resized.ResizeFromCorner(0.2, 0.2, 0.9, 0.5);     // pointer went further across than down: the square follows it
         var free = new CropBox { Aspect = 0, ImageAspect = 1 };
         free.ResizeFromCorner(0.1, 0.1, 0.6, 0.3);
+        // Room kept free for the picture steadying: the box cannot enter it, whatever is done to it.
+        var roomy = new CropBox { Aspect = 16.0 / 9.0, ImageAspect = 1, Height = 0.4, Margin = 0.02 };
+        roomy.MoveTo(0, 0);                               // pushed against the left wall and the top
+        var pushed = roomy.Rect();
+        roomy.Height = 1; roomy.Normalize();              // "Largest"
+        var largest = roomy.Rect();
+        var roomyResize = new CropBox { Aspect = 1, ImageAspect = 1, Margin = 0.05 };
+        roomyResize.ResizeFromCorner(0.5, 0.5, 1.5, 1.5); // dragged far out of the picture
 
         // Picture request: play the layer (blocks + answering the request counter).
         string pictureResult;
@@ -104,7 +112,7 @@ public partial class App : Application
             signalView.Write(0, 0x53534F47u);
             signalView.Write(4, 2u);
             const int width = 4, height = 2;
-            using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew(MirrorSnapshot.BlockName, MirrorSnapshot.PixelsOffset + 640 * 640 * 4);
+            using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew(MirrorSnapshot.BlockName, MirrorSnapshot.BlockSize);
             using var blockView = block.CreateViewAccessor();
             var layer = Task.Run(async () =>
             {
@@ -114,13 +122,20 @@ public partial class App : Application
                 blockView.Write(20, 8192u); blockView.Write(24, 4096u);
                 blockView.Write(28, 100u); blockView.Write(32, 200u); blockView.Write(36, 1920u); blockView.Write(40, 1080u);
                 for (var i = 0; i < width * height * 4; i++) blockView.Write(MirrorSnapshot.PixelsOffset + i, (byte)(i * 7));
+                // Version 2: the right eye first, the left eye as the second picture.
+                blockView.Write(4, 2u);
+                blockView.Write(44, 1u); blockView.Write(48, 0u);
+                for (var i = 0; i < width * height * 4; i++) blockView.Write(MirrorSnapshot.SecondPixelsOffset + i, (byte)(i * 3));
                 blockView.Write(8, blockView.ReadInt32(8) + 1);
             });
             var (picture, message) = Task.Run(MirrorSnapshot.RequestAsync).GetAwaiter().GetResult();
             layer.Wait();
             var pixels = new byte[width * height * 4];
             picture?.Image.CopyPixels(pixels, width * 4, 0);
-            pictureResult = picture is { FullWidth: 8192, FullHeight: 4096, CropX: 100, CropWidth: 1920 } && picture.Image.PixelWidth == width && pixels[5] == 35
+            var otherPixels = new byte[width * height * 4];
+            picture?.OtherImage?.CopyPixels(otherPixels, width * 4, 0);
+            pictureResult = picture is { FullWidth: 8192, FullHeight: 4096, CropX: 100, CropWidth: 1920, Eye: 1, OtherEye: 0 } && picture.Image.PixelWidth == width && pixels[5] == 35
+                            && otherPixels[5] == 15
                 ? "ok" : "wrong: " + message;
         }
 
@@ -131,9 +146,12 @@ public partial class App : Application
             ("a box pushed into a corner stays inside the image", Near(corner.Left + corner.Width, 1) && Near(corner.Top, 0)),
             ("a 9:16 box can take the full height", Near(vertical.Size().Height, 1) && Near(vertical.Size().Width, 9.0 / 16)),
             ("dragging a corner keeps the opposite corner and the shape", Near(resized.Rect().Left, 0.2) && Near(resized.Rect().Top, 0.2) && Near(resized.Rect().Width, 0.7) && Near(resized.Rect().Height, 0.7)),
+            ("with room kept free, a box pushed into a corner stops short of the edges", Near(pushed.Left, 0.02) && Near(pushed.Top, 0.02)),
+            ("with room kept free, the largest box leaves that room on both sides", Near(largest.Left, 0.02) && Near(largest.Width, 0.96) && Near(largest.Height, 0.96 * 9 / 16)),
+            ("with room kept free, dragging a corner stops at the room", Near(roomyResize.Rect().Left, 0.5) && Near(roomyResize.Rect().Width, 0.45) && Near(roomyResize.Rect().Height, 0.45)),
             ("the free shape follows the pointer both ways", Near(free.Rect().Width, 0.5) && Near(free.Rect().Height, 0.2)),
             ("\"16:9\", \"0\" and plain numbers are understood as shapes", Near(CropBox.ParseAspect("16:9"), 16.0 / 9) && CropBox.ParseAspect("0") == 0 && Near(CropBox.ParseAspect("1.5"), 1.5)),
-            ("a picture request is answered and read back (" + pictureResult + ")", pictureResult == "ok" || pictureResult.StartsWith("skipped")),
+            ("a picture request is answered and read back, both eyes (" + pictureResult + ")", pictureResult == "ok" || pictureResult.StartsWith("skipped")),
         };
         foreach (var (name, ok) in checks) report.WriteLine($"crop - {(ok ? "ok  " : "FAIL")} {name}");
         return checks.All(c => c.Ok);
