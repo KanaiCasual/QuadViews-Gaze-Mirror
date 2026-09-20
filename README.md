@@ -158,7 +158,7 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 ### Mirror
 
-![Mirror tab](docs/tab-mirror.png)
+![Mirror tab](docs/mirror-tab.png)
 
 *Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
 
