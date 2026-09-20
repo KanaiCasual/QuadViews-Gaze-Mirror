@@ -13,14 +13,9 @@
 shows your viewers where you are looking** - a ring in the style of Tobii Ghost, drawn on the mirror only, **never in the
 headset**.
 
-<p align="center">
-  <img src="docs/showcase.gif" width="800" alt="The mirror picture in DCS World: a blue ring with a teardrop tail follows the pilot's gaze across the cockpit instruments"><br>
-  <em>What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.</em>
-</p>
-
-The same clip in full quality (1080p, 60 fps):
-
 https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
+
+*What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.*
 
 [![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://youtu.be/6375tGa7_gk)
 
