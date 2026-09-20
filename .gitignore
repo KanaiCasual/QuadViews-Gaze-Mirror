@@ -6,7 +6,7 @@
 !/.gitmodules
 !/README.md
 !/LICENSE
-!/PUBLISHING-PLAN.md
+!/docs/
 !/Build-Layers.ps1
 !/Build-Installer.ps1
 !/gaze.cfg
