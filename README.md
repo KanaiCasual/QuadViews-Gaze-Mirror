@@ -2,6 +2,13 @@
 
 # QuadViews Gaze Mirror
 
+[![Latest release](https://img.shields.io/github/v/release/KanaiCasual/QuadViews-Gaze-Mirror?label=latest%20release&color=4DB2FF)](../../releases/latest)
+[![Released](https://img.shields.io/github/release-date/KanaiCasual/QuadViews-Gaze-Mirror?label=released)](../../releases/latest)
+[![Downloads, all versions](https://img.shields.io/github/downloads/KanaiCasual/QuadViews-Gaze-Mirror/total?label=downloads%20%28all%20versions%29)](../../releases)
+[![Downloads, latest version](https://img.shields.io/github/downloads/KanaiCasual/QuadViews-Gaze-Mirror/latest/total?label=downloads%20%28latest%29)](../../releases/latest)
+[![Open issues](https://img.shields.io/github/issues/KanaiCasual/QuadViews-Gaze-Mirror)](../../issues)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
+
 **Foveated rendering (quad views) for OpenXR games, plus a mirror of your headset view for recording and streaming that
 shows your viewers where you are looking** - a ring in the style of Tobii Ghost, drawn on the mirror only, **never in the
 headset**.
