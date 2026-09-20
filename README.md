@@ -22,6 +22,8 @@ The same clip in full quality (1080p, 60 fps):
 
 https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
 
+[![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://youtu.be/6375tGa7_gk)
+
 One installer sets up everything:
 
 - **Quad-Views-Foveated** - eye-tracked foveated rendering: sharp where you look, cheap everywhere else.
