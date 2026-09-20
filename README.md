@@ -18,6 +18,10 @@ headset**.
   <em>What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.</em>
 </p>
 
+The same clip in full quality (1080p, 60 fps):
+
+https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
+
 One installer sets up everything:
 
 - **Quad-Views-Foveated** - eye-tracked foveated rendering: sharp where you look, cheap everywhere else.
