@@ -13,6 +13,11 @@
 shows your viewers where you are looking** - a ring in the style of Tobii Ghost, drawn on the mirror only, **never in the
 headset**.
 
+<p align="center">
+  <img src="docs/showcase.gif" width="800" alt="The mirror picture in DCS World: a blue ring with a teardrop tail follows the pilot's gaze across the cockpit instruments"><br>
+  <em>What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.</em>
+</p>
+
 One installer sets up everything:
 
 - **Quad-Views-Foveated** - eye-tracked foveated rendering: sharp where you look, cheap everywhere else.
