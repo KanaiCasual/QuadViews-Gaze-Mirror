@@ -160,7 +160,7 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 ![Mirror tab](docs/tab-mirror.png)
 
-*(The picture behind the box in this screenshot is a stand-in; yours shows your own headset view.)*
+*Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
 
 **Mirror window** (top): Open / Close, which monitor (or an ordinary window), which eye, output size, picture rate, the
 "send nothing to the OBS plugin" box, and a title-bar option for capture tools that only list windows that have one. All
