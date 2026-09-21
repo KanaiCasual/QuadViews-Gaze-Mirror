@@ -174,6 +174,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     wchar_t eventName[64];
     swprintf_s(eventName, ReaderEventFormat, static_cast<unsigned>(mySlot));
     HANDLE frameReady = CreateEventW(nullptr, FALSE, FALSE, eventName);
+    if (HANDLE wake = CreateEventW(nullptr, FALSE, FALSE, ProducerWakeName)) { // A sleeping producer: there is a reader now.
+        SetEvent(wake);
+        CloseHandle(wake);
+    }
 
     WNDCLASSW windowClass{};
     windowClass.lpfnWndProc = WindowProcedure;

@@ -1,6 +1,9 @@
 // QuadViews Gaze Mirror 2.0 - core: the little geometry the mirror needs, without DirectXMath or OpenXR types.
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+
 namespace gaze_mirror {
 
     struct Vec3 {

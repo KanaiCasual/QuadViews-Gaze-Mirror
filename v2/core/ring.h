@@ -5,6 +5,8 @@
 //   - the ghost tail, the bubble/solid trail, the heatmap's spots, the dwell feedback.
 #pragma once
 
+#include <deque>
+
 #include "math.h"
 #include "settings.h"
 

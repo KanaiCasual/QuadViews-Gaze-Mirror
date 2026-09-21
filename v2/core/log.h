@@ -2,6 +2,8 @@
 // first line; until then, lines go to %LocalAppData%\QuadViewsGazeMirror\<name>.log with the name given here.
 #pragma once
 
+#include <cstdarg>
+
 namespace gaze_mirror {
 
     // Chooses the file. `name` is used as %LocalAppData%\QuadViewsGazeMirror\<name>.log; the environment variable

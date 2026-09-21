@@ -5,6 +5,14 @@
 // per frame, a memory read. Every key of 1.x means the same thing here.
 #pragma once
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "log.h"
 
 namespace gaze_mirror {

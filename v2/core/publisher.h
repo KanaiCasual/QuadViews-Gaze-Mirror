@@ -3,6 +3,9 @@
 // one at all (a few memory reads per frame, and never a timer).
 #pragma once
 
+#include <d3d11.h>
+#include <wrl/client.h>
+
 #include "../protocol/gaze_mirror_protocol.h"
 
 namespace gaze_mirror {
@@ -32,6 +35,13 @@ namespace gaze_mirror {
         // The frame in that slot is finished (on the GPU's queue): tell the readers.
         void publish(const Slot& slot, int eye, bool gazeValid, float gazeU, float gazeV);
 
+        // Another producer took the block over (an OpenXR game beats the OpenVR helper).
+        bool lost() const {
+            return _frames && _frames->producerPid != static_cast<LONG>(GetCurrentProcessId());
+        }
+        // The game changed (OpenVR helper): tell the readers.
+        void rename(const char* program, const char* application);
+
         uint32_t width() const {
             return _width;
         }
@@ -52,6 +62,7 @@ namespace gaze_mirror {
         HANDLE _mapping = nullptr;
         Frames* _frames = nullptr;
         HANDLE _readerEvents[ReaderCount] = {};
+        HANDLE _producerWake = nullptr;
         ULONGLONG _lastPing[ReaderCount] = {};
         int _unansweredPings[ReaderCount] = {};
         int _logProblem = 0;

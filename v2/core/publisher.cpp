@@ -46,6 +46,7 @@ namespace gaze_mirror {
             swprintf_s(name, ReaderEventFormat, i);
             _readerEvents[i] = CreateEventW(nullptr, FALSE, FALSE, name);
         }
+        _producerWake = CreateEventW(nullptr, FALSE, FALSE, ProducerWakeName);
         ComPtr<IDXGIDevice> dxgiDevice;
         ComPtr<IDXGIAdapter> adapter;
         DXGI_ADAPTER_DESC adapterDesc{};
@@ -84,12 +85,15 @@ namespace gaze_mirror {
                 for (uint32_t i = 0; i < ReaderCount; i++) {
                     if (_frames->readers[i].pid != 0 && _readerEvents[i]) SetEvent(_readerEvents[i]);
                 }
+                if (_producerWake) SetEvent(_producerWake); // A stand-by producer may take over.
             }
             UnmapViewOfFile(_frames);
             _frames = nullptr;
         }
         if (_mapping) CloseHandle(_mapping);
         _mapping = nullptr;
+        if (_producerWake) CloseHandle(_producerWake);
+        _producerWake = nullptr;
         for (auto& event : _readerEvents) {
             if (event) CloseHandle(event);
             event = nullptr;
@@ -97,6 +101,16 @@ namespace gaze_mirror {
         for (auto& slot : _slots) slot = {};
         _width = _height = 0;
         _device.Reset();
+    }
+
+    void Publisher::rename(const char* program, const char* application) {
+        if (!_frames || lost()) return;
+        strncpy_s(_frames->producerProgram, program ? program : "", _TRUNCATE);
+        strncpy_s(_frames->producerApplication, application ? application : "", _TRUNCATE);
+        InterlockedIncrement(&_frames->generation);
+        for (uint32_t i = 0; i < ReaderCount; i++) {
+            if (_frames->readers[i].pid != 0 && _readerEvents[i]) SetEvent(_readerEvents[i]);
+        }
     }
 
     bool Publisher::wanted() {

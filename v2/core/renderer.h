@@ -6,6 +6,12 @@
 // game's (or the helper's) own Direct3D state is never disturbed.
 #pragma once
 
+#include <d3d11.h>
+#include <wrl/client.h>
+#include <map>
+#include <utility>
+#include <vector>
+
 #include "framing.h"
 #include "publisher.h"
 #include "ring.h"

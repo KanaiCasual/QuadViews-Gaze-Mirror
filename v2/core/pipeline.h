@@ -3,6 +3,8 @@
 // ring motion, framing, the one draw, the crop tool's picture, the calibration nudge keys, the frame-rate cap.
 #pragma once
 
+#include <chrono>
+
 #include "framing.h"
 #include "publisher.h"
 #include "renderer.h"
@@ -53,6 +55,9 @@ namespace gaze_mirror {
         void stop();
         bool started() const {
             return _publisher.started();
+        }
+        bool lost() const {
+            return _publisher.lost();
         }
 
         // Cheap. Whether the frame is worth handing over at all (a reader wants it, and it is due).
