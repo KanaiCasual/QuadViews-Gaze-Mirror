@@ -1,0 +1,93 @@
+// QuadViews Gaze Mirror 2.0 - the one format every producer and every reader speaks.
+//
+// Producers make the finished mirror picture (cropped, steadied, ring drawn) and publish it here:
+//   - the OpenXR layer, inside an OpenXR game;
+//   - the OpenVR helper, next to an OpenVR game (reads SteamVR's own mirror).
+// Readers only show it: the OBS plugin, the mirror window, the dev viewer. A reader never needs to know which kind
+// of game is running.
+//
+// How a frame travels:
+//   1. The producer draws into one of SlotCount shared textures - never the one it published last, never one a
+//      reader has marked as "reading".
+//   2. It writes latestSlot / frameNumber and sets the event of every live reader.
+//   3. A reader wakes, marks the slot, uses the texture on its own device, clears the mark.
+// Nothing here runs on a timer. With no live reader the producer does no work at all.
+//
+// Whoever starts first creates the mapping (create-or-open); it is zero-filled by Windows, and the creator stamps
+// magic/version/structSize. All fields are plain integers and floats so that C, C++ and C# can share it.
+
+#pragma once
+
+#include <cstdint>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+namespace gaze_mirror {
+
+    constexpr wchar_t FramesMappingName[] = L"GazeMirror2.Frames";
+    constexpr wchar_t ReaderEventFormat[] = L"GazeMirror2.FrameReady.%u"; // One auto-reset event per reader slot.
+
+    constexpr uint32_t FramesMagic = 0x46324D47; // 'GM2F'
+    constexpr uint32_t FramesVersion = 1;
+    constexpr uint32_t SlotCount = 4;
+    constexpr uint32_t ReaderCount = 4;
+    constexpr LONG NoSlot = -1;
+
+    constexpr LONG ProducerNone = 0;
+    constexpr LONG ProducerOpenXR = 1;
+    constexpr LONG ProducerOpenVR = 2;
+
+    // A reader is "live" while its heartbeat is younger than this. It writes the heartbeat whenever its event wakes
+    // it; a producer that finds a registered reader with an old heartbeat sets the event once ("are you there?")
+    // before it concludes anything.
+    constexpr ULONGLONG ReaderLiveMs = 2000;
+
+    struct Reader {
+        volatile LONG pid;             // 0 = free. Claim with InterlockedCompareExchange(&pid, myPid, 0).
+        volatile LONG readingSlot;     // NoSlot, or the slot this reader is using right now.
+        volatile LONGLONG heartbeatMs; // GetTickCount64() of the reader's last wake.
+        volatile LONG wantedFps;       // 0 = every frame. Reserved: readers skip frames themselves for now.
+        LONG reserved;
+    };
+
+    struct Frames {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t structSize;
+
+        volatile LONG producerKind; // ProducerNone while nobody publishes.
+        volatile LONG producerPid;
+        volatile LONG generation;   // Bumped whenever the textures below were (re)made: readers reopen them.
+
+        uint32_t width;
+        uint32_t height;
+        uint32_t dxgiFormat;          // DXGI_FORMAT of the shared textures (always a typed, non-sRGB 8-bit format).
+        uint32_t adapterLuidLow;      // The graphics card the textures live on; a reader on another one cannot open them.
+        int32_t adapterLuidHigh;
+        uint32_t reserved0;
+        uint64_t textureHandle[SlotCount]; // IDXGIResource::GetSharedHandle values (system-wide, not per process).
+
+        volatile LONG latestSlot;       // NoSlot until the first frame.
+        volatile LONG eye;              // 0 left, 1 right - the eye the picture shows.
+        volatile LONGLONG frameNumber;  // Counts published frames; a reader compares it with the last one it showed.
+
+        // Where the viewer looks, in the published picture (0..1, origin top left) - already drawn as the ring;
+        // published too, so that a reader could show it differently one day.
+        volatile LONG gazeValid;
+        float gazeU;
+        float gazeV;
+        uint32_t reserved1;
+
+        // The game the picture comes from: its program file ("DCS.exe") and the name it gave to OpenXR / its SteamVR
+        // application key. UTF-8, zero-terminated. Written before producerKind is set; per-game crop profiles and the
+        // app's status display go by these.
+        char producerProgram[64];
+        char producerApplication[128];
+
+        Reader readers[ReaderCount];
+    };
+
+} // namespace gaze_mirror

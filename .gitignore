@@ -16,6 +16,8 @@
 !/Build-MirrorWindow.ps1
 !/patches/
 !/tools/
+# 2.0: the new layer, OBS plugin, OpenVR helper, shared core, tests (see v2\README.md).
+!/v2/
 # Upstream sources, as submodules pinned to the commits our patches apply to.
 !/Quad-Views-Foveated
 !/OpenXR-Layer-OBSMirror
@@ -29,3 +31,13 @@ obj/
 # Recordings reviewed with tools/clip-review.
 /tools/clip-review/*.mp4
 __pycache__/
+# 2.0 downloaded third-party files are fetched by v2\Get-External.ps1, only their licences are kept.
+/v2/external/libobs/*
+!/v2/external/libobs/COPYING
+!/v2/external/libobs/obsconfig.h
+/v2/external/libobs-lib/
+/v2/external/openvr/*
+!/v2/external/openvr/LICENSE
+/v2/external/qvf/
+/v2/bin/
+/v2/obj/

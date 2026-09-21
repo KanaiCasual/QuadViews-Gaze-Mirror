@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- QuadViews Gaze Mirror 2.0 - the shared core (static library): settings, ring motion, framing, the one draw, the
+       publisher, the crop-tool picture. Used by the OpenXR layer and the OpenVR helper. Release x64, static C runtime. -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5D0A7F21-6B3C-4E8D-9A45-1C2B3D4E5F60}</ProjectGuid>
+    <RootNamespace>GazeMirrorCore</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)..\bin\core\</OutDir>
+    <IntDir>$(ProjectDir)..\obj\core\</IntDir>
+    <TargetName>GazeMirrorCore</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="log.cpp" />
+    <ClCompile Include="settings.cpp" />
+    <ClCompile Include="ring.cpp" />
+    <ClCompile Include="framing.cpp" />
+    <ClCompile Include="publisher.cpp" />
+    <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="snapshot.cpp" />
+    <ClCompile Include="pipeline.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="math.h" />
+    <ClInclude Include="settings.h" />
+    <ClInclude Include="ring.h" />
+    <ClInclude Include="framing.h" />
+    <ClInclude Include="publisher.h" />
+    <ClInclude Include="renderer.h" />
+    <ClInclude Include="shader.h" />
+    <ClInclude Include="snapshot.h" />
+    <ClInclude Include="pipeline.h" />
+    <ClInclude Include="..\protocol\gaze_mirror_protocol.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

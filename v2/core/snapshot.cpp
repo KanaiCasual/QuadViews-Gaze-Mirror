@@ -1,0 +1,81 @@
+#include "pch.h"
+
+#include "log.h"
+#include "snapshot.h"
+
+namespace gaze_mirror {
+
+    SnapshotService::~SnapshotService() {
+        if (_block) UnmapViewOfFile(_block);
+        if (_mapping) CloseHandle(_mapping);
+    }
+
+    bool SnapshotService::wanted(SettingsSource::Signal* signal) {
+        if (!signal) return false;
+        if (!_seenRequestInitialised) {
+            _seenRequestInitialised = true;
+            _seenRequest = signal->snapshotRequest;
+        }
+        bool pressed = false;
+        const LONG captureKey = signal->captureKey;
+        if (captureKey > 0 && captureKey < 256) {
+            const bool down = (GetAsyncKeyState(static_cast<int>(captureKey)) & 0x8000) != 0;
+            if (!down) {
+                _keyReady = true;
+            } else if (_keyReady) {
+                pressed = true;
+                _keyReady = false;
+                signal->captureKey = 0;
+            }
+        } else {
+            _keyReady = false;
+        }
+        const LONG request = signal->snapshotRequest;
+        if (!pressed && request == _seenRequest) return false;
+        _seenRequest = request;
+        if (pressed) _failed = false; // Asked for in person: worth another try.
+        return !_failed;
+    }
+
+    void SnapshotService::take(Renderer& renderer, const SourceImage* const images[2], int mirroredEye, const CropRect& placed) {
+        _failed = true; // Until everything worked: a failure is not retried on every request for ever.
+        if (!_mapping) {
+            _mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SnapshotBlock), SnapshotName);
+            if (_mapping) _block = static_cast<SnapshotBlock*>(MapViewOfFile(_mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SnapshotBlock)));
+            if (!_block) {
+                Log("snapshot: the block could not be created (%lu)", GetLastError());
+                return;
+            }
+        }
+        const SourceImage* first = images[mirroredEye] ? images[mirroredEye] : images[1 - mirroredEye];
+        const int firstEye = images[mirroredEye] ? mirroredEye : 1 - mirroredEye;
+        if (!first) return;
+        uint32_t width = 0, height = 0;
+        if (!renderer.snapshot(*first, SnapshotMaxSide, _pixels, width, height)) return;
+        memcpy(_block->pixels, _pixels.data(), _pixels.size());
+        _block->magic = SnapshotMagic;
+        _block->version = 2;
+        _block->width = width;
+        _block->height = height;
+        _block->fullWidth = static_cast<uint32_t>(first->width);
+        _block->fullHeight = static_cast<uint32_t>(first->height);
+        _block->cropX = static_cast<uint32_t>(placed.x);
+        _block->cropY = static_cast<uint32_t>(placed.y);
+        _block->cropWidth = static_cast<uint32_t>(placed.width);
+        _block->cropHeight = static_cast<uint32_t>(placed.height);
+        _block->eye = static_cast<uint32_t>(firstEye);
+        _block->secondEye = SnapshotNoEye;
+        const SourceImage* second = images[1 - firstEye];
+        if (second) {
+            uint32_t width2 = 0, height2 = 0;
+            if (renderer.snapshot(*second, SnapshotMaxSide, _pixels, width2, height2) && width2 == width && height2 == height) {
+                memcpy(_block->secondPixels, _pixels.data(), _pixels.size());
+                _block->secondEye = static_cast<uint32_t>(1 - firstEye);
+            }
+        }
+        InterlockedIncrement(&_block->generation);
+        _failed = false;
+        Log("snapshot: %u x %u of %d x %d, eye %d%s", width, height, first->width, first->height, firstEye, second ? " + the other eye" : "");
+    }
+
+} // namespace gaze_mirror
