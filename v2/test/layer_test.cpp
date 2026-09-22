@@ -255,6 +255,28 @@ int wmain(int argc, wchar_t** argv) {
     SetEnvironmentVariableW(L"GAZE_MIRROR_SETTINGS_FILE", settingsFile.c_str());
     SetEnvironmentVariableW(L"GAZE_MIRROR_LOG_FILE", (folder + L"\\layer.log").c_str());
 
+    // A live VR session (a producer publishing, or a reader such as OBS waiting) would be disturbed by this test, and its
+    // "no reader" checks could not hold: step aside rather than fail.
+    if (HANDLE live = OpenFileMappingW(FILE_MAP_READ, FALSE, FramesMappingName)) {
+        const Frames* frames = static_cast<const Frames*>(MapViewOfFile(live, FILE_MAP_READ, 0, 0, sizeof(Frames)));
+        bool busy = false;
+        if (frames && frames->magic == FramesMagic) {
+            if (frames->producerKind != ProducerNone) busy = true;
+            for (const Reader& reader : frames->readers) {
+                if (reader.pid == 0) continue;
+                HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(reader.pid));
+                if (process && WaitForSingleObject(process, 0) == WAIT_TIMEOUT) busy = true;
+                if (process) CloseHandle(process);
+            }
+        }
+        if (frames) UnmapViewOfFile(frames);
+        CloseHandle(live);
+        if (busy) {
+            printf("SKIPPED: a VR session is live (a mirror producer or reader is running) - the offline test would disturb it.\n");
+            return 0;
+        }
+    }
+
     HMODULE library = LoadLibraryW(argv[1]);
     if (!library) {
         printf("the layer DLL could not be loaded (%lu)\n", GetLastError());
