@@ -39,6 +39,18 @@
     <SetProperty Id="DESKTOPSHORTCUTCHOICE" Action="DesktopShortcutChosen" Value="yes" Before="InstallInitialize" Sequence="execute" Condition="DESKTOPSHORTCUT = &quot;1&quot;" />
     <SetProperty Id="DESKTOPSHORTCUTCHOICE" Action="DesktopShortcutDeclined" Value="no" Before="InstallInitialize" Sequence="execute" Condition="DESKTOPSHORTCUT &lt;&gt; &quot;1&quot;" />
 
+    <!--
+      Jabbah's original OpenXR-Layer-OBSMirror, if somebody installed it themselves: then the win-openxr OBS plugin is
+      theirs and stays (see OldObsPluginRemoval).
+    -->
+    <Property Id="ORIGINALOBSMIRROR">
+      <RegistrySearch Id="FindOriginalObsMirror" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
+                      Name="[ProgramFiles64Folder]OpenXR-Layer-OBSMirror\XR_APILAYER_NOVENDOR_OBSMirror.json" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="ORIGINALOBSMIRRORDIR">
+      <DirectorySearch Id="FindOriginalObsMirrorDir" Path="[ProgramFiles64Folder]OpenXR-Layer-OBSMirror" Depth="0" />
+    </Property>
+
     <!-- OBS Studio, for its plugin folder. -->
     <Property Id="OBSDIR">
       <RegistrySearch Id="FindObs64" Root="HKLM" Key="SOFTWARE\OBS Studio" Type="raw" Bitness="always64" />
@@ -77,6 +89,9 @@
           <Directory Id="ObsDataGazeMirrorDir" Name="gaze-mirror-capture">
             <Directory Id="ObsDataLocaleDir" Name="locale" />
           </Directory>
+          <Directory Id="ObsDataOldPluginDir" Name="win-openxr">
+            <Directory Id="ObsDataOldPluginLocaleDir" Name="locale" />
+          </Directory>
         </Directory>
       </Directory>
     </Directory>
@@ -91,6 +106,7 @@
       <ComponentRef Id="DesktopShortcut" />
       <ComponentRef Id="RememberChoices" />
       <ComponentGroupRef Id="ObsPlugin" />
+      <ComponentRef Id="OldObsPluginRemoval" />
     </Feature>
 
     <!-- Pages: GazeUI.wxs. Pictures: tools\make_installer_art.py draws them from the app logo. -->
@@ -177,6 +193,26 @@
         <File Id="ObsPluginLocaleEnFile" Source="$(var.PayloadDir)\OBSPlugin\data\obs-plugins\gaze-mirror-capture\locale\en-US.ini" KeyPath="yes" />
       </Component>
     </ComponentGroup>
+
+    <!--
+      1.x of THIS product shipped Jabbah's "OpenXR Mirror Capture" plugin into OBS as a permanent file, so an upgrade would
+      leave it there. It is replaced by this project's own plugin, so it is removed - files only, through Windows
+      Installer's own RemoveFile table - but only when this install IS the upgrade from our 1.x (WIX_UPGRADE_DETECTED)
+      and the original OpenXR-Layer-OBSMirror is not on the PC: then the plugin can only have come from us. Somebody
+      who installed Jabbah's product themselves keeps their plugin. An OBS scene that still uses the old source shows
+      it as missing; add a "Gaze Mirror" source instead.
+    -->
+    <Component Id="OldObsPluginRemoval" Directory="ObsPlugins64Dir" Guid="3E9A1C74-5B2D-4F86-A0E1-7C4D9B2F6A58"
+               Condition="OBSDIR AND WIX_UPGRADE_DETECTED AND NOT ORIGINALOBSMIRROR AND NOT ORIGINALOBSMIRRORDIR">
+      <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="OldObsPluginRemoved" Type="integer" Value="1" KeyPath="yes" />
+      <RemoveFile Id="RemoveOldPluginDll" Directory="ObsPlugins64Dir" Name="win-openxr.dll" On="install" />
+      <RemoveFile Id="RemoveOldPluginPdb" Directory="ObsPlugins64Dir" Name="win-openxr.pdb" On="install" />
+      <RemoveFile Id="RemoveOldPluginPresets" Directory="ObsDataOldPluginDir" Name="win_openxrmirror-presets.ini" On="install" />
+      <RemoveFile Id="RemoveOldPluginLocaleEn" Directory="ObsDataOldPluginLocaleDir" Name="en-US.ini" On="install" />
+      <RemoveFile Id="RemoveOldPluginLocaleFi" Directory="ObsDataOldPluginLocaleDir" Name="fi-FI.ini" On="install" />
+      <RemoveFolder Id="RemoveOldPluginLocaleDir" Directory="ObsDataOldPluginLocaleDir" On="install" />
+      <RemoveFolder Id="RemoveOldPluginDir" Directory="ObsDataOldPluginDir" On="install" />
+    </Component>
   </Fragment>
 
 </Wix>

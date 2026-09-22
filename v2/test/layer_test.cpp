@@ -394,11 +394,17 @@ int wmain(int argc, wchar_t** argv) {
         endFrame(session, &frameEnd);
         Check(frames->latestSlot == NoSlot && frames->frameNumber == framesBefore, "without a reader no picture is made");
 
-        frames->readers[0].readingSlot = NoSlot;
-        frames->readers[0].heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
-        InterlockedExchange(&frames->readers[0].pid, static_cast<LONG>(GetCurrentProcessId()));
+        int place = -1;
+        for (uint32_t i = 0; i < ReaderCount && place < 0; i++) {
+            if (InterlockedCompareExchange(&frames->readers[i].pid, static_cast<LONG>(GetCurrentProcessId()), 0) == 0) place = int(i);
+        }
+        Check(place >= 0, "a free reader place was found");
+        if (place < 0) return 1;
+        Reader& me = frames->readers[place];
+        me.readingSlot = NoSlot;
+        me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
         wchar_t eventName[64];
-        swprintf_s(eventName, ReaderEventFormat, 0u);
+        swprintf_s(eventName, ReaderEventFormat, static_cast<unsigned>(place));
         HANDLE frameReady = CreateEventW(nullptr, FALSE, FALSE, eventName);
         ResetEvent(frameReady);
 
@@ -425,7 +431,7 @@ int wmain(int argc, wchar_t** argv) {
 
         // Read it like a reader: on another device, through the shared handle.
         const LONG latest = frames->latestSlot;
-        frames->readers[0].readingSlot = latest;
+        me.readingSlot = latest;
         ComPtr<ID3D11Texture2D> shared;
         const HANDLE handle = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(frames->textureHandle[latest]));
         Check(SUCCEEDED(readerDevice->OpenSharedResource(handle, IID_PPV_ARGS(&shared))), "a second device opens the shared picture");
@@ -433,7 +439,7 @@ int wmain(int argc, wchar_t** argv) {
             std::wstring name(test.name, test.name + strlen(test.name));
             Check(SavePng(folder + L"\\" + name + L".png", readerDevice.Get(), readerContext.Get(), shared.Get()), "and saves it as PNG");
         }
-        frames->readers[0].readingSlot = NoSlot;
+        me.readingSlot = NoSlot;
         shared.Reset();
 
         // The crop tool's picture: ask through the app's signal block, expect both eyes in the snapshot block.
@@ -501,7 +507,7 @@ int wmain(int argc, wchar_t** argv) {
         const ULONG referencesAfter = (imageA->AddRef(), imageA->Release());
         Check(referencesAfter == referencesBefore, "no reference to the game's images is kept after the session");
         Check(frames->producerKind == ProducerNone && frames->latestSlot == NoSlot, "the producer signs off");
-        InterlockedExchange(&frames->readers[0].pid, 0);
+        InterlockedExchange(&me.pid, 0);
         destroyInstance(instance);
         CloseHandle(frameReady);
         // The block itself stays mapped until the end of the process so that every case sees a used, not a fresh, block.
