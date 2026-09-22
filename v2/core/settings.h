@@ -76,6 +76,8 @@ namespace gaze_mirror {
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.
         float outputFps = 0.f;      // output_fps: 0 = every frame the game makes.
+        int gazeSource = 0;         // gaze_source=auto|headset|vrcft: 0 the headset's gaze, else the VRCFT module's; 1 headset only; 2 module only.
+        float vrcftScale = 1.f;     // vrcft_scale: multiplies the module's gaze pair before it becomes a direction (modules differ).
     };
 
     class SettingsSource {

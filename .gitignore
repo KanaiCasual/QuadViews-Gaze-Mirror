@@ -40,5 +40,7 @@ __pycache__/
 /v2/external/openvr/*
 !/v2/external/openvr/LICENSE
 /v2/external/qvf/
+/v2/external/vrcft/*
+!/v2/external/vrcft/LICENSE
 /v2/bin/
 /v2/obj/

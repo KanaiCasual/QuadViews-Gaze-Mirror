@@ -5,6 +5,7 @@
 
 #include <chrono>
 
+#include "external_gaze.h"
 #include "framing.h"
 #include "publisher.h"
 #include "renderer.h"
@@ -74,6 +75,8 @@ namespace gaze_mirror {
 
       private:
         bool target(const FrameInput& input, int eye, float out[2]) const;
+        // The frame's gaze, or the VRCFT module's in its place (gaze_source), as a ray in head space.
+        GazeFrame chooseGaze(const FrameInput& input);
         void nudgeKeys();
 
         SettingsSource _settings;
@@ -81,6 +84,7 @@ namespace gaze_mirror {
         Renderer _renderer;
         RingState _ring;
         Framing _framing;
+        ExternalGazeReader _external;
         SnapshotService _snapshot;
         std::chrono::steady_clock::time_point _lastFrame{};
         std::chrono::steady_clock::time_point _nextDue{};
@@ -91,6 +95,7 @@ namespace gaze_mirror {
         bool _snapshotDue = false; // Decided in wanted(), used up in frame().
         bool _renderDue = false;
         int _logGaze = 0;
+        int _logExternal = 0;
     };
 
 } // namespace gaze_mirror

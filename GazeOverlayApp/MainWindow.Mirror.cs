@@ -58,7 +58,7 @@ public partial class MainWindow
         Activated += (_, _) => { if (ReferenceEquals(Tabs.SelectedItem, CropTab)) RefreshMirrorState(); };
         BuildOutputAndProfilesUi();
         // The three cards go side by side when there is room, two and two below that, and one under another in a narrow window.
-        MirrorCards.SizeChanged += (_, _) => MirrorCards.Columns = MirrorCards.ActualWidth >= 960 ? 3 : MirrorCards.ActualWidth >= 600 ? 2 : 1;
+        MirrorCards.SizeChanged += (_, _) => MirrorCards.Columns = MirrorCards.ActualWidth >= 1240 ? 4 : MirrorCards.ActualWidth >= 620 ? 2 : 1;
         RefreshMirrorState();
     }
 

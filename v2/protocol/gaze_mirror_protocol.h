@@ -100,4 +100,45 @@ namespace gaze_mirror {
     static_assert(offsetof(Frames, producerProgram) == 112 && offsetof(Frames, producerApplication) == 176, "layout");
     static_assert(offsetof(Frames, readers) == 304 && sizeof(Frames) == 400, "layout");
 
+    // ---- Eye gaze from outside the headset's own interfaces.
+    //
+    // Some headsets' software never feeds SteamVR's eye-tracking input or OpenXR's eye-gaze extension, but does feed
+    // VRCFaceTracking. The optional VRCFT module (v2/vrcft-module) copies VRCFT's eye data here, and a producer that
+    // has no gaze of its own (or is told to prefer this) reads it. Single writer; a sequence lock (odd while writing)
+    // lets a reader notice a torn read and read again. Age is judged by writtenMs against GetTickCount64().
+    //
+    // The gaze values are VRCFT's: per eye, x right and y up, the tangent-like -1..1 pair VRCFT's modules agree on
+    // (each module maps its hardware slightly differently, hence the vrcft_scale setting).
+
+    constexpr wchar_t ExternalGazeMappingName[] = L"GazeMirror2.ExternalGaze";
+    constexpr uint32_t ExternalGazeMagic = 0x58324D47; // 'GM2X'
+    constexpr uint32_t ExternalGazeVersion = 1;
+    constexpr LONG ExternalGazeSourceVrcft = 1;
+    constexpr ULONGLONG ExternalGazeFreshMs = 250; // Older than this = the writer stopped; the gaze counts as lost.
+
+    struct ExternalGaze {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t structSize;
+        uint32_t reserved0;
+        volatile LONGLONG sequence;  // Odd while the writer is inside a write.
+        volatile LONGLONG writtenMs; // GetTickCount64() (Environment.TickCount64) at the last write.
+        volatile LONG writerPid;     // 0 once the writer has left.
+        LONG source;                 // ExternalGazeSourceVrcft.
+        LONG leftValid;
+        LONG rightValid;
+        float leftX, leftY;          // Left eye gaze.
+        float rightX, rightY;        // Right eye gaze.
+        float leftOpenness, rightOpenness; // 0 closed .. 1 open.
+        float leftPupilMm, rightPupilMm;
+        char writerName[32];         // UTF-8, zero-terminated: "VRCFT module 2.0.0".
+        uint8_t reserved[400 - 112];
+    };
+
+    // The module (C#) and the app write and read this block by offset: keep them where they are (or bump the version).
+    static_assert(offsetof(ExternalGaze, sequence) == 16 && offsetof(ExternalGaze, writtenMs) == 24 && offsetof(ExternalGaze, writerPid) == 32, "layout");
+    static_assert(offsetof(ExternalGaze, leftValid) == 40 && offsetof(ExternalGaze, leftX) == 48 && offsetof(ExternalGaze, rightX) == 56, "layout");
+    static_assert(offsetof(ExternalGaze, leftOpenness) == 64 && offsetof(ExternalGaze, leftPupilMm) == 72 && offsetof(ExternalGaze, writerName) == 80, "layout");
+    static_assert(sizeof(ExternalGaze) == 400, "layout");
+
 } // namespace gaze_mirror

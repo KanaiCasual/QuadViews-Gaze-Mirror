@@ -472,6 +472,17 @@ public static class Settings
             Label = "Picture rate", Description = "How many pictures a second the mirror makes at most. Fewer = less graphics card time; the game's own frame rate is not affected.",
             Choices = [new("0", "Every game frame"), new("60", "Up to 60"), new("30", "Up to 30")],
         },
+        new()
+        {
+            Key = "gaze_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "auto",
+            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset: OpenXR's eye-gaze extension or SteamVR's eye tracking. The VRCFT module: the optional VRCFaceTracking module shipped with this app (Status page), for headsets whose software only feeds VRCFT.",
+            Choices = [new("auto", "Headset, else the VRCFT module"), new("headset", "Headset only"), new("vrcft", "VRCFT module only")],
+        },
+        new()
+        {
+            Key = "vrcft_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.25, Max = 3, Step = 0.05,
+            Label = "VRCFT scale", Description = "Only with the VRCFT module. VRCFT's gaze is a -1..1 pair whose reach differs between eye-tracking modules; if the ring travels too little or too far for how far your eyes move, change this.",
+        },
     ];
 
     public static readonly Preset[] Presets =

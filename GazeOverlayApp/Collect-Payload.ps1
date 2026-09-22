@@ -20,6 +20,22 @@ foreach ($f in $files) {
     New-Item -ItemType Directory -Force $dest | Out-Null
     Copy-Item $f[0] $dest -Force
 }
+# The optional VRCFaceTracking module as the zip VRCFT installs ("Install from file"): the DLL and its module.json,
+# with the same version as the app.
+$moduleDir = Join-Path $payload 'VRCFT-module'
+New-Item -ItemType Directory -Force $moduleDir | Out-Null
+$staging = Join-Path $env:TEMP 'gaze-vrcft-module'
+if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+New-Item -ItemType Directory -Force $staging | Out-Null
+Copy-Item "$v2\bin\vrcft-module\GazeMirror.VRCFT.dll" $staging
+$moduleJson = Get-Content "$v2\vrcft-module\module.json" -Raw
+$appVersion = ([xml](Get-Content "$PSScriptRoot\GazeOverlayApp.csproj")).Project.PropertyGroup.Version | Select-Object -First 1
+if ($appVersion) { $moduleJson = $moduleJson -replace '"Version": "[^"]*"', ('"Version": "' + [string]$appVersion + '"') }
+[IO.File]::WriteAllText((Join-Path $staging 'module.json'), $moduleJson)
+$zip = Join-Path $moduleDir 'VR-Gaze-Mirror-VRCFT-module.zip'
+if (Test-Path $zip) { Remove-Item $zip -Force }
+Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip
+Copy-Item "$v2\external\vrcft\LICENSE" (Join-Path $moduleDir 'LICENSE-VRCFaceTracking.txt') -Force
 # Licence texts, named for what they belong to.
 $licences = Join-Path $payload 'Licences'
 New-Item -ItemType Directory -Force $licences | Out-Null

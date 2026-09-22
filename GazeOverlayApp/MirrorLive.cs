@@ -8,6 +8,9 @@ namespace GazeOverlay;
 /// <summary>What the 2.0 mirror is doing right now, read from the shared block every producer and reader share.</summary>
 public sealed record MirrorState(bool Producing, bool OpenXR, string Program, string Application, int Width, int Height, bool GazeValid, int Eye);
 
+/// <summary>What the VRCFaceTracking module last wrote (see MirrorLive.ReadExternalGaze).</summary>
+public sealed record ExternalGazeState(bool Fresh, long AgeMs, string Writer, float LeftX, float LeftY, float RightX, float RightY);
+
 /// <summary>
 /// Read-only look at the 2.0 shared block ("GazeMirror2.Frames", v2\protocol\gaze_mirror_protocol.h): which producer is
 /// live - the OpenXR layer inside a game, or the SteamVR helper - for which game, at what size, and whether gaze arrives.
@@ -111,6 +114,59 @@ public static class MirrorLive
     }
 
     // ------------------------------------------------------------------ Quad-Views-Foveated's official installer
+
+    // ------------------------------------------------------------------ eye gaze from the VRCFaceTracking module
+
+    private const string ExternalGazeName = "GazeMirror2.ExternalGaze";
+    private const uint ExternalGazeMagic = 0x58324D47; // 'GM2X'
+    private const int ExternalGazeSize = 400, ExternalGazeFreshMs = 250;
+
+    /// <summary>The optional VRCFT module's zip shipped with this app, or null.</summary>
+    public static string? FindVrcftModuleZip() => FindBeside("VR-Gaze-Mirror-VRCFT-module.zip", Path.Combine("v2", "bin", "vrcft-module"), subfolder: "VRCFT-module");
+
+    /// <summary>
+    /// The block the VRCFT module writes (protocol: ExternalGaze), or null when no module has run since Windows started.
+    /// AgeMs is -1 until the first sample; Fresh = a sample within the last quarter second from a writer still there.
+    /// </summary>
+    public static ExternalGazeState? ReadExternalGaze()
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(ExternalGazeName, MemoryMappedFileRights.Read);
+            using var view = mapping.CreateViewAccessor(0, ExternalGazeSize, MemoryMappedFileAccess.Read);
+            if (view.ReadUInt32(0) != ExternalGazeMagic) return null;
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                var before = view.ReadInt64(16);
+                if ((before & 1) != 0) continue;
+                var writtenMs = view.ReadInt64(24);
+                var pid = view.ReadInt32(32);
+                var valid = view.ReadInt32(40) != 0 && view.ReadInt32(44) != 0;
+                var state = new ExternalGazeState(
+                    Fresh: false, AgeMs: writtenMs > 0 ? Math.Max(0, Environment.TickCount64 - writtenMs) : -1,
+                    Writer: ReadText(view, 80, 32), LeftX: view.ReadSingle(48), LeftY: view.ReadSingle(52), RightX: view.ReadSingle(56), RightY: view.ReadSingle(60));
+                if (view.ReadInt64(16) != before) continue;
+                return state with { Fresh = pid != 0 && valid && state.AgeMs >= 0 && state.AgeMs <= ExternalGazeFreshMs };
+            }
+            return null;
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ReadText(MemoryMappedViewAccessor view, int offset, int length)
+    {
+        var bytes = new byte[length];
+        view.ReadArray(offset, bytes, 0, length);
+        var end = Array.IndexOf(bytes, (byte)0);
+        return Encoding.UTF8.GetString(bytes, 0, end < 0 ? length : end);
+    }
 
     /// <summary>The unmodified Quad-Views-Foveated installer shipped with this app, or null.</summary>
     public static string? FindQuadViewsInstaller()

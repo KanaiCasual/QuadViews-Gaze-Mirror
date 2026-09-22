@@ -435,6 +435,34 @@ public partial class App : Application
                 report.WriteLine($"live link - {(liveOk ? "ok  " : "FAIL")} no game -> {withoutGame}; with a (simulated) game -> {first}, {second}; counter = {generation} (expected 2)");
             }
 
+            // The VRCFT module's block: written here the way the module writes it (by offset), read back through the app's reader.
+            try
+            {
+                using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateOrOpen("GazeMirror2.ExternalGaze", 400);
+                using var view = block.CreateViewAccessor(0, 400);
+                view.Write(4, 1u); view.Write(8, 400u); view.Write(0, 0x58324D47u);
+                view.Write(32, Environment.ProcessId); view.Write(36, 1);
+                var name = System.Text.Encoding.UTF8.GetBytes("selftest writer"); var padded = new byte[32]; Array.Copy(name, padded, name.Length);
+                view.WriteArray(80, padded, 0, 32);
+                view.Write(16, 2L); view.Write(40, 1); view.Write(44, 1);
+                view.Write(48, -0.25f); view.Write(52, 0.5f); view.Write(56, -0.2f); view.Write(60, 0.45f);
+                view.Write(24, Environment.TickCount64);
+                var fresh = MirrorLive.ReadExternalGaze();
+                view.Write(24, Environment.TickCount64 - 5000);
+                var stale = MirrorLive.ReadExternalGaze();
+                view.Write(16, 3L); // A write in progress: the reader must not take it.
+                var torn = MirrorLive.ReadExternalGaze();
+                view.Write(16, 4L); view.Write(32, 0); // Gone: the block stays (Windows keeps it while anyone holds it), the writer does not.
+                var externalOk = fresh is { Fresh: true, Writer: "selftest writer", LeftX: -0.25f, RightY: 0.45f } && stale is { Fresh: false, AgeMs: >= 4900 } && torn == null;
+                liveOk &= externalOk;
+                report.WriteLine($"vrcft block - {(externalOk ? "ok  " : "FAIL")} fresh sample read back ({fresh?.Writer}, left {fresh?.LeftX} {fresh?.LeftY}); a 5 s old one is stale; a torn read is refused");
+            }
+            catch (Exception e)
+            {
+                liveOk = false;
+                report.WriteLine("vrcft block - FAIL " + e.Message);
+            }
+
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
             quadViewsOk &= SelfTestCrop(report);

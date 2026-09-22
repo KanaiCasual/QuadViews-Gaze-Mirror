@@ -76,9 +76,33 @@ namespace gaze_mirror {
         return true;
     }
 
-    FrameOutput Pipeline::frame(const FrameInput& input) {
+    GazeFrame Pipeline::chooseGaze(const FrameInput& input) {
+        const Settings& s = _settings.get();
+        if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
+        const ExternalGazeSample ext = _external.read();
+        GazeFrame gaze; // Nothing, unless the module has something fresh.
+        if (!ext.valid) return s.gazeSource == 2 ? gaze : input.gaze;
+        // Both eyes shut: a blink. The ring's own hold/fade handles a short gap.
+        if (ext.leftOpenness < 0.15f && ext.rightOpenness < 0.15f) return gaze;
+        // The two eyes' pairs, averaged and scaled, as a direction in head space (x right, y up, looking down -z).
+        const float x = 0.5f * (ext.left[0] + ext.right[0]) * s.vrcftScale;
+        const float y = 0.5f * (ext.left[1] + ext.right[1]) * s.vrcftScale;
+        const float length = std::sqrt(x * x + y * y + 1.f);
+        gaze.valid = true;
+        gaze.hasRay = true;
+        gaze.direction = {x / length, y / length, -1.f / length};
+        gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
+                       0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
+                       0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
+        LogFewTimes(_logExternal, 2, "pipeline: gaze from the %s (scale %.2f)", ext.writer, s.vrcftScale);
+        return gaze;
+    }
+
+    FrameOutput Pipeline::frame(const FrameInput& given) {
         FrameOutput output;
         const Settings& s = _settings.get();
+        FrameInput input = given;
+        input.gaze = chooseGaze(given);
         const int eye = s.eye == 0 ? 0 : 1;
         const SourceImage* image = input.images[eye];
         const EyeView& view = input.views[eye];

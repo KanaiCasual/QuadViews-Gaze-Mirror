@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- VR Gaze Mirror 2.0 - the optional VRCFaceTracking module. One class; it reads the eye data the real eye-tracking
+       module put into VRCFT's shared data and hands it to the mirror through a small shared block (protocol/gaze_mirror_protocol.h,
+       "GazeMirror2.ExternalGaze"). Built against VRCFaceTracking.Core's source at the same version VRCFT 5.2.3 ships
+       (v2\external\vrcft, fetched by Get-External.ps1); at run time VRCFT's own copy of that library is used.
+       The zip the user installs in VRCFT ("Install from file") is made by GazeOverlayApp\Collect-Payload.ps1. -->
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GazeMirror.VRCFT</AssemblyName>
+    <RootNamespace>GazeMirror.VRCFT</RootNamespace>
+    <Version>2.0.0</Version>
+    <OutputPath>..\bin\vrcft-module\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Compile against VRCFT's library; do not ship it (VRCFT has it). -->
+    <ProjectReference Include="..\external\vrcft\VRCFaceTracking.Core\VRCFaceTracking.Core.csproj" Private="false" />
+  </ItemGroup>
+</Project>

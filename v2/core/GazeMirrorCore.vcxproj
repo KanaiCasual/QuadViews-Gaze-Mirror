@@ -49,6 +49,7 @@
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="snapshot.cpp" />
     <ClCompile Include="pipeline.cpp" />
+    <ClCompile Include="external_gaze.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -62,6 +63,7 @@
     <ClInclude Include="shader.h" />
     <ClInclude Include="snapshot.h" />
     <ClInclude Include="pipeline.h" />
+    <ClInclude Include="external_gaze.h" />
     <ClInclude Include="..\protocol\gaze_mirror_protocol.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

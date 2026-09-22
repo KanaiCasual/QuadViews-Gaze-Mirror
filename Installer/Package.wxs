@@ -75,6 +75,7 @@
       <Directory Id="INSTALLFOLDER" Name="VR-Gaze-Mirror">
         <Directory Id="LayerDir" Name="Layer" />
         <Directory Id="QuadViewsDir" Name="Quad-Views-Foveated" />
+        <Directory Id="VrcftModuleDir" Name="VRCFT-module" />
         <Directory Id="LicencesDir" Name="Licences" />
       </Directory>
     </StandardDirectory>
@@ -101,6 +102,7 @@
       <ComponentRef Id="LayerRegistration" />
       <ComponentGroupRef Id="SettingsApp" />
       <ComponentGroupRef Id="QuadViewsInstaller" />
+      <ComponentGroupRef Id="VrcftModule" />
       <ComponentGroupRef Id="Licences" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="DesktopShortcut" />
@@ -149,6 +151,16 @@
       </Component>
       <Component>
         <File Id="QuadViewsLicence" Source="$(var.PayloadDir)\Quad-Views-Foveated\LICENSE" Name="LICENSE.txt" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- The optional VRCFaceTracking module, as the zip VRCFT installs from a file; the app's Status page points at it. -->
+    <ComponentGroup Id="VrcftModule" Directory="VrcftModuleDir">
+      <Component>
+        <File Id="VrcftModuleZip" Source="$(var.PayloadDir)\VRCFT-module\VR-Gaze-Mirror-VRCFT-module.zip" />
+      </Component>
+      <Component>
+        <File Id="VrcftLicence" Source="$(var.PayloadDir)\VRCFT-module\LICENSE-VRCFaceTracking.txt" />
       </Component>
     </ComponentGroup>
 
