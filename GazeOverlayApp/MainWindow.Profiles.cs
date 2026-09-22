@@ -29,8 +29,9 @@ public partial class MainWindow
         foreach (var key in new[] { "mirror_eye", "output_max_side", "output_fps" })
         {
             var def = Settings.All.First(d => d.Key == key);
-            var row = BuildRow(def);
-            row.Margin = new Thickness(0, 1, 14, 1);
+            var row = (Grid)BuildRow(def);
+            // In a card a third of the page wide, the label column gives way to the drop-down.
+            row.ColumnDefinitions[0].Width = new GridLength(78);
             PanelOutput.Children.Add(row);
         }
 

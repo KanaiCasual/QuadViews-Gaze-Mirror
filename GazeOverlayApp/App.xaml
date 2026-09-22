@@ -4,19 +4,46 @@
              xmlns:local="clr-namespace:GazeOverlay"
              ThemeMode="Dark">
     <Application.Resources>
-        <SolidColorBrush x:Key="Accent" Color="#4DB2FF" />
-        <SolidColorBrush x:Key="Muted" Color="#9AA4B2" />
-        <SolidColorBrush x:Key="Line" Color="#34373E" />
-        <SolidColorBrush x:Key="Panel" Color="#17181B" />
-        <SolidColorBrush x:Key="WindowBack" Color="#1F2024" />
+        <!-- The palette: a near-black rail, a dark ground, slightly lighter cards, one blue accent for the app's own marks.
+             The theme's controls (check boxes, sliders, the accent button) keep the Windows accent colour, as every Fluent app does. -->
+        <SolidColorBrush x:Key="Accent" Color="#28AAF5" />
+        <SolidColorBrush x:Key="Muted" Color="#8B93A1" />
+        <SolidColorBrush x:Key="Text" Color="#E8EAEE" />
+        <SolidColorBrush x:Key="Line" Color="#262B33" />
+        <SolidColorBrush x:Key="Panel" Color="#171A20" />
+        <SolidColorBrush x:Key="Rail" Color="#0D0F13" />
+        <SolidColorBrush x:Key="RailSelected" Color="#1A1F28" />
+        <SolidColorBrush x:Key="RailHover" Color="#14181F" />
+        <SolidColorBrush x:Key="WindowBack" Color="#111318" />
+        <SolidColorBrush x:Key="Picture" Color="#0B0C0E" />
 
         <!-- No implicit Button style here: it would replace the theme's dark button template with the classic light one. -->
         <!-- A scroll viewer's viewport height minus the margins of the panel inside it (see the Mirror tab). -->
         <local:LessMarginConverter x:Key="LessMargin" />
-        <!-- Tab headers a little smaller than the rest, so all eight tabs stay on one row in a narrow, docked window. -->
-        <DataTemplate x:Key="SmallTabHeader">
-            <TextBlock Text="{Binding}" FontSize="12" />
-        </DataTemplate>
+
+        <!-- A card: one topic's settings, on a slightly lighter ground with a thin line around it. -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,8,12,10" />
+        </Style>
+        <!-- The small capitals over a card's contents. -->
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <!-- The name of a page, top left. -->
+        <Style x:Key="PageTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,14,0" />
+        </Style>
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="16" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -26,5 +53,41 @@
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+
+        <!-- The rail's entries: one per page. Selected = lighter ground and full-strength text. -->
+        <Style x:Key="RailItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Back" Background="Transparent" CornerRadius="6" Padding="10,7" SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{StaticResource RailHover}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{StaticResource RailSelected}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="RailFull">
+            <TextBlock Text="{Binding Title}" FontSize="13" />
+        </DataTemplate>
+        <DataTemplate x:Key="RailShort">
+            <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" MinWidth="16" TextAlignment="Center" />
+        </DataTemplate>
+        <!-- The pages: only the selected one is shown; the rail on the left is the list of them. -->
+        <ControlTemplate x:Key="PagesOnly" TargetType="TabControl">
+            <ContentPresenter ContentSource="SelectedContent" />
+        </ControlTemplate>
     </Application.Resources>
 </Application>

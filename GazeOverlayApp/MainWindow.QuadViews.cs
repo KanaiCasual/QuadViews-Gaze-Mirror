@@ -26,15 +26,20 @@ public partial class MainWindow
     private void BuildQuadViewsUi()
     {
         QuadViewsNotice.Visibility = Visibility.Collapsed;
-        var intro = new TextBlock
-        {
-            Style = (Style)FindResource("Hint"), FontSize = 12, Margin = new Thickness(0, 0, 0, 6),
-            Text = "Quad-Views-Foveated's own settings. They are read when a game starts: Apply, then restart the game.",
-            ToolTip = WrappedToolTip("The sliders work like TallyMouse's QuadViews Companion and edit the same file, with one difference: values are also " +
-                                     "written where every OpenXR runtime reads them, not only under a list of known headsets."),
-        };
-        ShowToolTipsPatiently(intro);
-        PanelQuadViews.Children.Add(intro);
+        ShowToolTipsPatiently(QuadViewsTitle);
+
+        // Two cards: where the sharp part is, and how much is rendered. Side by side when there is room.
+        var focusIds = new HashSet<string> { "focus_h", "focus_v", "offset_v", "transition" };
+        var focus = new StackPanel();
+        var resolution = new StackPanel();
+        var cards = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 0, -10, 0) };
+        var focusCard = NewCard("FOCUS", focus, 0);
+        var resolutionCard = NewCard("RESOLUTION", resolution, 0);
+        focusCard.Margin = resolutionCard.Margin = new Thickness(0, 0, 10, 10);
+        cards.Children.Add(focusCard);
+        cards.Children.Add(resolutionCard);
+        cards.SizeChanged += (_, _) => cards.Columns = cards.ActualWidth >= 760 ? 2 : 1;
+        PanelQuadViews.Children.Add(cards);
 
         foreach (var setting in QuadViewsSetting.All)
         {
@@ -70,7 +75,7 @@ public partial class MainWindow
                 };
                 AddRowEditor(row, slider);
             }
-            PanelQuadViews.Children.Add(row);
+            (focusIds.Contains(setting.Id) ? focus : resolution).Children.Add(row);
         }
 
         // Presets sit in the banner at the top, next to Apply, so they are reachable without scrolling.

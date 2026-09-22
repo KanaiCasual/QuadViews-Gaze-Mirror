@@ -34,7 +34,9 @@ public partial class MainWindow : Window
         _outsideChangeTimer.Tick += (_, _) => { _outsideChangeTimer.Stop(); ApplyOutsideChange(); };
 
         RestoreWindowPlacement();
+        BuildNav();
         BuildSettingsUi();
+        BuildAboutRows();
         BuildQuadViewsUi();
         BuildCropUi();
         BuildMirrorUi();
@@ -78,25 +80,115 @@ public partial class MainWindow : Window
         if (visible) { UpdateLive(); _liveTimer.Start(); } else { _liveTimer.Stop(); }
     }
 
+    // ------------------------------------------------------------------ the rail
+
+    /// <summary>One page in the rail: its name, and the two letters that stand for it when the window is narrow.</summary>
+    public sealed record NavItem(string Title, string Short);
+
+    private static readonly Dictionary<string, string> ShortNames = new()
+    {
+        ["Status"] = "St", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Placement"] = "Pl", ["Mirror"] = "Mi", ["Quad Views"] = "QV", ["About"] = "Ab",
+    };
+
+    /// <summary>The rail lists the pages; it and the page control select together.</summary>
+    private void BuildNav()
+    {
+        Nav.ItemsSource = Tabs.Items.Cast<TabItem>().Select(t => new NavItem((string)t.Header, ShortNames.GetValueOrDefault((string)t.Header) ?? ((string)t.Header)[..2])).ToList();
+        Nav.SelectedIndex = Tabs.SelectedIndex;
+        Nav.SelectionChanged += (_, _) => { if (Nav.SelectedIndex >= 0) Tabs.SelectedIndex = Nav.SelectedIndex; };
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) Nav.SelectedIndex = Tabs.SelectedIndex; };
+        RailVersion.Text = UpdateChecker.CurrentVersionText;
+    }
+
+    private bool _railCompact;
+
+    /// <summary>Below this window width the rail shows two letters a page, so the pages keep their room.</summary>
+    private const double RailNeedsWindowWidth = 720;
+
+    private void UpdateRail()
+    {
+        var compact = ActualWidth < RailNeedsWindowWidth;
+        if (compact == _railCompact && Nav.ItemTemplate != null) return;
+        _railCompact = compact;
+        Nav.ItemTemplate = (DataTemplate)FindResource(compact ? "RailShort" : "RailFull");
+        Nav.MinWidth = compact ? 0 : 150;
+        RailBrand.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        RailVersion.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        Rail.Padding = compact ? new Thickness(6, 14, 6, 10) : new Thickness(10, 14, 10, 10);
+    }
+
     // ------------------------------------------------------------------ settings UI
+
+    /// <summary>Each ring page is a few cards, one topic each; a key not named here goes in the page's last card.</summary>
+    private static readonly Dictionary<string, (string Title, string[] Keys)[]> Cards = new()
+    {
+        [Settings.GroupLook] =
+        [
+            ("RING", ["enabled", "style", "color", "radius", "thickness", "feather"]),
+            ("GLOW AND BLENDING", ["glow", "glow_strength", "opacity", "blend", "solidity", "fill_opacity", "shadow_opacity"]),
+        ],
+        [Settings.GroupTail] =
+        [
+            ("TAIL", ["tail_opacity", "trail_ms", "blob_trail_ms", "tail_space", "tail_max"]),
+            ("HEATMAP STYLE", ["heat_ms", "heat_cool_ms"]),
+        ],
+        [Settings.GroupMotion] =
+        [
+            ("SMOOTHING", ["filter", "filter_min_cutoff", "filter_beta", "smoothing_ms"]),
+            ("DWELL", ["dwell_ms", "dwell_shrink"]),
+            ("BLINKS AND TRACKING LOSS", ["hold_ms", "fade_ms", "timeout_ms"]),
+        ],
+        [Settings.GroupPlacement] =
+        [
+            ("WHERE THE RING LANDS", ["projection", "focus_distance", "offset_x", "offset_y"]),
+            ("CALIBRATION", ["headset_marker", "use_raw_gaze"]),
+        ],
+    };
 
     private void BuildSettingsUi()
     {
-        var panels = new Dictionary<string, StackPanel>
+        var pages = new (string Group, StackPanel Panel, TextBlock Title)[]
         {
-            [Settings.GroupLook] = PanelLook, [Settings.GroupTail] = PanelTail,
-            [Settings.GroupMotion] = PanelMotion, [Settings.GroupPlacement] = PanelPlacement,
+            (Settings.GroupLook, PanelLook, LookTitle), (Settings.GroupTail, PanelTail, TailTitle),
+            (Settings.GroupMotion, PanelMotion, MotionTitle), (Settings.GroupPlacement, PanelPlacement, PlacementTitle),
         };
 
-        foreach (var (group, panel) in panels)
+        foreach (var (group, panel, title) in pages)
         {
-            panel.Children.Add(new TextBlock { Text = Settings.GroupIntro[group], Style = (Style)FindResource("Hint"), FontSize = 12, Margin = new Thickness(0, 0, 0, 6) });
-            if (group == Settings.GroupLook) panel.Children.Add(BuildPresets());
-            foreach (var def in Settings.All.Where(d => d.Group == group))
+            // The page's one-line introduction lives on its title now, not on the page.
+            title.ToolTip = WrappedToolTip(Settings.GroupIntro[group]);
+            ShowToolTipsPatiently(title);
+            if (group == Settings.GroupLook) LookHeaderBar.Children.Add(BuildPresets());
+
+            var cards = Cards[group];
+            var placed = new HashSet<string>();
+            for (var i = 0; i < cards.Length; i++)
             {
-                panel.Children.Add(BuildRow(def));
+                var (cardTitle, keys) = cards[i];
+                var body = new StackPanel();
+                foreach (var key in keys)
+                {
+                    var def = Settings.All.FirstOrDefault(d => d.Key == key && d.Group == group);
+                    if (def == null) continue;
+                    body.Children.Add(BuildRow(def));
+                    placed.Add(key);
+                }
+                if (i == cards.Length - 1)
+                {
+                    foreach (var def in Settings.All.Where(d => d.Group == group && !placed.Contains(d.Key))) body.Children.Add(BuildRow(def));
+                }
+                panel.Children.Add(NewCard(cardTitle, body, i == 0 ? 0 : 10));
             }
         }
+    }
+
+    /// <summary>A card with its small-capitals title over the content.</summary>
+    private Border NewCard(string title, UIElement content, double marginTop = 10)
+    {
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = title, Style = (Style)FindResource("CardTitle") });
+        stack.Children.Add(content);
+        return new Border { Style = (Style)FindResource("Card"), Child = stack, Margin = new Thickness(0, marginTop, 0, 0) };
     }
 
     // ---- compact rows: label | editor | value | (i). The explanation lives in the tooltip, so a tab fits without scrolling.
@@ -148,7 +240,7 @@ public partial class MainWindow : Window
     {
         var value = new TextBlock
         {
-            Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)FindResource("Muted"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right, TextTrimming = TextTrimming.CharacterEllipsis,
         };
         Grid.SetColumn(value, 2);
@@ -269,23 +361,23 @@ public partial class MainWindow : Window
 
     private FrameworkElement BuildPresets()
     {
-        var bar = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
-        bar.Children.Add(new TextBlock { Text = "Presets", Style = (Style)FindResource("Hint"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        var bar = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+        bar.Children.Add(new TextBlock { Text = "Presets", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         foreach (var preset in Settings.Presets)
         {
             var button = new Button { Content = preset.Name, ToolTip = WrappedToolTip(preset.Description + " Presets leave motion and placement alone."), Margin = new Thickness(0, 2, 6, 2) };
             button.Click += (_, _) => ApplyValues(preset.Values);
             bar.Children.Add(button);
         }
-        var reset = new Button { Content = "Reset all", ToolTip = "Reset every ring setting to its default", Margin = new Thickness(8, 2, 0, 2) };
-        reset.Click += OnResetAll;
-        bar.Children.Add(reset);
-
         var slots = BuildSlotBar(_appSettings.RingSlots, CaptureRingSlot,
             values => ApplyValues(values.Where(kv => Settings.All.Any(d => d.Key == kv.Key && IsRingSlotKey(d))).ToDictionary(kv => kv.Key, kv => kv.Value)),
             DescribeRingSlot);
-        slots.Margin = new Thickness(14, 0, 0, 0);
+        slots.Margin = new Thickness(10, 0, 0, 0);
         bar.Children.Add(slots);
+
+        var reset = new Button { Content = "Reset all", ToolTip = "Reset every ring setting to its default", Margin = new Thickness(10, 2, 0, 2) };
+        reset.Click += OnResetAll;
+        bar.Children.Add(reset);
         return bar;
     }
 
@@ -299,7 +391,7 @@ public partial class MainWindow : Window
         Action<Dictionary<string, string>> apply, Func<Dictionary<string, string>, string> describe)
     {
         var bar = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-        bar.Children.Add(new TextBlock { Text = "Mine", Style = (Style)FindResource("Hint"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+        bar.Children.Add(new TextBlock { Text = "Mine", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var buttons = new Button[slots.Length];
         var save = new Button { Content = "Save", Margin = new Thickness(2, 2, 0, 2), ToolTip = "Keep the current values in one of your slots" };
 
@@ -373,17 +465,17 @@ public partial class MainWindow : Window
 
     private void UpdatePanels()
     {
+        UpdateRail();
         var quadViews = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
         var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
-        // The preview only means something next to the ring's own settings (Look, Tail, Motion, Placement).
-        var ringTab = Tabs.SelectedItem is TabItem { Content: ScrollViewer { Content: StackPanel panel } } &&
-                      (ReferenceEquals(panel, PanelLook) || ReferenceEquals(panel, PanelTail) || ReferenceEquals(panel, PanelMotion) || ReferenceEquals(panel, PanelPlacement));
+        // The preview only means something next to the ring's own settings (Ring, Tail, Motion, Placement).
+        var ringTab = ReferenceEquals(Tabs.SelectedItem, LookTab) || ReferenceEquals(Tabs.SelectedItem, TailTab)
+                   || ReferenceEquals(Tabs.SelectedItem, MotionTab) || ReferenceEquals(Tabs.SelectedItem, PlacementTab);
         var showPreview = ringTab && PreviewToggle.IsChecked == true && roomForPreview;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
         // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
         PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
         (Tabs.Parent as UIElement)?.InvalidateMeasure();
-        Tabs.Margin = showPreview ? new Thickness(8, 8, 0, 0) : new Thickness(8, 8, 8, 0);
         // The Quad Views tab has its own Apply and status; the ring's save line would only confuse there.
         BottomBar.Visibility = quadViews ? Visibility.Collapsed : Visibility.Visible;
         PreviewToggle.IsEnabled = roomForPreview;
@@ -608,7 +700,7 @@ public partial class MainWindow : Window
         AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
         AddStatusRow("OBS plugin",
             status.ObsPath == null ? "OBS Studio was not found on this PC."
-            : status.ObsPluginPresent ? "Present in OBS: add a \"Gaze Mirror\" source."
+            : status.ObsPluginPresent ? "In OBS: add a \"Gaze Mirror\" source, then Ctrl+F once to fit it."
             : $"Not in OBS yet ({status.ObsPath}). Re-run the installer with OBS installed, or use its Repair option.",
             status.ObsPath != null && status.ObsPluginPresent ? Colors.SeaGreen : Colors.Gray);
         AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
@@ -803,27 +895,83 @@ public partial class MainWindow : Window
         _ => Colors.Gray,
     };
 
+    /// <summary>One line: health dot, name, what is known about it, and a button when there is something to do.</summary>
     private void AddStatusRow(string title, string detail, Color color, (string Label, RoutedEventHandler Click)? button = null)
     {
-        var row = new Grid { Margin = new Thickness(0, 5, 0, 5) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+        var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MaxWidth = 230 });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Children.Add(new Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 4, 0, 0) });
-        var text = new StackPanel();
-        text.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold });
-        text.Children.Add(new TextBlock { Text = detail, Style = (Style)FindResource("Hint"), TextWrapping = TextWrapping.Wrap });
-        Grid.SetColumn(text, 1);
+        row.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 0, 0) });
+        var name = new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0), TextTrimming = TextTrimming.CharacterEllipsis };
+        Grid.SetColumn(name, 1);
+        row.Children.Add(name);
+        var text = new TextBlock { Text = detail, Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        Grid.SetColumn(text, 2);
         row.Children.Add(text);
         if (button is { } action)
         {
-            var control = new Button { Content = action.Label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8, 0, 0, 0) };
+            var control = new Button { Content = action.Label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
             control.Click += action.Click;
-            Grid.SetColumn(control, 2);
+            Grid.SetColumn(control, 3);
             row.Children.Add(control);
+        }
+        if (StatusRows.Children.Count > 0)
+        {
+            StatusRows.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line") });
         }
         StatusRows.Children.Add(row);
     }
+
+    // ------------------------------------------------------------------ about
+
+    private void BuildAboutRows()
+    {
+        var rows = new (string What, string Where)[]
+        {
+            ("OpenXR games", "the gaze mirror layer takes the picture and the gaze from the game itself"),
+            ("SteamVR games", "the helper takes the picture and the gaze from SteamVR"),
+            ("OBS", "the \"Gaze Mirror\" source shows whichever is live; the mirror window shows the same picture"),
+        };
+        foreach (var (what, where) in rows)
+        {
+            if (AboutRows.Children.Count > 0) AboutRows.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line") });
+            var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = (Brush)FindResource("Accent"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 0, 0) });
+            var name = new TextBlock { Text = what, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(name, 1);
+            row.Children.Add(name);
+            var text = new TextBlock { Text = where, Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+            Grid.SetColumn(text, 2);
+            row.Children.Add(text);
+            AboutRows.Children.Add(row);
+        }
+        AboutCards.SizeChanged += (_, _) => AboutCards.Columns = AboutCards.ActualWidth >= 640 ? 2 : 1;
+    }
+
+    private void OnOpenRepo(object sender, RoutedEventArgs e)
+    {
+        if (UpdateChecker.IsConfigured) OpenInBrowser($"https://github.com/{UpdateChecker.Repository}");
+    }
+
+    private static void OpenFolder(string path)
+    {
+        if (!Directory.Exists(path)) return;
+        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true }); } catch { /* nothing to show it with */ }
+    }
+
+    /// <summary>The licence texts sit next to the app under Program Files; in a development build, in the repository.</summary>
+    private void OnOpenLicences(object sender, RoutedEventArgs e)
+    {
+        var installed = System.IO.Path.Combine(AppContext.BaseDirectory, "Licences");
+        OpenFolder(Directory.Exists(installed) ? installed : AppContext.BaseDirectory);
+    }
+
+    private void OnOpenLogs(object sender, RoutedEventArgs e) => OpenFolder(AppSettings.Folder);
 
     /// <summary>Starts the official Quad-Views-Foveated installer shipped with this app (Windows Installer asks for permission itself).</summary>
     private void OnQuadViewsInstall(object sender, RoutedEventArgs e)
@@ -852,7 +1000,7 @@ public partial class MainWindow : Window
 
     private void InitializeUpdateUi()
     {
-        VersionText.Text = "Version " + UpdateChecker.CurrentVersionText;
+        VersionText.Text = UpdateChecker.CurrentVersionText;
         _loading = true;
         CheckUpdatesBox.IsChecked = _appSettings.CheckForUpdates;
         IncludeBetasBox.IsChecked = _appSettings.IncludeBetas;
@@ -861,7 +1009,7 @@ public partial class MainWindow : Window
         if (!UpdateChecker.IsConfigured)
         {
             // Builds made before the project has a public home carry no repository name.
-            CheckUpdatesBox.IsEnabled = IncludeBetasBox.IsEnabled = CheckNowButton.IsEnabled = ReleasesButton.IsEnabled = false;
+            CheckUpdatesBox.IsEnabled = IncludeBetasBox.IsEnabled = CheckNowButton.IsEnabled = ReleasesButton.IsEnabled = RepoButton.IsEnabled = false;
             UpdateStatus.Text = "Update checks are not available in this build (it was not built with a release page to look at).";
             return;
         }
