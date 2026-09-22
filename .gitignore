@@ -5,6 +5,7 @@
 !/.gitignore
 !/.gitmodules
 !/README.md
+!/CHANGELOG.md
 !/LICENSE
 !/docs/
 !/Build-Layers.ps1

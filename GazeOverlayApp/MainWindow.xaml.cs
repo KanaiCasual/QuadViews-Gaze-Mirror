@@ -82,22 +82,45 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ the rail
 
-    /// <summary>One page in the rail: its name, and the two letters that stand for it when the window is narrow.</summary>
-    public sealed record NavItem(string Title, string Short);
+    /// <summary>One page in the rail: its name, the two letters that stand for it when the window is narrow, and the page itself.</summary>
+    public sealed record NavItem(string Title, string Short, TabItem Tab);
 
     private static readonly Dictionary<string, string> ShortNames = new()
     {
         ["Status"] = "St", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Placement"] = "Pl", ["Mirror"] = "Mi", ["Quad Views"] = "QV", ["About"] = "Ab",
     };
 
+    private bool _navQuadViews = true;
+
     /// <summary>The rail lists the pages; it and the page control select together.</summary>
     private void BuildNav()
     {
-        Nav.ItemsSource = Tabs.Items.Cast<TabItem>().Select(t => new NavItem((string)t.Header, ShortNames.GetValueOrDefault((string)t.Header) ?? ((string)t.Header)[..2])).ToList();
-        Nav.SelectedIndex = Tabs.SelectedIndex;
-        Nav.SelectionChanged += (_, _) => { if (Nav.SelectedIndex >= 0) Tabs.SelectedIndex = Nav.SelectedIndex; };
-        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) Nav.SelectedIndex = Tabs.SelectedIndex; };
+        FillNav();
+        Nav.SelectionChanged += (_, _) => { if (Nav.SelectedItem is NavItem item && !ReferenceEquals(Tabs.SelectedItem, item.Tab)) Tabs.SelectedItem = item.Tab; };
+        Tabs.SelectionChanged += (_, e) =>
+        {
+            if (!ReferenceEquals(e.OriginalSource, Tabs)) return;
+            Nav.SelectedItem = Nav.Items.Cast<NavItem>().FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.SelectedItem));
+        };
         RailVersion.Text = UpdateChecker.CurrentVersionText;
+    }
+
+    /// <summary>The Quad Views page is only listed while Quad-Views-Foveated is installed: there is nothing to set otherwise.</summary>
+    private void ShowQuadViewsPage(bool show)
+    {
+        if (show == _navQuadViews) return;
+        _navQuadViews = show;
+        FillNav();
+    }
+
+    private void FillNav()
+    {
+        var items = Tabs.Items.Cast<TabItem>()
+            .Where(t => _navQuadViews || !ReferenceEquals(t, QuadViewsTab))
+            .Select(t => new NavItem((string)t.Header, ShortNames.GetValueOrDefault((string)t.Header) ?? ((string)t.Header)[..2], t)).ToList();
+        Nav.ItemsSource = items;
+        if (!items.Any(i => ReferenceEquals(i.Tab, Tabs.SelectedItem))) Tabs.SelectedIndex = 0;
+        Nav.SelectedItem = items.FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.SelectedItem));
     }
 
     private bool _railCompact;
@@ -697,6 +720,7 @@ public partial class MainWindow : Window
         }
 
         StatusRows.Children.Clear();
+        ShowQuadViewsPage(status.QuadViewsInstalled);
         AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
         AddStatusRow("OBS plugin",
             status.ObsPath == null ? "OBS Studio was not found on this PC."
@@ -951,6 +975,43 @@ public partial class MainWindow : Window
             AboutRows.Children.Add(row);
         }
         AboutCards.SizeChanged += (_, _) => AboutCards.Columns = AboutCards.ActualWidth >= 640 ? 2 : 1;
+        BuildChangelog();
+    }
+
+    /// <summary>The changelog shipped inside the app (CHANGELOG.md at the repository root): version headings and their points.</summary>
+    private void BuildChangelog()
+    {
+        string text;
+        try
+        {
+            using var stream = typeof(MainWindow).Assembly.GetManifestResourceStream("CHANGELOG.md");
+            if (stream == null) return;
+            using var reader = new StreamReader(stream);
+            text = reader.ReadToEnd();
+        }
+        catch { return; }
+
+        var first = true;
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.TrimEnd();
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                ChangelogRows.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, first ? 0 : 10, 0, 3) });
+                first = false;
+            }
+            else if (line.StartsWith("- ", StringComparison.Ordinal))
+            {
+                var row = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.Children.Add(new Ellipse { Width = 5, Height = 5, Fill = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 0, 0) });
+                var point = new TextBlock { Text = line[2..], Style = (Style)FindResource("Hint"), FontSize = 12, TextWrapping = TextWrapping.Wrap };
+                Grid.SetColumn(point, 1);
+                row.Children.Add(point);
+                ChangelogRows.Children.Add(row);
+            }
+        }
     }
 
     private void OnOpenRepo(object sender, RoutedEventArgs e)

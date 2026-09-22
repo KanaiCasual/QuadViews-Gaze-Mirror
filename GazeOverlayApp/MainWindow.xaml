@@ -347,6 +347,12 @@
                                 <StackPanel x:Name="AboutRows" />
                             </StackPanel>
                         </Border>
+                        <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="WHAT CHANGED" />
+                                <StackPanel x:Name="ChangelogRows" />
+                            </StackPanel>
+                        </Border>
                         <Expander Header="Licences and credits" Margin="0,10,0,0">
                             <TextBlock x:Name="AboutText" TextWrapping="Wrap" Style="{StaticResource Hint}" Margin="0,6,0,0" />
                         </Expander>
