@@ -213,17 +213,25 @@ public partial class MainWindow
         RefreshProfileList();
     }
 
+    /// <summary>Deletes the chosen profile and moves to its neighbour (the one after it, else the one before); "(none)" only when it was the last.</summary>
     private void OnProfileDelete(object sender, RoutedEventArgs e)
     {
         if (_selectedProfile == null) return;
+        var index = _profiles.IndexOf(_selectedProfile);
         _profiles.Remove(_selectedProfile);
-        _selectedProfile = null;
-        _appSettings.SelectedCropProfile = "";
+        _selectedProfile = _profiles.Count > 0 ? _profiles[Math.Min(Math.Max(index, 0), _profiles.Count - 1)] : null;
+        _appSettings.SelectedCropProfile = _selectedProfile?.Name ?? "";
         _appSettings.Save();
         SaveProfiles();
         _profileLoading = true;
-        CropProfileGame.Text = "";
+        CropProfileGame.Text = _selectedProfile?.Game ?? "";
         _profileLoading = false;
+        if (_selectedProfile != null && _selectedProfile.Values.Count > 0)
+        {
+            ApplyValues(_selectedProfile.Values);
+            ApplyCropMargin(moveBox: false);
+            DrawCrop();
+        }
         RefreshProfileList();
     }
 
@@ -247,16 +255,19 @@ public partial class MainWindow
         CropProfileName.Text = "Second";
         OnProfileSaveConfirm(this, new RoutedEventArgs());
         report.Append(Describe("after saving Second"));
+        CropProfileName.Text = "Third";
+        OnProfileSaveConfirm(this, new RoutedEventArgs());
+        report.Append(Describe("after saving Third"));
         CropProfile.SelectedItem = (CropProfile.ItemsSource as List<ProfileItem>)!.First(i => i.Profile?.Name == "First");
         report.Append(Describe("after choosing First"));
         OnProfileDelete(this, new RoutedEventArgs());
-        report.Append(Describe("after deleting First"));
+        report.Append(Describe("after deleting First (expect Second chosen)"));
         snapshot("profiles-after-delete");
+        CropProfile.SelectedItem = (CropProfile.ItemsSource as List<ProfileItem>)!.First(i => i.Profile?.Name == "Third");
         OnProfileDelete(this, new RoutedEventArgs());
-        report.Append(Describe("after deleting with nothing chosen (no-op)"));
-        CropProfile.SelectedItem = (CropProfile.ItemsSource as List<ProfileItem>)!.First(i => i.Profile?.Name == "Second");
+        report.Append(Describe("after deleting Third, the last one (expect Second chosen)"));
         OnProfileDelete(this, new RoutedEventArgs());
-        report.Append(Describe("after deleting Second"));
+        report.Append(Describe("after deleting Second (expect none)"));
         FillGamePicker("");
         report.Append($"game picker: {(CropProfileGame.ItemsSource as List<RunningApp>)?.Count ?? 0} running programs with a window\n");
         return report.ToString();
