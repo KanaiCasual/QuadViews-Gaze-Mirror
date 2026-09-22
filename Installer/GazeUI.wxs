@@ -1,59 +1,78 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
   <!--
-    The installer's pages, dark. Windows Installer cannot be themed - its text, tick boxes and buttons are native
-    controls in system colours - so every page is one full-size picture with its words drawn in (tools\make_installer_pages.py,
-    run by Build-Installer.ps1 with the version number), and only the tick boxes (empty labels), the buttons and the
-    progress bar are native controls placed on top. Pages that change with the situation (the last page after an
-    install, a repair or an uninstall; with or without the Quad-Views-Foveated offer) are several pictures, one shown.
+    The installer's pages. It follows WiX's own "Minimal" set: ONE page to install (licence, a desktop-shortcut tick box,
+    Install). The maintenance side is replaced: running the installer - or choosing Modify in Windows' installed-apps list - when the
+    product is already there goes straight to ONE page with two choices, Repair and Uninstall. The stock set shows a
+    welcome page first and then a page with a permanently disabled "Change" button, and it hides Modify in Windows.
 
-    ONE page to install (summary, two tick boxes, Install). Running the installer again - or Modify in Windows' installed
-    apps list - goes straight to ONE page with Repair and Uninstall, each followed by a short "ready" page.
-
-    Still no code of ours: these are dialog tables that Windows Installer itself draws. The only custom actions are
-    WiX's stock "print the licence" and "open a file when Finish is pressed" (the Quad-Views-Foveated installer).
-    The rare stock dialogs (errors, files in use, cancel question) keep Windows' own light look.
+    Still no code of ours: these are dialog tables that Windows Installer itself draws. The only custom action is WiX's
+    stock "print the licence" button, as before.
   -->
   <Fragment>
-    <Binary Id="GazeBmp_Install" SourceFile="Assets\pages\install.bmp" />
-    <Binary Id="GazeBmp_Maintenance" SourceFile="Assets\pages\maintenance.bmp" />
-    <Binary Id="GazeBmp_VerifyRepair" SourceFile="Assets\pages\verify-repair.bmp" />
-    <Binary Id="GazeBmp_VerifyRemove" SourceFile="Assets\pages\verify-remove.bmp" />
-    <Binary Id="GazeBmp_Progress" SourceFile="Assets\pages\progress.bmp" />
-    <Binary Id="GazeBmp_ExitInstall" SourceFile="Assets\pages\exit-install.bmp" />
-    <Binary Id="GazeBmp_ExitInstallOffer" SourceFile="Assets\pages\exit-install-offer.bmp" />
-    <Binary Id="GazeBmp_ExitRepair" SourceFile="Assets\pages\exit-repair.bmp" />
-    <Binary Id="GazeBmp_ExitRemove" SourceFile="Assets\pages\exit-remove.bmp" />
-    <Binary Id="GazeBmp_Cancel" SourceFile="Assets\pages\cancel.bmp" />
-    <Binary Id="GazeBmp_Fatal" SourceFile="Assets\pages\fatal.bmp" />
-
     <UI Id="GazeOverlayUI">
       <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
       <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
       <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
       <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
 
-      <!-- Stock dialogs kept: errors, files in use, the cancel question, the costing wait. -->
       <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
       <DialogRef Id="FilesInUse" />
       <DialogRef Id="MsiRMFilesInUse" />
       <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
 
-      <Publish Dialog="GazeInstallDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_X64" />
-      <!-- The tick box on the last page: start the shipped Quad-Views-Foveated installer (Windows opens the .msi). -->
-      <Publish Dialog="GazeExitDlg" Control="Finish" Event="DoAction" Value="Wix4ShellExec_X64" Order="998" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed AND NOT QUADVIEWSPRESENT" />
-      <Publish Dialog="GazeExitDlg" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+      <Publish Dialog="GazeWelcomeDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_X64" />
+      <!-- The optional tick box on the last page: start the shipped Quad-Views-Foveated installer (Windows opens the .msi). -->
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="Wix4ShellExec_X64" Order="998" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
 
-      <Publish Dialog="GazeMaintenanceDlg" Control="RepairButton" Event="NewDialog" Value="GazeVerifyDlg" />
-      <Publish Dialog="GazeMaintenanceDlg" Control="RemoveButton" Event="NewDialog" Value="GazeVerifyDlg" />
-      <Publish Dialog="GazeVerifyDlg" Control="Back" Event="NewDialog" Value="GazeMaintenanceDlg" />
+      <Publish Dialog="GazeMaintenanceDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="GazeMaintenanceDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="GazeMaintenanceDlg" />
 
-      <!-- First install. The summary, the licence, the tick boxes' words: all in the picture. -->
-      <Dialog Id="GazeInstallDlg" Width="370" Height="270" Title="[ProductName] Setup">
-        <Control Id="Page" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Text="GazeBmp_Install" />
-        <Control Id="LicenseAcceptedCheckBox" Type="CheckBox" X="138" Y="196" Width="12" Height="12" CheckBoxValue="1" Property="LicenseAccepted" Text=" " ToolTip="I accept the MIT licence" />
-        <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="138" Y="214" Width="12" Height="12" CheckBoxValue="1" Property="DESKTOPSHORTCUT" Text=" " ToolTip="Put a shortcut to the settings app on the desktop" />
-        <Control Id="Print" Type="PushButton" X="138" Y="243" Width="56" Height="17" Text="&amp;Print" ToolTip="Print the licence text" />
+      <Dialog Id="GazeMaintenanceDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Repair or uninstall" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="290" Height="20" Transparent="yes" NoPrefix="yes" Text="[ProductName] [ProductVersion] is installed on this PC." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+        <Control Id="RepairButton" Type="PushButton" X="30" Y="66" Width="80" Height="17" Default="yes" Text="&amp;Repair" ToolTip="Put the files and registration back">
+          <Publish Property="WixUI_InstallMode" Value="Repair" />
+        </Control>
+        <Control Id="RepairText" Type="Text" X="120" Y="64" Width="230" Height="44" NoPrefix="yes"
+                 Text="Puts the files back and registers the gaze mirror layer again - for when another tool removed or disabled it. Your settings are not touched." />
+
+        <Control Id="RemoveButton" Type="PushButton" X="30" Y="122" Width="80" Height="17" Text="&amp;Uninstall" ToolTip="Remove [ProductName] from this PC">
+          <Publish Property="WixUI_InstallMode" Value="Remove" />
+        </Control>
+        <Control Id="RemoveText" Type="Text" X="120" Y="120" Width="230" Height="54" NoPrefix="yes"
+                 Text="Removes the layer, the SteamVR helper, the OBS plugin, the mirror window, the settings app and the Start menu shortcut. Your settings files stay in your profile. Quad-Views-Foveated is a separate product and stays." />
+
+        <Control Id="UpdateText" Type="Text" X="30" Y="192" Width="320" Height="30" NoPrefix="yes"
+                 Text="Updating? Just run the newer installer - it replaces this version by itself. Close your game and OBS first, so their files are not in use." />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Close">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- WiX's WelcomeEulaDlg plus one tick box. DESKTOPSHORTCUT is remembered between versions (see Package.wxs). -->
+      <Dialog Id="GazeWelcomeDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="WixUI_Bmp_Dialog" />
+        <Control Id="Title" Type="Text" X="130" Y="6" Width="225" Height="30" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Install [ProductName] [ProductVersion]" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="LicenseText" Type="ScrollableText" X="130" Y="38" Width="226" Height="138" Sunken="yes" TabSkip="no">
+          <Text SourceFile="License.rtf" />
+        </Control>
+        <Control Id="LicenseAcceptedCheckBox" Type="CheckBox" X="130" Y="182" Width="226" Height="18" CheckBoxValue="1" Property="LicenseAccepted" Text="I &amp;accept the terms in the License Agreement" />
+        <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="130" Y="204" Width="226" Height="18" CheckBoxValue="1" Property="DESKTOPSHORTCUT" Text="Put a shortcut to the settings app on the &amp;desktop" />
+        <Control Id="Print" Type="PushButton" X="88" Y="243" Width="56" Height="17" Text="&amp;Print" />
+        <Control Id="Back" Type="PushButton" X="156" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
         <Control Id="Install" Type="PushButton" ElevationShield="yes" X="212" Y="243" Width="80" Height="17" Default="yes" Text="&amp;Install"
                  DisableCondition="LicenseAccepted &lt;&gt; &quot;1&quot;" EnableCondition="LicenseAccepted = &quot;1&quot;">
           <Publish Event="SpawnWaitDialog" Value="WaitForCostingDlg" Condition="!(wix.WixUICostingPopupOptOut) OR CostingComplete = 1" />
@@ -68,99 +87,10 @@
         </Control>
       </Dialog>
 
-      <!-- Already installed: Repair or Uninstall. -->
-      <Dialog Id="GazeMaintenanceDlg" Width="370" Height="270" Title="[ProductName] Setup">
-        <Control Id="Page" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Text="GazeBmp_Maintenance" />
-        <Control Id="RepairButton" Type="PushButton" X="138" Y="60" Width="80" Height="17" Default="yes" Text="&amp;Repair" ToolTip="Put the files and registration back">
-          <Publish Property="WixUI_InstallMode" Value="Repair" />
-        </Control>
-        <Control Id="RemoveButton" Type="PushButton" X="138" Y="116" Width="80" Height="17" Text="&amp;Uninstall" ToolTip="Remove [ProductName] from this PC">
-          <Publish Property="WixUI_InstallMode" Value="Remove" />
-        </Control>
-        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Close">
-          <Publish Event="SpawnDialog" Value="CancelDlg" />
-        </Control>
-      </Dialog>
-
-      <!-- One short page before a repair or an uninstall starts. -->
-      <Dialog Id="GazeVerifyDlg" Width="370" Height="270" Title="[ProductName] Setup" TrackDiskSpace="yes">
-        <Control Id="PageRepair" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_VerifyRepair" ShowCondition="WixUI_InstallMode = &quot;Repair&quot;" />
-        <Control Id="PageRemove" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_VerifyRemove" ShowCondition="WixUI_InstallMode = &quot;Remove&quot;" />
-        <Control Id="Back" Type="PushButton" X="156" Y="243" Width="56" Height="17" Text="&amp;Back" />
-        <Control Id="Repair" Type="PushButton" X="212" Y="243" Width="80" Height="17" Default="yes" Hidden="yes" Disabled="yes" Text="&amp;Repair"
-                 ShowCondition="WixUI_InstallMode = &quot;Repair&quot;" EnableCondition="WixUI_InstallMode = &quot;Repair&quot;" DefaultCondition="WixUI_InstallMode = &quot;Repair&quot;">
-          <Publish Event="ReinstallMode" Value="ecmus" Condition="OutOfDiskSpace &lt;&gt; 1" />
-          <Publish Event="Reinstall" Value="All" Condition="OutOfDiskSpace &lt;&gt; 1" />
-          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace &lt;&gt; 1" />
-          <Publish Event="SpawnDialog" Value="OutOfRbDiskDlg" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST=&quot;P&quot; OR NOT PROMPTROLLBACKCOST)" />
-          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-          <Publish Event="EnableRollback" Value="False" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-          <Publish Event="SpawnDialog" Value="OutOfDiskDlg" Condition="(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST=&quot;F&quot;)" />
-        </Control>
-        <Control Id="Remove" Type="PushButton" ElevationShield="yes" X="212" Y="243" Width="80" Height="17" Hidden="yes" Disabled="yes" Text="&amp;Uninstall"
-                 ShowCondition="WixUI_InstallMode = &quot;Remove&quot;" EnableCondition="WixUI_InstallMode = &quot;Remove&quot;" DefaultCondition="WixUI_InstallMode = &quot;Remove&quot;">
-          <Publish Event="Remove" Value="All" Condition="OutOfDiskSpace &lt;&gt; 1" />
-          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace &lt;&gt; 1" />
-          <Publish Event="SpawnDialog" Value="OutOfRbDiskDlg" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST=&quot;P&quot; OR NOT PROMPTROLLBACKCOST)" />
-          <Publish Event="EndDialog" Value="Return" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-          <Publish Event="EnableRollback" Value="False" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-          <Publish Event="SpawnDialog" Value="OutOfDiskDlg" Condition="(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST=&quot;F&quot;)" />
-        </Control>
-        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
-          <Publish Event="SpawnDialog" Value="CancelDlg" />
-        </Control>
-      </Dialog>
-
-      <!-- While Windows Installer works: the picture and its progress bar. -->
-      <Dialog Id="GazeProgressDlg" Width="370" Height="270" Title="[ProductName] Setup" Modeless="yes">
-        <Control Id="Page" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Text="GazeBmp_Progress" />
-        <Control Id="ProgressBar" Type="ProgressBar" X="138" Y="70" Width="218" Height="12" ProgressBlocks="no" Text="Progress done">
-          <Subscribe Event="SetProgress" Attribute="Progress" />
-        </Control>
-        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Cancel">
-          <Publish Event="SpawnDialog" Value="CancelDlg" />
-        </Control>
-      </Dialog>
-
-      <!-- Done. Four pictures: installed (with or without the Quad-Views-Foveated offer), repaired, uninstalled. -->
-      <Dialog Id="GazeExitDlg" Width="370" Height="270" Title="[ProductName] Setup">
-        <Control Id="PageInstallOffer" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_ExitInstallOffer" ShowCondition="NOT Installed AND NOT QUADVIEWSPRESENT" />
-        <Control Id="PageInstall" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_ExitInstall" ShowCondition="(NOT Installed AND QUADVIEWSPRESENT) OR (Installed AND WixUI_InstallMode &lt;&gt; &quot;Repair&quot; AND WixUI_InstallMode &lt;&gt; &quot;Remove&quot;)" />
-        <Control Id="PageRepair" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_ExitRepair" ShowCondition="Installed AND WixUI_InstallMode = &quot;Repair&quot;" />
-        <Control Id="PageRemove" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Hidden="yes" Text="GazeBmp_ExitRemove" ShowCondition="Installed AND WixUI_InstallMode = &quot;Remove&quot;" />
-        <Control Id="OptionalCheckBox" Type="CheckBox" X="146" Y="164" Width="12" Height="12" Hidden="yes" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOX" CheckBoxValue="1" Text=" "
-                 ToolTip="Install Quad-Views-Foveated 1.1.3 now (its own installer opens when you press Finish)" ShowCondition="NOT Installed AND NOT QUADVIEWSPRESENT" />
-        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish" />
-      </Dialog>
-
-      <!-- Setup was cancelled, or failed. -->
-      <Dialog Id="GazeUserExitDlg" Width="370" Height="270" Title="[ProductName] Setup">
-        <Control Id="Page" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Text="GazeBmp_Cancel" />
-        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish">
-          <Publish Event="EndDialog" Value="Exit" />
-        </Control>
-      </Dialog>
-      <Dialog Id="GazeFatalErrorDlg" Width="370" Height="270" Title="[ProductName] Setup">
-        <Control Id="Page" Type="Bitmap" X="0" Y="0" Width="370" Height="270" TabSkip="yes" Text="GazeBmp_Fatal" />
-        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish">
-          <Publish Event="EndDialog" Value="Exit" />
-        </Control>
-      </Dialog>
-
       <InstallUISequence>
-        <Show Dialog="GazeInstallDlg" Before="GazeProgressDlg" Condition="NOT Installed" />
-        <Show Dialog="GazeMaintenanceDlg" Before="GazeProgressDlg" Condition="Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH" />
-        <Show Dialog="GazeProgressDlg" Before="ExecuteAction" />
-        <Show Dialog="GazeExitDlg" OnExit="success" />
-        <Show Dialog="GazeUserExitDlg" OnExit="cancel" />
-        <Show Dialog="GazeFatalErrorDlg" OnExit="error" />
+        <Show Dialog="GazeWelcomeDlg" Before="ProgressDlg" Condition="NOT Installed" />
+        <Show Dialog="GazeMaintenanceDlg" Before="ProgressDlg" Condition="Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH" />
       </InstallUISequence>
-      <!-- Windows Installer's validation wants the three end pages in the administrative sequence as well. -->
-      <AdminUISequence>
-        <Show Dialog="GazeExitDlg" OnExit="success" />
-        <Show Dialog="GazeUserExitDlg" OnExit="cancel" />
-        <Show Dialog="GazeFatalErrorDlg" OnExit="error" />
-      </AdminUISequence>
     </UI>
 
     <UIRef Id="WixUI_Common" />
