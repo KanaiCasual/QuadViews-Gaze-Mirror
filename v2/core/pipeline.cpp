@@ -31,15 +31,17 @@ namespace gaze_mirror {
         if (_settings.get().headsetMarker || _calibrationDirty) nudgeKeys();
         if (_snapshot.wanted(_settings.signal())) _snapshotDue = true;
         _renderDue = _publisher.started() && _publisher.wanted();
-        // The frame-rate cap: a schedule, so that 90 -> 60 means two of every three frames, not a stutter.
+        // The frame-rate cap: a schedule, so that 90 -> 60 means two of every three frames, not a stutter. A frame that
+        // arrives a hair early still counts (2 ms), or a game running right at the cap would lose every other frame.
         const float fps = _settings.get().outputFps;
         if (_renderDue && fps > 0.f) {
             const auto now = std::chrono::steady_clock::now();
-            if (now < _nextDue) {
+            const auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(1.0 / fps));
+            const bool scheduled = _nextDue.time_since_epoch().count() != 0;
+            if (scheduled && now + std::chrono::milliseconds(2) < _nextDue) {
                 _renderDue = false;
             } else {
-                const auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(1.0 / fps));
-                _nextDue = (_nextDue.time_since_epoch().count() == 0 || now - _nextDue > interval) ? now + interval : _nextDue + interval;
+                _nextDue = (!scheduled || now - _nextDue > interval) ? now + interval : _nextDue + interval;
             }
         }
         return _renderDue || _snapshotDue || _settings.get().headsetMarker; // The marker needs no reader.
