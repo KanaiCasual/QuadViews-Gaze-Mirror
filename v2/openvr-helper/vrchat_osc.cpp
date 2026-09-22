@@ -360,7 +360,7 @@ namespace gaze_mirror {
             const int n = recv(client, request, sizeof(request) - 1, 0);
             if (n > 0) {
                 const bool hostInfo = strstr(request, "HOST_INFO") != nullptr;
-                char body[1024];
+                char body[4096];
                 if (hostInfo) {
                     snprintf(body, sizeof(body),
                              "{\"NAME\":\"%s\",\"EXTENSIONS\":{\"ACCESS\":true,\"CLIPMODE\":false,\"RANGE\":true,\"TYPE\":true,\"VALUE\":true},"
@@ -368,11 +368,25 @@ namespace gaze_mirror {
                              _instance.c_str(), _oscPort);
                     if (_hostInfoAsked++ == 0) Log("vrchat osc: VRChat found us");
                 } else {
-                    // The tree: an /avatar node is what makes VRChat send /avatar/change and every avatar parameter.
-                    snprintf(body, sizeof(body),
-                             "{\"FULL_PATH\":\"/\",\"ACCESS\":0,\"CONTENTS\":{\"avatar\":{\"FULL_PATH\":\"/avatar\",\"ACCESS\":0,\"CONTENTS\":{"
-                             "\"change\":{\"FULL_PATH\":\"/avatar/change\",\"ACCESS\":2,\"TYPE\":\"s\",\"DESCRIPTION\":\"Avatar ID\"},"
-                             "\"parameters\":{\"FULL_PATH\":\"/avatar/parameters\",\"ACCESS\":0,\"CONTENTS\":{}}}}}}");
+                    // The tree: an /avatar node is what makes VRChat send /avatar/change and avatar parameters; the eye
+                    // parameters are listed one by one as well, in case VRChat only sends what it finds named here.
+                    std::string tree =
+                        "{\"FULL_PATH\":\"/\",\"ACCESS\":0,\"CONTENTS\":{\"avatar\":{\"FULL_PATH\":\"/avatar\",\"ACCESS\":0,\"CONTENTS\":{"
+                        "\"change\":{\"FULL_PATH\":\"/avatar/change\",\"ACCESS\":2,\"TYPE\":\"s\",\"DESCRIPTION\":\"Avatar ID\"},"
+                        "\"parameters\":{\"FULL_PATH\":\"/avatar/parameters\",\"ACCESS\":0,\"CONTENTS\":{";
+                    const auto leaf = [](const char* parent, const char* name) {
+                        char item[200];
+                        snprintf(item, sizeof(item), "\"%s\":{\"FULL_PATH\":\"/avatar/parameters/%s%s\",\"ACCESS\":2,\"TYPE\":\"f\"}", name, parent, name);
+                        return std::string(item);
+                    };
+                    const char* names[] = {"EyeLeftX", "EyeRightX", "EyeLeftY", "EyeRightY", "EyeX", "EyeY", "EyeLidLeft", "EyeLidRight", "EyeLid"};
+                    const char* oldNames[] = {"LeftEyeX", "RightEyeX", "LeftEyeY", "RightEyeY", "EyesX", "EyesY", "LeftEyeLid", "RightEyeLid", "CombinedEyeLid"};
+                    tree += "\"v2\":{\"FULL_PATH\":\"/avatar/parameters/v2\",\"ACCESS\":0,\"CONTENTS\":{";
+                    for (size_t i = 0; i < std::size(names); i++) tree += (i ? "," : "") + leaf("v2/", names[i]);
+                    tree += "}}";
+                    for (const char* name : oldNames) tree += "," + leaf("", name);
+                    tree += "}}}}}}";
+                    snprintf(body, sizeof(body), "%s", tree.c_str());
                 }
                 char header[256];
                 snprintf(header, sizeof(header),
@@ -433,6 +447,17 @@ namespace gaze_mirror {
             default: break;
             }
         }
+        // What VRChat sends at all: the first addresses of each kind, once, so a setup that sends no eye parameters
+        // can be told apart from one that sends them under other names.
+        if (_seen < 80) {
+            bool known = false;
+            for (const std::string& s : _addresses) if (s == address) { known = true; break; }
+            if (!known) {
+                _addresses.push_back(address);
+                _seen++;
+                Log("vrchat osc: receiving %s (%s%s)", address.c_str(), tags.c_str(), haveValue ? "" : ", no value read");
+            }
+        }
         if (address == "/avatar/change") {
             _eyes = {};
             Log("vrchat osc: avatar changed - waiting for its eye parameters");
@@ -440,8 +465,9 @@ namespace gaze_mirror {
         }
         constexpr char Prefix[] = "/avatar/parameters/";
         if (!haveValue || address.compare(0, sizeof(Prefix) - 1, Prefix) != 0) return;
+        // Avatars put the face-tracking parameters under any prefix they like ("v2/", "FT/v2/", ...): the last part counts.
         const char* name = address.c_str() + sizeof(Prefix) - 1;
-        if (strncmp(name, "v2/", 3) == 0) name += 3; // VRCFT's unified parameters; the older ones have no prefix.
+        if (const char* slash = strrchr(name, '/')) name = slash + 1;
 
         // Eye lids come as 0..0.75 open, 0.75..1 widened; the ring only wants "open or not".
         const auto lid = [](float v) { return std::clamp(v / 0.75f, 0.f, 1.f); };

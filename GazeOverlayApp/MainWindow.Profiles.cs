@@ -295,8 +295,9 @@ public partial class MainWindow
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
-            : external.AgeMs < 0 ? "VRChat: the helper is listening; no eye parameters received yet (is the avatar one with eye tracking, and OSC on?)."
-            : $"VRChat: last eye parameters {external.AgeMs / 1000.0:0} s ago.";
+            : external.AgeMs < 0 ? "VRChat: the helper is listening; nothing received yet (is OSC on in VRChat?)."
+            : external.AgeMs <= 2000 ? "VRChat: sending parameters, but no eye ones - the avatar has no eye parameters, or its eye tracking is off. The helper's log lists what arrives."
+            : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
         var helper = MirrorLive.FindHelper();
         HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
             : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."

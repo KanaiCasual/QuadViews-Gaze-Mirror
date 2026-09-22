@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <string>
 #include <thread>
+#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -73,6 +74,8 @@ namespace gaze_mirror {
         } _eyes;
         int _logged = 0;
         int _hostInfoAsked = 0;
+        std::vector<std::string> _addresses; // The distinct addresses seen so far (the first 40), for the log.
+        int _seen = 0;
     };
 
 } // namespace gaze_mirror
