@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: the ring's motion - everything between "the eye points there" and the numbers
+// VR Gaze Mirror 2.0 - core: the ring's motion - everything between "the eye points there" and the numbers
 // the shader draws with. Positions are pixels of the (uncropped) eye image; sizes are fractions of its height.
 //   - smoothing (One-Euro or simple), hold through blinks, fade in and out;
 //   - world anchoring: when the head turns, everything remembered moves with the scene;

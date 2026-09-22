@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - OpenXR layer: eye gaze through the standard extension XR_EXT_eye_gaze_interaction.
+// VR Gaze Mirror 2.0 - OpenXR layer: eye gaze through the standard extension XR_EXT_eye_gaze_interaction.
 //
 // An OpenXR session accepts its input set-up exactly once (xrAttachSessionActionSets), and the suggested bindings of an
 // interaction profile are replaced by whoever suggests last. So this never makes calls of its own where the game - or

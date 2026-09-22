@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - dev viewer.
+// VR Gaze Mirror 2.0 - dev viewer.
 //
 // The smallest possible reader of the 2.0 format (v2\protocol\gaze_mirror_protocol.h): registers as a reader, sleeps
 // until the producer signals a frame, shows it. No timer anywhere - while no game runs it waits without waking up.

@@ -5,7 +5,7 @@
     "library_path": ".\\XR_APILAYER_NOVENDOR_gaze_mirror.dll",
     "api_version": "1.0",
     "implementation_version": "2",
-    "description": "QuadViews Gaze Mirror 2.0 - mirror picture with gaze ring for OBS and the mirror window",
+    "description": "VR Gaze Mirror 2.0 - mirror picture with gaze ring for OBS and the mirror window",
     "functions": {
       "xrNegotiateLoaderApiLayerInterface": "xrNegotiateLoaderApiLayerInterface"
     },

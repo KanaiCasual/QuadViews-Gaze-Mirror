@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- QuadViews Gaze Mirror 2.0 - the shared core (static library): settings, ring motion, framing, the one draw, the
+  <!-- VR Gaze Mirror 2.0 - the shared core (static library): settings, ring motion, framing, the one draw, the
        publisher, the crop-tool picture. Used by the OpenXR layer and the OpenVR helper. Release x64, static C runtime. -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">

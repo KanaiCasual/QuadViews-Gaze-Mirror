@@ -22,7 +22,7 @@ public partial class App : Application
         var args = e.Args;
         Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots";
         AppLog.Start(Headless);
-        AppLog.Write($"QuadViews Gaze Mirror {UpdateChecker.CurrentVersionText} starting" + (args.Length > 0 ? " with " + string.Join(" ", args) : "") +
+        AppLog.Write($"VR Gaze Mirror {UpdateChecker.CurrentVersionText} starting" + (args.Length > 0 ? " with " + string.Join(" ", args) : "") +
                      $"; app folder {AppContext.BaseDirectory}; settings folder {AppSettings.Folder}");
         // Anything that would otherwise close the app silently is written down first; Windows' own crash handling still follows.
         DispatcherUnhandledException += (_, error) => AppLog.Write("Unhandled error on the UI thread", error.Exception);
@@ -461,14 +461,14 @@ public partial class App : Application
             const string canned = """
                 [
                   {"tag_name":"v0.9.0-beta.1","name":"0.9 beta","prerelease":true,"draft":false,"html_url":"https://github.com/someone/project/releases/tag/v0.9.0-beta.1",
-                   "assets":[{"name":"QuadViews-Gaze-Mirror-0.9.0.msi","size":1234,"browser_download_url":"https://github.com/someone/project/releases/download/v0.9.0-beta.1/QuadViews-Gaze-Mirror-0.9.0.msi"},
-                             {"name":"QuadViews-Gaze-Mirror-0.9.0.msi.sha256","size":100,"browser_download_url":"https://github.com/someone/project/releases/download/v0.9.0-beta.1/QuadViews-Gaze-Mirror-0.9.0.msi.sha256"}]},
+                   "assets":[{"name":"VR-Gaze-Mirror-0.9.0.msi","size":1234,"browser_download_url":"https://github.com/someone/project/releases/download/v0.9.0-beta.1/VR-Gaze-Mirror-0.9.0.msi"},
+                             {"name":"VR-Gaze-Mirror-0.9.0.msi.sha256","size":100,"browser_download_url":"https://github.com/someone/project/releases/download/v0.9.0-beta.1/VR-Gaze-Mirror-0.9.0.msi.sha256"}]},
                   {"tag_name":"v0.5.2","name":"0.5.2","prerelease":false,"draft":false,"html_url":"https://github.com/someone/project/releases/tag/v0.5.2",
-                   "assets":[{"name":"QuadViews-Gaze-Mirror-0.5.2.msi","size":1234,"browser_download_url":"https://evil.example/QuadViews-Gaze-Mirror-0.5.2.msi"},
-                             {"name":"QuadViews-Gaze-Mirror-0.5.2.msi.sha256","size":100,"browser_download_url":"https://github.com/someone/project/releases/download/v0.5.2/QuadViews-Gaze-Mirror-0.5.2.msi.sha256"}]},
+                   "assets":[{"name":"VR-Gaze-Mirror-0.5.2.msi","size":1234,"browser_download_url":"https://evil.example/VR-Gaze-Mirror-0.5.2.msi"},
+                             {"name":"VR-Gaze-Mirror-0.5.2.msi.sha256","size":100,"browser_download_url":"https://github.com/someone/project/releases/download/v0.5.2/VR-Gaze-Mirror-0.5.2.msi.sha256"}]},
                   {"tag_name":"v0.6.0","name":"unfinished","prerelease":false,"draft":true,"html_url":"https://github.com/someone/project/releases/tag/v0.6.0"},
                   {"tag_name":"v0.5.10","name":"0.5.10","prerelease":false,"draft":false,"html_url":"https://evil.example/not-github",
-                   "assets":[{"name":"QuadViews-Gaze-Mirror-0.5.10.msi","size":1234,"browser_download_url":"https://github.com/someone/project/releases/download/v0.5.10/QuadViews-Gaze-Mirror-0.5.10.msi"},
+                   "assets":[{"name":"VR-Gaze-Mirror-0.5.10.msi","size":1234,"browser_download_url":"https://github.com/someone/project/releases/download/v0.5.10/VR-Gaze-Mirror-0.5.10.msi"},
                              {"name":"setup.exe","size":9999,"browser_download_url":"https://github.com/someone/project/releases/download/v0.5.10/setup.exe"}]},
                   {"tag_name":"nightly","name":"no version in tag","prerelease":false,"draft":false,"html_url":"https://github.com/someone/project/releases/tag/nightly"}
                 ]
@@ -484,11 +484,11 @@ public partial class App : Application
                 ("betas only when asked for", beta?.Version == new Version(0, 9, 0) && beta.IsBeta),
                 ("nothing offered when already newer", none == null),
                 ("foreign links are replaced by the project's releases page", stable?.Url == "https://github.com/someone/project/releases"),
-                ("an installer with its checksum from the project's own address can be installed", beta is { CanInstall: true, Installer.Name: "QuadViews-Gaze-Mirror-0.9.0.msi", Checksum.Size: 100 }),
+                ("an installer with its checksum from the project's own address can be installed", beta is { CanInstall: true, Installer.Name: "VR-Gaze-Mirror-0.9.0.msi", Checksum.Size: 100 }),
                 ("an installer from a foreign address is not offered", releases.First(r => r.Tag == "v0.5.2") is { Installer: null, CanInstall: false }),
                 ("an installer without a checksum, and an .exe, are not offered", stable is { Installer: not null, Checksum: null, CanInstall: false }),
                 ("a sha256sum-style checksum file is read for the right name",
-                    UpdateChecker.ParseChecksum("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef *Other.msi\nABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789  QuadViews-Gaze-Mirror-0.9.0.msi\n", "QuadViews-Gaze-Mirror-0.9.0.msi")
+                    UpdateChecker.ParseChecksum("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef *Other.msi\nABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789  VR-Gaze-Mirror-0.9.0.msi\n", "VR-Gaze-Mirror-0.9.0.msi")
                         == "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
                     && UpdateChecker.ParseChecksum("not a hash", "x.msi") == null),
                 ("a file's SHA-256 is computed as sha256sum would", ChecksumOfEmptyFile(outputDir) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),

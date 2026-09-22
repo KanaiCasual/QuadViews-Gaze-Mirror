@@ -1,12 +1,12 @@
-// QuadViews Gaze Mirror 2.0 - core: a plain text log. Each program says where its log goes (SetLogFile) before the
-// first line; until then, lines go to %LocalAppData%\QuadViewsGazeMirror\<name>.log with the name given here.
+// VR Gaze Mirror 2.0 - core: a plain text log. Each program says where its log goes (SetLogFile) before the
+// first line; until then, lines go to %LocalAppData%\GazeMirror\<name>.log with the name given here.
 #pragma once
 
 #include <cstdarg>
 
 namespace gaze_mirror {
 
-    // Chooses the file. `name` is used as %LocalAppData%\QuadViewsGazeMirror\<name>.log; the environment variable
+    // Chooses the file. `name` is used as %LocalAppData%\GazeMirror\<name>.log; the environment variable
     // GAZE_MIRROR_LOG_FILE (tests) wins over it. The previous log of the same name is kept once as ".previous".
     void SetLogName(const wchar_t* name);
 

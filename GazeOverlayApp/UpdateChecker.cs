@@ -57,8 +57,11 @@ public sealed class AppSettings
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;
     public bool MirrorTitled { get; set; }
-    /// <summary>The SteamVR helper is registered to start with SteamVR (the registration itself lives in SteamVR).</summary>
-    public bool HelperAutostart { get; set; }
+    /// <summary>
+    /// The helper program SteamVR was told to start with itself (the registration lives in SteamVR and names the exe by
+    /// its full path). "" = not registered yet; a different path = the app moved, so it is registered again.
+    /// </summary>
+    public string HelperRegisteredPath { get; set; } = "";
     /// <summary>The crop profile chosen on the Mirror tab ("" = none).</summary>
     public string SelectedCropProfile { get; set; } = "";
     /// <summary>Size of the mirror window's picture in pixels = what a capture tool gets. 0 = fill the monitor.</summary>
@@ -67,20 +70,34 @@ public sealed class AppSettings
     /// <summary>The mirror window draws at most this many pictures a second (60 or 30).</summary>
     public int MirrorFps { get; set; } = 60;
 
-    /// <summary>This app's own folder: preferences and the saved layer orders.</summary>
-    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror");
+    /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
+    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");
 
     private static string FilePath => Path.Combine(Folder, "app.json");
 
-    /// <summary>Up to 0.9.0 the product was called OpenXR Gaze Overlay; preset slots and the rest come along on first start.</summary>
+    /// <summary>
+    /// Earlier names left their files elsewhere: "QuadViewsGazeMirror" up to the 1.9.x builds (everything), "OpenXRGazeOverlay"
+    /// up to 0.9.0 (app.json only). On the first start after a rename, whatever is not in the new folder yet is copied over;
+    /// the old folder is left as it is.
+    /// </summary>
     private static void AdoptOldFolder()
     {
         try
         {
-            var old = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenXRGazeOverlay", "app.json");
-            if (File.Exists(FilePath) || !File.Exists(old)) return;
+            if (File.Exists(FilePath)) return;
+            var data = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             Directory.CreateDirectory(Folder);
-            File.Copy(old, FilePath);
+            var previous = Path.Combine(data, "QuadViewsGazeMirror");
+            if (Directory.Exists(previous))
+            {
+                foreach (var file in Directory.GetFiles(previous))
+                {
+                    var target = Path.Combine(Folder, Path.GetFileName(file));
+                    if (!File.Exists(target)) File.Copy(file, target);
+                }
+            }
+            var oldest = Path.Combine(data, "OpenXRGazeOverlay", "app.json");
+            if (!File.Exists(FilePath) && File.Exists(oldest)) File.Copy(oldest, FilePath);
         }
         catch
         {
@@ -151,7 +168,7 @@ public static partial class UpdateChecker
     public static async Task<ReleaseInfo?> CheckAsync(string repository, bool includeBetas, CancellationToken cancellation = default)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("QuadViews-Gaze-Mirror/" + CurrentVersion.ToString(3));
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("VR-Gaze-Mirror/" + CurrentVersion.ToString(3));
         http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         var json = await http.GetStringAsync($"https://api.github.com/repos/{repository}/releases?per_page=30", cancellation);
         return PickUpdate(ParseReleases(json, repository), CurrentVersion, includeBetas);
@@ -229,7 +246,7 @@ public static partial class UpdateChecker
     {
         if (release.Installer is not { } installer || release.Checksum is not { } checksum) throw new InvalidOperationException("This release has no checked installer to download.");
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("QuadViews-Gaze-Mirror/" + CurrentVersion.ToString(3));
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("VR-Gaze-Mirror/" + CurrentVersion.ToString(3));
 
         var expected = ParseChecksum(await http.GetStringAsync(checksum.Url, cancellation), installer.Name)
             ?? throw new InvalidDataException("The release's checksum file does not name this installer.");
@@ -304,7 +321,7 @@ public static partial class UpdateChecker
         }
     }
 
-    [GeneratedRegex(@"^QuadViews-Gaze-Mirror-\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?\.msi$")]
+    [GeneratedRegex(@"^VR-Gaze-Mirror-\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?\.msi$")]
     private static partial Regex InstallerNamePattern();
 
     [GeneratedRegex(@"^([A-Fa-f0-9]{64})(?:\s+(.*))?$")]

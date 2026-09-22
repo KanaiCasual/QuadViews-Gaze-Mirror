@@ -23,7 +23,7 @@ foreach ($f in $files) {
 # Licence texts, named for what they belong to.
 $licences = Join-Path $payload 'Licences'
 New-Item -ItemType Directory -Force $licences | Out-Null
-Copy-Item (Join-Path $root 'LICENSE') (Join-Path $licences 'LICENSE-QuadViews-Gaze-Mirror.txt') -Force
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $licences 'LICENSE-VR-Gaze-Mirror.txt') -Force
 Copy-Item (Join-Path $v2 'external\libobs\COPYING') (Join-Path $licences 'LICENSE-OBS-plugin-GPL-2.txt') -Force
 Copy-Item (Join-Path $v2 'external\openvr\LICENSE') (Join-Path $licences 'LICENSE-OpenVR.txt') -Force
 Get-ChildItem $payload -Recurse -File | ForEach-Object { '{0,9}  {1}' -f $_.Length, $_.FullName.Substring($payload.Length + 1) }

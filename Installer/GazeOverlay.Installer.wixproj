@@ -1,7 +1,7 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
 
   <PropertyGroup>
-    <OutputName>QuadViews-Gaze-Mirror</OutputName>
+    <OutputName>VR-Gaze-Mirror</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <!-- Set by Build-Installer.ps1; the defaults let the project build on its own too. -->
     <ProductVersion Condition="'$(ProductVersion)' == ''">1.9.1</ProductVersion>

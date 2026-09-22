@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - the OBS source "Gaze Mirror".
+// VR Gaze Mirror 2.0 - the OBS source "Gaze Mirror".
 //
 // A reader of the 2.0 format (protocol/gaze_mirror_protocol.h): it takes a reader place in the shared block while the
 // source is shown, sleeps on its event until a producer - the OpenXR layer inside a game, or the OpenVR helper next to

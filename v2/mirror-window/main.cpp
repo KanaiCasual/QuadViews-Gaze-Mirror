@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - mirror window.
+// VR Gaze Mirror 2.0 - mirror window.
 //
 // Shows the finished mirror picture (cropped, steadied, with the gaze ring) in an ordinary window, so that anything
 // that can capture a window can use it: OBS Window/Game Capture, Discord, ... - no OBS plugin needed.
@@ -50,8 +50,8 @@ using namespace gaze_mirror;
 namespace {
 
     constexpr ULONG_PTR ArgumentsMessage = 0x474F4D57; // WM_COPYDATA tag: a command line for the running window
-    constexpr wchar_t WindowClass[] = L"QuadViewsGazeMirror.MirrorWindow";
-    constexpr wchar_t WindowTitle[] = L"QuadViews Gaze Mirror - Mirror";
+    constexpr wchar_t WindowClass[] = L"GazeMirror.MirrorWindow";
+    constexpr wchar_t WindowTitle[] = L"VR Gaze Mirror - Mirror";
 
     enum : UINT {
         CmdWindowed = 0x1000, // Below 0xF000 so they can live in the system menu too; low 4 bits unused.
@@ -548,7 +548,7 @@ float4 ps_main(VsOut input) : SV_TARGET {
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // One mirror window is enough: a second start hands its arguments to the first and leaves.
-    HANDLE single = CreateMutexW(nullptr, TRUE, L"QuadViewsGazeMirror.MirrorWindow.Single");
+    HANDLE single = CreateMutexW(nullptr, TRUE, L"GazeMirror.MirrorWindow.Single");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         for (int attempt = 0; attempt < 50; attempt++) { // The first one may still be starting up.
             if (HWND running = FindWindowW(WindowClass, nullptr)) {

@@ -6,7 +6,7 @@ namespace GazeOverlay;
 /// The app's own log: a few lines per session, written when something happens (start, settings loaded, helper started,
 /// profile applied, update found, an error) - never on a timer. Always on, in every build, because the volume is tiny
 /// and the one time it matters is the one time nobody switched it on. It sits next to the layer's and the helper's logs:
-/// %LocalAppData%\QuadViewsGazeMirror\app.log; the previous session's log is kept once as app.previous.log.
+/// %LocalAppData%\GazeMirror\app.log; the previous session's log is kept once as app.previous.log.
 /// Nothing here can fail the app: every write swallows its own errors.
 /// </summary>
 public static class AppLog

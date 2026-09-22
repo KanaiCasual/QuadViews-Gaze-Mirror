@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - the one format every producer and every reader speaks.
+// VR Gaze Mirror 2.0 - the one format every producer and every reader speaks.
 //
 // Producers make the finished mirror picture (cropped, steadied, ring drawn) and publish it here:
 //   - the OpenXR layer, inside an OpenXR game;

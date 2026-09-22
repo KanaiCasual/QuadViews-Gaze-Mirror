@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: the little geometry the mirror needs, without DirectXMath or OpenXR types.
+// VR Gaze Mirror 2.0 - core: the little geometry the mirror needs, without DirectXMath or OpenXR types.
 #pragma once
 
 #include <algorithm>

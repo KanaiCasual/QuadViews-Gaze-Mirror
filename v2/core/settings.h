@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: settings.
+// VR Gaze Mirror 2.0 - core: settings.
 //
 // The same file and the same "something changed" signal the settings app already uses, so the app drives 2.0 as it
 // is: the file is read once at start and again only when the app bumps its counter in shared memory - compared once
@@ -131,7 +131,7 @@ namespace gaze_mirror {
     };
 
     std::wstring SettingsFilePath();
-    // %LocalAppData%\QuadViewsGazeMirror\crop-profiles.ini: "[name]" sections with "game=<program or application>"
+    // %LocalAppData%\GazeMirror\crop-profiles.ini: "[name]" sections with "game=<program or application>"
     // and any crop_* / stabilize* keys, written by the settings app.
     std::wstring ProfilesFilePath();
 

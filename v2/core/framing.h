@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: which part of the eye image goes out.
+// VR Gaze Mirror 2.0 - core: which part of the eye image goes out.
 //   - the crop box the user placed (the whole image when cropping is off);
 //   - follow: the box glides up and down so that what is looked at stays in frame;
 //   - steadying: the head orientation goes through a One-Euro filter and the box counter-moves small head movement

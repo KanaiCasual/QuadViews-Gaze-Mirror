@@ -2,6 +2,7 @@
 
 ## 2.0.0 - in development (1.9.x builds)
 
+- Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start).
 - Everything that makes the mirror picture is this project's own code. No modified third-party layers any more.
 - OpenXR games and SteamVR games: the gaze mirror layer mirrors OpenXR games, a small SteamVR helper mirrors games that use SteamVR directly (OpenVR). Same crop, same ring, same OBS source.
 - Gaze comes from the standard interfaces (OpenXR eye gaze, SteamVR eye tracking), so any eye-tracked headset that feeds them works. Quad-Views-Foveated is no longer needed for the ring.

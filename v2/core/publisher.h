@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: the producer side of the shared format (protocol/gaze_mirror_protocol.h).
+// VR Gaze Mirror 2.0 - core: the producer side of the shared format (protocol/gaze_mirror_protocol.h).
 // Owns the shared block and the slot textures; tells the readers when a frame is ready; knows whether anybody wants
 // one at all (a few memory reads per frame, and never a timer).
 #pragma once

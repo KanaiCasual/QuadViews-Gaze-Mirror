@@ -44,7 +44,7 @@ namespace gaze_mirror {
         wchar_t folder[MAX_PATH];
         const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", folder, MAX_PATH);
         if (length == 0 || length >= MAX_PATH) return {};
-        return std::wstring(folder) + L"\\QuadViewsGazeMirror\\crop-profiles.ini";
+        return std::wstring(folder) + L"\\GazeMirror\\crop-profiles.ini";
     }
 
     void SettingsSource::setGame(const char* program, const char* application) {

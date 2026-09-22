@@ -288,7 +288,7 @@ public partial class MainWindow
         var helper = MirrorLive.FindHelper();
         HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
             : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."
-            : _appSettings.HelperAutostart ? "The helper starts with SteamVR and leaves with it. Not running now."
+            : _appSettings.HelperRegisteredPath.Length > 0 ? "The helper starts with SteamVR and leaves with it. Not running now."
             : "SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.";
     }
 
@@ -298,14 +298,15 @@ public partial class MainWindow
     /// </summary>
     private async Task EnsureHelperAsync()
     {
-        if (MirrorLive.FindHelper() == null) { AppLog.Write("SteamVR helper: GazeMirrorHelper.exe not found next to the app."); return; }
-        if (!_appSettings.HelperAutostart)
+        var helper = MirrorLive.FindHelper();
+        if (helper == null) { AppLog.Write("SteamVR helper: GazeMirrorHelper.exe not found next to the app."); return; }
+        if (!string.Equals(_appSettings.HelperRegisteredPath, helper, StringComparison.OrdinalIgnoreCase))
         {
             var result = await MirrorLive.SetHelperAutostartAsync(true);
-            AppLog.Write($"SteamVR helper: registration with SteamVR {(result == 0 ? "done" : $"not done (exit code {result?.ToString() ?? "none"}); tried again next start")}.");
+            AppLog.Write($"SteamVR helper: registration of {helper} with SteamVR {(result == 0 ? "done" : $"not done (exit code {result?.ToString() ?? "none"}); tried again next start")}.");
             if (result == 0)
             {
-                _appSettings.HelperAutostart = true;
+                _appSettings.HelperRegisteredPath = helper;
                 _appSettings.Save();
             }
         }

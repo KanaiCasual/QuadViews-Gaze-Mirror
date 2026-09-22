@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: the settings app's crop-tool picture ("GazeOverlay.MirrorSnapshot", format v2 of
+// VR Gaze Mirror 2.0 - core: the settings app's crop-tool picture ("GazeOverlay.MirrorSnapshot", format v2 of
 // 1.x, unchanged so the app works as it is). Made only when the app asks (a counter in its signal block) or when the
 // armed capture key is pressed - the key is looked at here, inside the game, and only while armed. Both eyes are taken
 // in the SAME frame: a producer that sees both images needs no second frame.

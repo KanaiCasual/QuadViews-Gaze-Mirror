@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/logo.png" width="96" alt="QuadViews Gaze Mirror logo"></p>
+<p align="center"><img src="docs/logo.png" width="96" alt="VR Gaze Mirror logo"></p>
 
-# QuadViews Gaze Mirror
+# VR Gaze Mirror
 
 [![Latest release](https://img.shields.io/github/v/release/KanaiCasual/QuadViews-Gaze-Mirror?label=latest%20release&color=4DB2FF)](../../releases/latest)
 [![Released](https://img.shields.io/github/release-date/KanaiCasual/QuadViews-Gaze-Mirror?label=released)](../../releases/latest)
@@ -33,7 +33,7 @@ One installer sets up everything:
 > [OpenXR-Layer-OBSMirror](https://github.com/Jabbah/OpenXR-Layer-OBSMirror) by Jabbah. They did not build, test or
 > endorse it. **Please do not ask them for support with it** - use this repository's Issues instead.
 
-**Download:** the latest `QuadViews-Gaze-Mirror-<version>.msi` is on the
+**Download:** the latest `VR-Gaze-Mirror-<version>.msi` is on the
 [Releases page](../../releases/latest); the release notes say what changed.
 
 ---
@@ -70,7 +70,7 @@ Developed and tested with a Pimax Crystal through SteamVR, in DCS World.
    refuses to run while they are there. Your Quad-Views-Foveated settings in `%LocalAppData%\Quad-Views-Foveated` are kept.
 2. Close your game and OBS, then run the `.msi`. Windows SmartScreen will warn, because nothing here is code-signed:
    "More info" > "Run anyway". A first install offers a desktop shortcut.
-3. Start **QuadViews Gaze Mirror** from the Start menu. The **Status** tab should show three green dots.
+3. Start **VR Gaze Mirror** from the Start menu. The **Status** tab should show three green dots.
 
 **Updating:** run the newer `.msi` over the old one; your settings stay. **Repair / remove:** run the installer again
 (or "Modify" in the installed-apps list) for a page with **Repair** and **Uninstall**. Uninstalling leaves your settings
@@ -103,7 +103,7 @@ No OBS plugin involved. On the **Mirror** tab press **Open**: a window with the 
 chose, **behind every other window** (behind a borderless game too) and without ever taking the focus. Window capture
 still sees it there.
 
-- **Discord:** Share Your Screen > Applications > *QuadViews Gaze Mirror - Mirror*.
+- **Discord:** Share Your Screen > Applications > *VR Gaze Mirror - Mirror*.
 - **OBS without the plugin:** Sources > + > **Window Capture** > that window.
 - **Size** and **Rate** on the Mirror tab decide what the capturing program gets (for example 1920 x 1080 at 30 fps for
   Discord). Smaller and slower is cheaper: this way costs more graphics card time than the plugin, because the window has
@@ -260,11 +260,11 @@ Where things are:
 
 | What | Where |
 |---|---|
-| Program, layers, mirror window | `C:\Program Files\QuadViews-Gaze-Mirror` |
+| Program, layers, mirror window | `C:\Program Files\VR-Gaze-Mirror` |
 | Ring, crop, follow, steadying settings | `%LocalAppData%\XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg` ([sample](gaze.cfg)) |
 | Quad-Views-Foveated settings and log | `%LocalAppData%\Quad-Views-Foveated\` |
 | Mirror layer log | `%LocalAppData%\XR_APILAYER_NOVENDOR_OBSMirror.log` |
-| App preferences, saved slots, crop pictures, layer-order backups | `%LocalAppData%\QuadViewsGazeMirror\` |
+| App preferences, saved slots, crop pictures, layer-order backups | `%LocalAppData%\GazeMirror\` |
 
 ## Troubleshooting
 
@@ -290,7 +290,7 @@ Needs Visual Studio 2022 (C++ workload), the .NET 10 SDK and Python 3 (upstream'
 git clone --recurse-submodules <this repo>
 .\tools\Apply-Patches.ps1        # once, on a fresh clone
 .\Build-Layers.ps1               # both OpenXR layers
-.\Build-Installer.ps1            # mirror window + settings app + dist\QuadViews-Gaze-Mirror-<version>.msi
+.\Build-Installer.ps1            # mirror window + settings app + dist\VR-Gaze-Mirror-<version>.msi
 ```
 
 `Build-Installer.ps1` needs the unmodified OBS plugin (`win-openxr.dll` and its data files) from an upstream
@@ -306,7 +306,7 @@ OpenXR-Layer-OBSMirror release; see `GazeOverlayApp\Collect-Payload.ps1` for whe
 | `tools/` | Patch scripts, the logo and installer-artwork generators, an offline ring preview, an MSI inspector, a clip reviewer |
 | `gaze.cfg` | A sample of the layer's settings file |
 
-The app has two headless checks: `QuadViewsGazeMirror.exe --selftest <folder>` and `--screenshots <folder> [width height]`.
+The app has two headless checks: `GazeMirror.exe --selftest <folder>` and `--screenshots <folder> [width height]`.
 
 **Every release - beta or not - must have its own `x.y.z` number** (tag `v1.0.0`, `v1.0.1-beta`, ...). Windows Installer
 only upgrades to a higher number, and the update check compares the numbers, so a beta and its final release cannot share
@@ -318,7 +318,7 @@ one. Betas are GitHub *pre-releases* and are only announced to people who ticked
   the layers.
 - Setup is a plain MSI on purpose: an earlier self-installing `.exe` was quarantined by antivirus heuristics half-way
   through an install.
-- Silent install without the desktop shortcut: `msiexec /i QuadViews-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
+- Silent install without the desktop shortcut: `msiexec /i VR-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
 - TallyMouse's QuadViews Companion keeps working on the same settings file; only its "QV Defaults" button fails, because
   it looks for the original product's install folder (use the *QV defaults* preset here instead).
 

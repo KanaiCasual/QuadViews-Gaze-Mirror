@@ -113,8 +113,9 @@ public sealed class QuadViewsFile
 {
     public static string DefaultPath => Path.Combine(QuadViewsSession.Folder, "settings.cfg");
 
-    public const string AddedMarker = "# Added by QuadViews Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
+    public const string AddedMarker = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
     /// <summary>What the marker said while the product was called OpenXR Gaze Overlay (up to 0.9.0).</summary>
+    private const string OldAddedMarker2 = "# Added by QuadViews Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
     private const string OldAddedMarker = "# Added by OpenXR Gaze Overlay: set here, above the headset sections, so they apply under every OpenXR runtime.";
 
     public List<string> Lines { get; private init; } = [];
@@ -143,7 +144,7 @@ public sealed class QuadViewsFile
         {
             Lines =
             [
-                "# Quad-Views-Foveated settings, written by QuadViews Gaze Mirror.",
+                "# Quad-Views-Foveated settings, written by VR Gaze Mirror.",
                 "# Settings in this first part apply to every headset and OpenXR runtime.",
                 "",
                 "[Varjo]",
@@ -229,7 +230,7 @@ public sealed class QuadViewsFile
         while (insertAt > 0 && (Lines[insertAt - 1].Length == 0 || IsComment(Lines[insertAt - 1]))) insertAt--;
         if (insertAt == 0) insertAt = firstSection;
 
-        if (!Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker))
+        if (!Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2))
         {
             Lines.Insert(insertAt++, "");
             Lines.Insert(insertAt++, AddedMarker);

@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - OpenXR layer: the calibration marker, drawn INTO the headset's images just before the
+// VR Gaze Mirror 2.0 - OpenXR layer: the calibration marker, drawn INTO the headset's images just before the
 // game's frame is handed on. Only while headset_marker=1 in the settings file, which only the settings app sets -
 // nothing pressed in a game can switch it on.
 #pragma once

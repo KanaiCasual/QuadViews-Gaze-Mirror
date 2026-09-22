@@ -21,7 +21,7 @@ namespace gaze_mirror {
             wchar_t folder[MAX_PATH];
             const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", folder, MAX_PATH);
             if (length == 0 || length >= MAX_PATH) return;
-            std::wstring path = std::wstring(folder) + L"\\QuadViewsGazeMirror";
+            std::wstring path = std::wstring(folder) + L"\\GazeMirror";
             CreateDirectoryW(path.c_str(), nullptr);
             path += L"\\" + g_name + L".log";
             MoveFileExW(path.c_str(), (path + L".previous").c_str(), MOVEFILE_REPLACE_EXISTING);

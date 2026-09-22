@@ -15,7 +15,7 @@ public sealed class CropProfile
 /// Crop profiles: as many framings as the user likes, each optionally tied to a game. The mirror layer and the SteamVR
 /// helper read the same file when a game starts and apply the profile made for it on top of the settings file - so the
 /// switch happens in the game's own start-up, and nothing in this app has to watch for games.
-/// File: %LocalAppData%\QuadViewsGazeMirror\crop-profiles.ini - "[name]" sections with "game=" and the crop keys.
+/// File: %LocalAppData%\GazeMirror\crop-profiles.ini - "[name]" sections with "game=" and the crop keys.
 /// </summary>
 public static class CropProfiles
 {
@@ -54,7 +54,7 @@ public static class CropProfiles
 
     public static void Save(IReadOnlyList<CropProfile> profiles)
     {
-        var text = new StringBuilder("# Crop profiles of QuadViews Gaze Mirror. A profile whose game matches the running game's program file is\n# applied by the mirror when that game starts. Edited in the app's Mirror tab.\n");
+        var text = new StringBuilder("# Crop profiles of VR Gaze Mirror. A profile whose game matches the running game's program file is\n# applied by the mirror when that game starts. Edited in the app's Mirror tab.\n");
         foreach (var profile in profiles)
         {
             text.Append('\n').Append('[').Append(profile.Name.Replace("]", "")).Append("]\n");

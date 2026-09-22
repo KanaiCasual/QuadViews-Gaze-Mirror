@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - the OpenVR helper (GazeMirrorHelper.exe).
+// VR Gaze Mirror 2.0 - the OpenVR helper (GazeMirrorHelper.exe).
 //
 // The producer for games that use OpenVR instead of OpenXR (they never load an OpenXR layer). It sits next to
 // SteamVR as a background program and, whenever a reader wants pictures, reads SteamVR's own mirror of one eye,
@@ -130,7 +130,7 @@ namespace {
         wchar_t dataFolder[MAX_PATH];
         const DWORD dataLength = GetEnvironmentVariableW(L"LOCALAPPDATA", dataFolder, MAX_PATH);
         if (dataLength == 0 || dataLength >= MAX_PATH) return 2;
-        std::wstring folder = std::wstring(dataFolder) + L"\\QuadViewsGazeMirror";
+        std::wstring folder = std::wstring(dataFolder) + L"\\GazeMirror";
         CreateDirectoryW(folder.c_str(), nullptr);
         const std::wstring manifestPath = folder + L"\\GazeMirrorHelper.vrmanifest";
         if (on) {
@@ -154,7 +154,7 @@ namespace {
                     "    \"app_key\": \"%s\",\n    \"launch_type\": \"binary\",\n"
                     "    \"binary_path_windows\": \"%s\",\n    \"arguments\": \"--steamvr\",\n"
                     "    \"is_dashboard_overlay\": true,\n"
-                    "    \"strings\": { \"en_us\": { \"name\": \"QuadViews Gaze Mirror helper\", "
+                    "    \"strings\": { \"en_us\": { \"name\": \"VR Gaze Mirror helper\", "
                     "\"description\": \"Mirror picture with gaze ring for SteamVR games (OBS, mirror window)\" } }\n  } ]\n}\n",
                     AppKey, exePath.c_str());
             fclose(file);

@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
   <!--
-    QuadViews Gaze Mirror 2.0: the gaze mirror layer (OpenXR games), the SteamVR helper (OpenVR games), the OBS plugin,
+    VR Gaze Mirror 2.0: the gaze mirror layer (OpenXR games), the SteamVR helper (OpenVR games), the OBS plugin,
     the mirror window and the settings app - all this project's own code. Quad-Views-Foveated is not part of the
     product any more: it is optional, and its OFFICIAL, unmodified installer is shipped here and offered on the last page
     when it is not installed.
@@ -11,7 +11,7 @@
     "open a file when Finish is pressed", which is how the Quad-Views-Foveated installer is started - by Windows, with
     its own permission prompt). This package never edits another product's registry entries.
   -->
-  <Package Name="QuadViews Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
+  <Package Name="VR Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
 
     <SummaryInformation Description="A mirror of your VR view for OBS and window capture that shows where you look - OpenXR and SteamVR games." />
@@ -72,7 +72,7 @@
     <CustomActionRef Id="Wix4ShellExec_X64" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="QuadViews-Gaze-Mirror">
+      <Directory Id="INSTALLFOLDER" Name="VR-Gaze-Mirror">
         <Directory Id="LayerDir" Name="Layer" />
         <Directory Id="QuadViewsDir" Name="Quad-Views-Foveated" />
         <Directory Id="LicencesDir" Name="Licences" />
@@ -96,7 +96,7 @@
       </Directory>
     </Directory>
 
-    <Feature Id="Main" Title="QuadViews Gaze Mirror" Level="1">
+    <Feature Id="Main" Title="VR Gaze Mirror" Level="1">
       <ComponentGroupRef Id="LayerFiles" />
       <ComponentRef Id="LayerRegistration" />
       <ComponentGroupRef Id="SettingsApp" />
@@ -113,7 +113,7 @@
     <UIRef Id="GazeOverlayUI" />
     <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;QuadViews Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status tab reports the layer order, press its Fix order button. Running this installer again offers Repair and Uninstall." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;VR Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status tab reports the layer order, press its Fix order button. Running this installer again offers Repair and Uninstall." />
   </Package>
 
   <Fragment>
@@ -154,7 +154,7 @@
 
     <ComponentGroup Id="Licences" Directory="LicencesDir">
       <Component>
-        <File Id="LicenceOwn" Source="$(var.PayloadDir)\Licences\LICENSE-QuadViews-Gaze-Mirror.txt" />
+        <File Id="LicenceOwn" Source="$(var.PayloadDir)\Licences\LICENSE-VR-Gaze-Mirror.txt" />
       </Component>
       <Component>
         <File Id="LicenceObsPlugin" Source="$(var.PayloadDir)\Licences\LICENSE-OBS-plugin-GPL-2.txt" />
@@ -166,16 +166,16 @@
 
     <StandardDirectory Id="ProgramMenuFolder">
       <Component Id="StartMenuShortcut" Guid="4E1B7C36-0A92-4D8F-B5E7-9F3A6C2D1B48">
-        <Shortcut Id="SettingsShortcut" Name="QuadViews Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
-                  Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+        <Shortcut Id="SettingsShortcut" Name="VR Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
+                  Target="[INSTALLFOLDER]GazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Condition="DESKTOPSHORTCUT = &quot;1&quot;">
-        <Shortcut Id="SettingsDesktopShortcut" Name="QuadViews Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
-                  Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+        <Shortcut Id="SettingsDesktopShortcut" Name="VR Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
+                  Target="[INSTALLFOLDER]GazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>

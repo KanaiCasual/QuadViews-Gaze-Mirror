@@ -42,7 +42,7 @@ public partial class MainWindow : Window
         BuildMirrorUi();
         LoadQuadViews();
         AboutText.Text =
-            "QuadViews Gaze Mirror - a mirror of your VR view for OBS and window capture that shows where you look.\n\n" +
+            "VR Gaze Mirror - a mirror of your VR view for OBS and window capture that shows where you look.\n\n" +
             "It is made of:\n" +
             "  - the gaze mirror layer (OpenXR games) and the SteamVR helper (SteamVR games), which make the picture - cropped, steadied, with the ring;\n" +
             "  - the OBS plugin \"Gaze Mirror\" and the mirror window, which show it;\n" +

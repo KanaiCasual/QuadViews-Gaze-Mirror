@@ -1,4 +1,4 @@
-# Builds dist\QuadViews-Gaze-Mirror-<version>.msi: the gaze mirror layer, the SteamVR helper, the OBS plugin, the mirror
+# Builds dist\VR-Gaze-Mirror-<version>.msi: the gaze mirror layer, the SteamVR helper, the OBS plugin, the mirror
 # window and the settings app (all from v2\), plus the official Quad-Views-Foveated installer as an optional extra.
 # Prerequisites: Visual Studio 2022 (C++), the .NET 10 SDK, the GitHub CLI for v2\Get-External.ps1 (first time only),
 # and internet access the first time (the WiX toolset comes from nuget.org as part of the build).
@@ -46,9 +46,9 @@ dotnet build (Join-Path $root 'Installer\GazeOverlay.Installer.wixproj') -c Rele
     "-p:ProductVersion=$Version" "-p:PayloadDir=$payload" "-p:AppDir=$appOut"
 if ($LASTEXITCODE -ne 0) { throw "Building the MSI failed." }
 
-$msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'QuadViews-Gaze-Mirror.msi' |
+$msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'VR-Gaze-Mirror.msi' |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
-$target = Join-Path $dist "QuadViews-Gaze-Mirror-$appVersion.msi"
+$target = Join-Path $dist "VR-Gaze-Mirror-$appVersion.msi"
 Copy-Item $msi.FullName $target -Force
 # The checksum file the app's updater checks a download against. Upload it with the .msi to every release
 # (gh release create vX.Y.Z dist\<msi> dist\<msi>.sha256 ...); without it the app only links to the release page.

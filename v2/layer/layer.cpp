@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - the OpenXR API layer.
+// VR Gaze Mirror 2.0 - the OpenXR API layer.
 //
 // Written from nothing but the OpenXR headers: the loader hands us the chain, we put ourselves in front of a dozen
 // functions and pass everything else straight through. The layer itself only

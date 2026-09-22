@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - core: the one draw per frame.
+// VR Gaze Mirror 2.0 - core: the one draw per frame.
 //
 // Samples the eye image where it is (a view of it, no copy), cropped and scaled, and composites the ring in the same
 // pixel shader - all eight looks of 1.x, with "screen" or "normal" blending done in the shader. The result lands in a

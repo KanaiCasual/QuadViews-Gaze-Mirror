@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- QuadViews Gaze Mirror 2.0 - the mirror window (reader of the 2.0 format): one source file, Release x64 only. Static C runtime, so it needs no Visual C++ redistributable. -->
+  <!-- VR Gaze Mirror 2.0 - the mirror window (reader of the 2.0 format): one source file, Release x64 only. Static C runtime, so it needs no Visual C++ redistributable. -->
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>

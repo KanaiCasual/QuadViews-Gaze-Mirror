@@ -108,7 +108,7 @@ public partial class MainWindow
         MirrorOpen.IsEnabled = program != null && !running;
         MirrorClose.IsEnabled = running;
         MirrorStatus.Text = note ?? (program == null ? "MirrorWindow.exe was not found next to this app."
-            : running ? "The mirror window is open. Capture \"QuadViews Gaze Mirror - Mirror\" with OBS Window Capture, Discord, ..."
+            : running ? "The mirror window is open. Capture \"VR Gaze Mirror - Mirror\" with OBS Window Capture, Discord, ..."
             : "The mirror window is closed.");
     }
 

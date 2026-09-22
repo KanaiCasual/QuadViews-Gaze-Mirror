@@ -1,4 +1,4 @@
-// QuadViews Gaze Mirror 2.0 - offline test of the OpenXR layer.
+// VR Gaze Mirror 2.0 - offline test of the OpenXR layer.
 //
 // Plays both the game and the runtime: loads the layer DLL the way the OpenXR loader does, hands it a fake runtime
 // (stub functions), submits frames whose eye image is a test pattern with a BLACK SQUARE exactly where the fake eye
