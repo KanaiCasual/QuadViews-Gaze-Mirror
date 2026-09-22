@@ -69,6 +69,15 @@ namespace gaze_mirror {
         const Settings& settings() const {
             return _settings.get();
         }
+        Settings& mutableSettings() {
+            return _settings.mutableSettings();
+        }
+        // Writes values into the settings file (the helper's calibration result); the app picks them up from there.
+        void persist(const std::vector<std::pair<std::string, std::string>>& values) {
+            _settings.persist(values);
+        }
+        // A calibrated curve: straight lines between its points, continued straight beyond the ends.
+        static float MapValue(const std::vector<std::pair<float, float>>& map, float value);
         void forget(const std::vector<ID3D11Texture2D*>& textures) {
             _renderer.forget(textures);
         }

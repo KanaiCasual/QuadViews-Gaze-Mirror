@@ -20,6 +20,27 @@ namespace gaze_mirror {
             if (end == value.c_str() || !std::isfinite(parsed)) return fallback;
             return std::clamp(parsed, low, high);
         }
+        // "value:tangent,value:tangent,..." -> sorted points; anything unreadable is left out.
+        std::vector<std::pair<float, float>> Map(const std::string& value) {
+            std::vector<std::pair<float, float>> points;
+            size_t start = 0;
+            while (start < value.size()) {
+                size_t end = value.find(',', start);
+                if (end == std::string::npos) end = value.size();
+                const std::string item = value.substr(start, end - start);
+                const size_t colon = item.find(':');
+                if (colon != std::string::npos) {
+                    char* stop = nullptr;
+                    const float raw = std::strtof(item.c_str(), &stop);
+                    const float tangent = std::strtof(item.c_str() + colon + 1, nullptr);
+                    if (stop == item.c_str() + colon && std::isfinite(raw) && std::isfinite(tangent)) points.emplace_back(raw, tangent);
+                }
+                start = end + 1;
+            }
+            std::sort(points.begin(), points.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+            return points;
+        }
+
         bool Flag(const std::string& value, bool fallback) {
             if (value == "0" || value == "false" || value == "off") return false;
             if (value == "1" || value == "true" || value == "on") return true;
@@ -221,6 +242,9 @@ namespace gaze_mirror {
             else if (key == "vrchat_scale") fresh.vrchatScale = Number(value, 1.6f, 0.1f, 8.f);
             else if (key == "vrchat_scale_up") fresh.vrchatScaleUp = Number(value, 1.6f, 0.1f, 8.f);
             else if (key == "vrchat_scale_down") fresh.vrchatScaleDown = Number(value, 1.6f, 0.1f, 8.f);
+            else if (key == "vrchat_calibrate") fresh.vrchatCalibrate = Flag(value, false);
+            else if (key == "vrchat_map_x") fresh.vrchatMapX = Map(value);
+            else if (key == "vrchat_map_y") fresh.vrchatMapY = Map(value);
         }
     }
 

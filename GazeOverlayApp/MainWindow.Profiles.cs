@@ -298,11 +298,49 @@ public partial class MainWindow
             : external.AgeMs < 0 ? "VRChat: the helper is listening; nothing received yet (is OSC on in VRChat?)."
             : external.AgeMs <= 2000 ? "VRChat: sending parameters, but no eye ones - the avatar has no eye parameters, or its eye tracking is off. The helper's log lists what arrives."
             : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
+        RefreshVrchatCalibrationStatus();
         var helper = MirrorLive.FindHelper();
         HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
             : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."
             : _appSettings.HelperRegisteredPath.Length > 0 ? "The helper starts with SteamVR and leaves with it. Not running now."
             : "SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.";
+    }
+
+    // ------------------------------------------------------------------ the VRChat gaze calibration (run by the helper)
+
+    private void RefreshVrchatCalibrationStatus()
+    {
+        var requested = _values.GetValueOrDefault("vrchat_calibrate") == "1";
+        var calibrated = _values.GetValueOrDefault("vrchat_calibrated") ?? "";
+        var mapped = (_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0;
+        VrchatCalibrationStatus.Text = requested ? "Calibrating: look at the target in the headset as it moves, without moving your head."
+            : mapped ? $"Calibrated {calibrated}. The three scales are not used."
+            : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated + ". The scales apply."
+            : "Not calibrated: the scales apply. Calibrate once for a curve that fits your tracker.";
+        VrchatCalibrate.IsEnabled = !requested;
+        VrchatCalibrationForget.IsEnabled = mapped;
+    }
+
+    /// <summary>Asks the helper (through the settings file, like every other setting) to run the calibration.</summary>
+    private void OnVrchatCalibrate(object sender, RoutedEventArgs e)
+    {
+        if (MirrorLive.Read() is not { Producing: true, OpenXR: false })
+        {
+            VrchatCalibrationStatus.Text = "Start the SteamVR game first: the helper shows the target while it mirrors.";
+            return;
+        }
+        AppLog.Write("VRChat gaze calibration requested.");
+        OnValueChanged("vrchat_calibrate", "1");
+        RefreshVrchatCalibrationStatus();
+    }
+
+    private void OnVrchatCalibrationForget(object sender, RoutedEventArgs e)
+    {
+        AppLog.Write("VRChat gaze calibration dropped.");
+        OnValueChanged("vrchat_map_x", "");
+        OnValueChanged("vrchat_map_y", "");
+        OnValueChanged("vrchat_calibrated", "");
+        RefreshVrchatCalibrationStatus();
     }
 
     /// <summary>

@@ -76,6 +76,17 @@ namespace gaze_mirror {
         return true;
     }
 
+    float Pipeline::MapValue(const std::vector<std::pair<float, float>>& map, float value) {
+        if (map.size() < 2) return value;
+        size_t i = 1;
+        while (i + 1 < map.size() && value > map[i].first) i++;
+        const auto& [x0, y0] = map[i - 1];
+        const auto& [x1, y1] = map[i];
+        const float span = x1 - x0;
+        if (std::fabs(span) < 1e-6f) return y0;
+        return y0 + (value - x0) * (y1 - y0) / span;
+    }
+
     GazeFrame Pipeline::chooseGaze(const FrameInput& input) {
         const Settings& s = _settings.get();
         if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
@@ -85,9 +96,11 @@ namespace gaze_mirror {
         // Both eyes shut: a blink. The ring's own hold/fade handles a short gap.
         if (ext.leftOpenness < 0.15f && ext.rightOpenness < 0.15f) return gaze;
         // The two eyes' pairs, averaged and scaled, as a direction in head space (x right, y up, looking down -z).
-        const float x = 0.5f * (ext.left[0] + ext.right[0]) * s.vrchatScale;
+        const float rawX = 0.5f * (ext.left[0] + ext.right[0]);
         const float rawY = 0.5f * (ext.left[1] + ext.right[1]);
-        const float y = rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
+        const bool calibrated = s.vrchatMapX.size() >= 2 && s.vrchatMapY.size() >= 2;
+        const float x = calibrated ? MapValue(s.vrchatMapX, rawX) : rawX * s.vrchatScale;
+        const float y = calibrated ? MapValue(s.vrchatMapY, rawY) : rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
         const float length = std::sqrt(x * x + y * y + 1.f);
         gaze.valid = true;
         gaze.hasRay = true;
@@ -95,7 +108,8 @@ namespace gaze_mirror {
         gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
                        0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
                        0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
-        LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f sideways, %.2f up, %.2f down)", ext.writer, s.vrchatScale, s.vrchatScaleUp, s.vrchatScaleDown);
+        if (calibrated) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %zu x %zu points)", ext.writer, s.vrchatMapX.size(), s.vrchatMapY.size());
+        else LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f sideways, %.2f up, %.2f down)", ext.writer, s.vrchatScale, s.vrchatScaleUp, s.vrchatScaleDown);
         return gaze;
     }
 

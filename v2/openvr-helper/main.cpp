@@ -28,6 +28,7 @@
 
 #include "../core/log.h"
 #include "../core/pipeline.h"
+#include "calibration.h"
 #include "vrchat_osc.h"
 
 using Microsoft::WRL::ComPtr;
@@ -237,6 +238,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     // VRChat's eye parameters over OSC, for headsets SteamVR gets no gaze from. Runs as long as the helper does.
     VrchatOscLink vrchat;
     vrchat.start();
+    GazeCalibration calibration;
     Mirror mirror;
     SceneApp scene;
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);
@@ -288,8 +290,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             mirror = {};
             continue;
         }
+        const bool wanted = pipeline.wanted(); // Also reloads the settings when the app signalled a change.
+        // The app asked for the VRChat gaze calibration: the target in the headset, on its own thread.
+        if (pipeline.settings().vrchatCalibrate && !calibration.running()) calibration.start(vrchat, pipeline);
         // Nothing to do: sleep until a reader turns up (SteamVR's events are looked at twice a second meanwhile).
-        if (!pipeline.wanted()) {
+        if (!wanted) {
             const HANDLE handles[2] = {g_stop, wake};
             WaitForMultipleObjects(2, handles, FALSE, 500);
             if (++idleTicks % 120 == 0 && publishing && pipeline.settings().enabled) {

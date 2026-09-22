@@ -80,6 +80,10 @@ namespace gaze_mirror {
         float vrchatScale = 1.6f;   // vrchat_scale: multiplies the avatar's sideways gaze before it becomes a direction (setups differ).
         float vrchatScaleUp = 1.6f;   // vrchat_scale_up: the same for looking up...
         float vrchatScaleDown = 1.6f; // vrchat_scale_down: ...and down (trackers under the eye read the two very differently).
+        bool vrchatCalibrate = false; // vrchat_calibrate=1: the app asks the helper to run the in-headset calibration once.
+        // vrchat_map_x / vrchat_map_y: "value:tangent,..." from that calibration, sorted by value. With two or more
+        // points on each axis these replace the scales: value -> tangent of the angle, straight lines between points.
+        std::vector<std::pair<float, float>> vrchatMapX, vrchatMapY;
     };
 
     class SettingsSource {

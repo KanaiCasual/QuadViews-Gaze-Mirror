@@ -488,10 +488,19 @@ namespace gaze_mirror {
         }
     }
 
+    VrchatOscLink::EyeSample VrchatOscLink::sample() const {
+        std::lock_guard<std::mutex> lock(_sampleMutex);
+        return _latest;
+    }
+
     // The block: what is known, stamped now; valid once both axes have been seen since the avatar loaded.
     void VrchatOscLink::publish() {
-        if (!_block) return;
         const bool valid = _eyes.haveX && _eyes.haveY;
+        {
+            std::lock_guard<std::mutex> lock(_sampleMutex);
+            _latest = {0.5f * (_eyes.leftX + _eyes.rightX), 0.5f * (_eyes.leftY + _eyes.rightY), valid};
+        }
+        if (!_block) return;
         _block->sequence = ++_sequence; // Odd: writing.
         MemoryBarrier();
         _block->leftValid = valid ? 1 : 0;

@@ -663,6 +663,7 @@ public partial class MainWindow : Window
             LiveLink.NotifySettingsChanged();
             SaveStatus.Text = $"Picked up a change made outside this app at {DateTime.Now:T}.";
             AppLog.Write("Picked up a change to the ring settings made outside the app.");
+            RefreshMirrorLive(); // The helper's calibration result arrives this way.
             if (_values.ContainsKey("headset_marker")) RefreshStatus();
             RenderPreview();
         }

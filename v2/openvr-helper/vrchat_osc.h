@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -40,6 +41,13 @@ namespace gaze_mirror {
         bool started() const {
             return _running;
         }
+
+        // The latest combined eye values (x right, y up, as the avatar carries them); valid once both axes arrived.
+        struct EyeSample {
+            float x = 0, y = 0;
+            bool valid = false;
+        };
+        EyeSample sample() const;
 
       private:
         void runMdns();
@@ -72,6 +80,8 @@ namespace gaze_mirror {
             float leftOpen = 1, rightOpen = 1;
             bool haveX = false, haveY = false;
         } _eyes;
+        mutable std::mutex _sampleMutex;
+        EyeSample _latest;
         int _logged = 0;
         int _hostInfoAsked = 0;
         std::vector<std::string> _addresses; // The distinct addresses seen so far (the first 40), for the log.
