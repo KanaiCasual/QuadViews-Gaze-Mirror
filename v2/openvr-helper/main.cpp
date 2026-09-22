@@ -339,7 +339,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             system->GetProjectionRaw(e == 0 ? vr::Eye_Left : vr::Eye_Right, &left, &right, &top, &bottom);
             view.width = float(mirror.width);
             view.height = float(mirror.height);
-            view.fov = {left, right, -top, -bottom}; // OpenVR's top/bottom are measured downwards.
+            // OpenVR's raw "top" is the tangent of the edge that lies BELOW the view axis (negative) and its "bottom"
+            // the edge above (positive) - the same way its own projection matrix is composed. Read them the other way
+            // and the view axis lands too low: on a Crystal Super the horizon sat at 43 % of the picture, the ring at 57 %.
+            view.fov = {left, right, bottom, top};
             view.orientation = head.bPoseIsValid ? Orientation(head.mDeviceToAbsoluteTracking) : Quat{0, 0, 0, 1};
             view.valid = true;
             const vr::HmdMatrix34_t eyeToHead = system->GetEyeToHeadTransform(e == 0 ? vr::Eye_Left : vr::Eye_Right);
