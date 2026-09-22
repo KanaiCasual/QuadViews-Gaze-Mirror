@@ -34,7 +34,7 @@ public partial class MainWindow
             row.ColumnDefinitions[0].Width = new GridLength(78);
             PanelOutput.Children.Add(row);
         }
-        foreach (var key in new[] { "gaze_source", "vrchat_scale", "vrchat_scale_up", "vrchat_scale_down" })
+        foreach (var key in new[] { "gaze_source" })
         {
             var def = Settings.All.First(d => d.Key == key);
             var row = (Grid)BuildRow(def);
@@ -314,9 +314,9 @@ public partial class MainWindow
         var calibrated = _values.GetValueOrDefault("vrchat_calibrated") ?? "";
         var mapped = (_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0;
         VrchatCalibrationStatus.Text = requested ? "Calibrating: look at the target in the headset as it moves, without moving your head."
-            : mapped ? $"Calibrated {calibrated}. The three scales are not used."
-            : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated + ". The scales apply."
-            : "Not calibrated: the scales apply. Calibrate once for a curve that fits your tracker.";
+            : mapped ? $"Calibrated {calibrated}."
+            : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
+            : "Not calibrated yet: the ring will not land where you look until you calibrate once.";
         VrchatCalibrate.IsEnabled = !requested;
         VrchatCalibrationForget.IsEnabled = mapped;
     }

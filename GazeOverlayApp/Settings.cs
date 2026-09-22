@@ -478,21 +478,6 @@ public static class Settings
             Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset: OpenXR's eye-gaze extension or SteamVR's eye tracking. VRChat: the avatar's eye parameters, which VRChat sends out over OSC to the SteamVR helper - for headsets whose software drives the avatar (VRCFaceTracking, EyeTrackVR, ALVR, ...) but not SteamVR. Needs OSC on in VRChat and an avatar with eye parameters.",
             Choices = [new("auto", "Headset, else VRChat"), new("headset", "Headset only"), new("vrchat", "VRChat only")],
         },
-        new()
-        {
-            Key = "vrchat_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1.6", Min = 0.25, Max = 8, Step = 0.05,
-            Label = "VRChat sideways", Description = "Only with gaze from VRChat. The avatar's eye parameters are a -1..1 pair whose reach differs between setups; if the ring travels too little or too far when you look left or right, change this. Look at something to the side and move the slider until the ring sits on it.",
-        },
-        new()
-        {
-            Key = "vrchat_scale_up", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1.6", Min = 0.25, Max = 8, Step = 0.05,
-            Label = "VRChat up", Description = "Only with gaze from VRChat: how far the ring travels when you look up. Eye trackers that sit below the eye often report looking up far weaker than looking down, so up and down have their own numbers. Look at something high and move the slider until the ring sits on it.",
-        },
-        new()
-        {
-            Key = "vrchat_scale_down", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1.6", Min = 0.25, Max = 8, Step = 0.05,
-            Label = "VRChat down", Description = "Only with gaze from VRChat: how far the ring travels when you look down. Look at something low and move the slider until the ring sits on it.",
-        },
     ];
 
     public static readonly Preset[] Presets =
