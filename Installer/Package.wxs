@@ -57,7 +57,7 @@
                  After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
     <SetProperty Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
     <Property Id="WixShellExecTarget" Value="[#QuadViewsInstallerFile]" />
-    <CustomActionRef Id="WixShellExec" />
+    <CustomActionRef Id="Wix4ShellExec_X64" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="QuadViews-Gaze-Mirror">

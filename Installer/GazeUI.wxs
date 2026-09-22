@@ -27,7 +27,7 @@
 
       <Publish Dialog="GazeWelcomeDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_X64" />
       <!-- The optional tick box on the last page: start the shipped Quad-Views-Foveated installer (Windows opens the .msi). -->
-      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="WixShellExec" Order="998" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="Wix4ShellExec_X64" Order="998" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
 
       <Publish Dialog="GazeMaintenanceDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
