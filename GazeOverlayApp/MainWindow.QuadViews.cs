@@ -296,6 +296,7 @@ public partial class MainWindow
                 _quadViewsBackedUp = true;
             }
             planned.Save(_quadViewsPath);
+            AppLog.Write($"Quad Views settings applied to {_quadViewsPath}" + (backup != null ? $" (previous kept as {Path.GetFileName(backup)})" : "") + ".");
             LoadQuadViews();
             SetQuadViewsStatus($"Saved at {DateTime.Now:T}. It takes effect the next time the game starts." +
                                    (backup != null ? $" Your previous file was kept as {Path.GetFileName(backup)}." : ""));
@@ -303,6 +304,7 @@ public partial class MainWindow
         catch (Exception error)
         {
             SetQuadViewsStatus("Could not save: " + error.Message);
+            AppLog.Write("Quad Views settings could not be saved", error);
         }
     }
 

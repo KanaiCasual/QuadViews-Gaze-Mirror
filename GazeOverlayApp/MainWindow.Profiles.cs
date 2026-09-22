@@ -67,7 +67,7 @@ public partial class MainWindow
     {
         var selectedName = _selectedProfile?.Name ?? _appSettings.SelectedCropProfile;
         try { _profiles = CropProfiles.Load(); }
-        catch (Exception e) { _profiles = []; CropProfileStatus.Text = "The profiles file could not be read: " + e.Message; }
+        catch (Exception e) { _profiles = []; CropProfileStatus.Text = "The profiles file could not be read: " + e.Message; AppLog.Write("The crop profiles could not be read", e); }
         _selectedProfile = _profiles.FirstOrDefault(p => p.Name == selectedName);
         RefreshProfileList();
     }
@@ -111,6 +111,7 @@ public partial class MainWindow
         _selectedProfile = chosen;
         _appSettings.SelectedCropProfile = _selectedProfile?.Name ?? "";
         _appSettings.Save();
+        AppLog.Write(_selectedProfile == null ? "Crop profile: none chosen." : $"Crop profile \"{_selectedProfile.Name}\" chosen (game \"{_selectedProfile.Game}\").");
         if (_selectedProfile != null && _selectedProfile.Values.Count > 0)
         {
             // Show it: its values become the current settings (and reach a running game like any change).
@@ -174,7 +175,7 @@ public partial class MainWindow
     private void SaveProfiles()
     {
         try { CropProfiles.Save(_profiles); }
-        catch (Exception e) { CropProfileStatus.Text = "The profiles could not be saved: " + e.Message; }
+        catch (Exception e) { CropProfileStatus.Text = "The profiles could not be saved: " + e.Message; AppLog.Write("The crop profiles could not be saved", e); }
     }
 
     private void OnProfileSaveAs(object sender, RoutedEventArgs e)
@@ -211,6 +212,7 @@ public partial class MainWindow
         _appSettings.SelectedCropProfile = profile.Name;
         _appSettings.Save();
         SaveProfiles();
+        AppLog.Write($"Crop profile \"{profile.Name}\" saved (game \"{profile.Game}\", {profile.Values.Count} values).");
         RefreshProfileList();
     }
 
@@ -219,6 +221,7 @@ public partial class MainWindow
     {
         if (_selectedProfile == null) return;
         var index = _profiles.IndexOf(_selectedProfile);
+        AppLog.Write($"Crop profile \"{_selectedProfile.Name}\" deleted.");
         _profiles.Remove(_selectedProfile);
         _selectedProfile = _profiles.Count > 0 ? _profiles[Math.Min(Math.Max(index, 0), _profiles.Count - 1)] : null;
         _appSettings.SelectedCropProfile = _selectedProfile?.Name ?? "";
@@ -295,17 +298,23 @@ public partial class MainWindow
     /// </summary>
     private async Task EnsureHelperAsync()
     {
-        if (MirrorLive.FindHelper() == null) return;
+        if (MirrorLive.FindHelper() == null) { AppLog.Write("SteamVR helper: GazeMirrorHelper.exe not found next to the app."); return; }
         if (!_appSettings.HelperAutostart)
         {
             var result = await MirrorLive.SetHelperAutostartAsync(true);
+            AppLog.Write($"SteamVR helper: registration with SteamVR {(result == 0 ? "done" : $"not done (exit code {result?.ToString() ?? "none"}); tried again next start")}.");
             if (result == 0)
             {
                 _appSettings.HelperAutostart = true;
                 _appSettings.Save();
             }
         }
-        if (!MirrorLive.IsHelperRunning()) MirrorLive.StartHelper();
+        if (!MirrorLive.IsHelperRunning())
+        {
+            var started = MirrorLive.StartHelper();
+            AppLog.Write($"SteamVR helper: {(started ? "started" : "could not be started")}.");
+        }
+        else AppLog.Write("SteamVR helper: already running.");
         RefreshMirrorLive();
     }
 }

@@ -13,6 +13,7 @@
 - New look: a rail of pages on the left, cards, dark only. Look is now called Ring.
 - Updates from inside the app: "Download and install" saves the new installer into Downloads, checks it against the SHA-256 published with the release, and opens it with Windows Installer.
 - The Quad Views page is only listed while Quad-Views-Foveated is installed. A changelog on the About page.
+- The app keeps a small log of what it did (app.log next to the layer's and the helper's logs; the Logs button on the About page opens the folder).
 
 ## 1.2.2 - 2026-09-20
 

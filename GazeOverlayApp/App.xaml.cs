@@ -21,6 +21,13 @@ public partial class App : Application
         base.OnStartup(e);
         var args = e.Args;
         Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots";
+        AppLog.Start(Headless);
+        AppLog.Write($"QuadViews Gaze Mirror {UpdateChecker.CurrentVersionText} starting" + (args.Length > 0 ? " with " + string.Join(" ", args) : "") +
+                     $"; app folder {AppContext.BaseDirectory}; settings folder {AppSettings.Folder}");
+        // Anything that would otherwise close the app silently is written down first; Windows' own crash handling still follows.
+        DispatcherUnhandledException += (_, error) => AppLog.Write("Unhandled error on the UI thread", error.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, error) => AppLog.Write("Unhandled error", error.ExceptionObject as Exception ?? new Exception(error.ExceptionObject?.ToString() ?? "unknown"));
+        TaskScheduler.UnobservedTaskException += (_, error) => AppLog.Write("Unobserved task error", error.Exception);
 
         if (args.Length >= 2 && args[0] == "--selftest")
         {

@@ -230,6 +230,7 @@ public partial class MainWindow
         _captureTimer.Start();
         UpdateCaptureUi();
         CropStatus.Text = "Capture armed.";
+        AppLog.Write("Capture from headset armed.");
     }
 
     private void OnCaptureCancel(object sender, RoutedEventArgs e)
@@ -263,6 +264,7 @@ public partial class MainWindow
             System.Media.SystemSounds.Asterisk.Play();
             ShowNewPicture(picture, kept: true);
             CropStatus.Text = $"Captured from the headset at {DateTime.Now:T}" + (picture.OtherImage != null ? " (both eyes)" : "") + ". Kept until you press Refresh picture.";
+            AppLog.Write("Captured the crop picture from the headset" + (picture.OtherImage != null ? " (both eyes)." : "."));
             return;
         }
 

@@ -66,7 +66,7 @@ public partial class MainWindow : Window
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) { UpdateLiveTimer(); UpdatePanels(); } };
         SizeChanged += (_, _) => Dispatcher.BeginInvoke(UpdatePanels); // after the layout pass that raised it
         Loaded += (_, _) => UpdatePanels();
-        Closing += (_, _) => SaveWindowPlacement();
+        Closing += (_, _) => { SaveWindowPlacement(); AppLog.Write("Closing."); };
         Activated += (_, _) => UpdateLiveTimer();
         Deactivated += (_, _) => UpdateLiveTimer();
         UpdateLiveTimer();
@@ -572,6 +572,7 @@ public partial class MainWindow : Window
         foreach (var (key, setter) in _controlSetters) setter(_values.GetValueOrDefault(key) ?? "");
         _loading = false;
         _dirtyKeys.Clear();
+        AppLog.Write(existed ? $"Ring settings loaded from {_configPath} ({_values.Count} keys)." : $"No ring settings file yet ({_configPath}); defaults shown.");
         SaveStatus.Text = existed
             ? "Loaded your current settings. Changes save automatically and reach a running game instantly."
             : "No settings file yet - showing the defaults. It is created as soon as you change something (or install).";
@@ -615,6 +616,7 @@ public partial class MainWindow : Window
         catch (Exception e)
         {
             SaveStatus.Text = "Could not save: " + e.Message;
+            AppLog.Write("Could not save the ring settings", e);
         }
     }
 
@@ -660,6 +662,7 @@ public partial class MainWindow : Window
             // A text editor changed it (the layer already holds the values it wrote itself): make a running game reload.
             LiveLink.NotifySettingsChanged();
             SaveStatus.Text = $"Picked up a change made outside this app at {DateTime.Now:T}.";
+            AppLog.Write("Picked up a change to the ring settings made outside the app.");
             if (_values.ContainsKey("headset_marker")) RefreshStatus();
             RenderPreview();
         }
@@ -716,11 +719,14 @@ public partial class MainWindow : Window
         {
             StatusRows.Children.Clear();
             AddStatusRow("Could not read the OpenXR layer setup", e.Message, Colors.Firebrick);
+            AppLog.Write("Could not read the OpenXR layer setup", e);
             return;
         }
 
         StatusRows.Children.Clear();
         ShowQuadViewsPage(status.QuadViewsInstalled);
+        AppLog.Write($"Status: gaze mirror layer {status.GazeMirror.Health} ({status.GazeMirror.Detail}); OBS {(status.ObsPath == null ? "not found" : status.ObsPluginPresent ? "plugin present" : "plugin missing")}; " +
+                     $"Quad-Views-Foveated {(status.QuadViewsInstalled ? status.QuadViews.Health.ToString() : "not installed")}; layer order {(status.OrderCorrect switch { true => "ok", false => "WRONG", null => "n/a" })}; {status.Layers.Count} layers.");
         AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
         AddStatusRow("OBS plugin",
             status.ObsPath == null ? "OBS Studio was not found on this PC."
@@ -857,6 +863,7 @@ public partial class MainWindow : Window
             try
             {
                 var changed = await LayerStatus.SetEnabledAsync(layer, enable);
+                AppLog.Write($"Layer {LayerOrder.Short(layer)} {(enable ? "on" : "off")}: {(changed ? "done" : "declined")}.");
                 LayerNote.Text = !changed ? "Nothing was changed (the Windows permission prompt was declined)."
                     : $"{LayerOrder.Short(layer)} is now {(enable ? "on" : "off")}. Games pick that up the next time they start." +
                       (ours && !enable ? " The gaze ring needs both of its layers on." : "");
@@ -864,6 +871,7 @@ public partial class MainWindow : Window
             catch (Exception error)
             {
                 LayerNote.Text = "Could not change the layer: " + error.Message;
+                AppLog.Write("Could not change a layer", error);
             }
             RefreshStatus(); // Rebuilds the rows from what the registry really says now.
         };
@@ -882,6 +890,7 @@ public partial class MainWindow : Window
             {
                 _pendingMachineOrder = _pendingUserOrder = null;
                 LayerNote.Text = "New order applied. Games use it the next time they start. (The previous order was saved as a .reg file next to this app's preferences.)";
+                AppLog.Write("Layer order applied.");
             }
             else
             {
@@ -892,6 +901,7 @@ public partial class MainWindow : Window
         {
             _pendingMachineOrder = _pendingUserOrder = null;
             LayerNote.Text = "Could not change the order: " + error.Message;
+            AppLog.Write("Could not change the layer order", error);
         }
         LayerApply.IsEnabled = LayerCancel.IsEnabled = true;
         var note = LayerNote.Text;
@@ -1086,6 +1096,7 @@ public partial class MainWindow : Window
         try
         {
             var update = await UpdateChecker.CheckAsync(UpdateChecker.Repository, _appSettings.IncludeBetas);
+            AppLog.Write(update == null ? "Update check: nothing newer than this build." : $"Update check: {update.Version} ({update.Tag}){(update.IsBeta ? ", beta" : "")}{(update.CanInstall ? ", installer with checksum" : ", release page only")}.");
             if (update == null)
             {
                 UpdateBanner.Visibility = Visibility.Collapsed;
@@ -1102,6 +1113,7 @@ public partial class MainWindow : Window
         {
             // Offline, rate-limited, no releases yet... never worth a pop-up. Only say so if the user asked.
             if (userAsked) UpdateStatus.Text = "Could not check for updates: " + e.Message;
+            AppLog.Write("Update check failed", e);
         }
         finally
         {
@@ -1148,9 +1160,11 @@ public partial class MainWindow : Window
         try
         {
             var name = update.Installer!.Name;
+            AppLog.Write($"Update: downloading {name} from {update.Installer.Url} ({update.Installer.Size:N0} bytes).");
             var progress = new Progress<double>(p => UpdateDetail.Text = $"Downloading {name} into your Downloads folder... {p:P0}");
             UpdateDetail.Text = $"Downloading {name} into your Downloads folder...";
             var path = await UpdateChecker.DownloadInstallerAsync(update, progress);
+            AppLog.Write($"Update: {path} downloaded and checked; starting Windows Installer and closing.");
             UpdateDetail.Text = "Checked against the release's SHA-256. Closing the mirror window and the SteamVR helper, then opening the installer...";
             if (MirrorWindowControl.IsRunning()) MirrorWindowControl.Close();
             MirrorLive.StopHelper();
@@ -1165,6 +1179,7 @@ public partial class MainWindow : Window
         catch (Exception error)
         {
             UpdateDetail.Text = "The download did not go through: " + error.Message + " Nothing was installed. You can still use View release.";
+            AppLog.Write("Update download failed", error);
         }
         finally
         {

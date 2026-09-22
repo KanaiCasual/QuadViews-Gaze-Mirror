@@ -117,8 +117,10 @@ public partial class MainWindow
         if (!MirrorWindowControl.Apply(_appSettings))
         {
             RefreshMirrorState("The mirror window could not be started.");
+            AppLog.Write("Mirror window: could not be started.");
             return;
         }
+        AppLog.Write("Mirror window: opened (" + MirrorWindowControl.Arguments(_appSettings) + ").");
         MirrorOpen.IsEnabled = false;
         // A new, unsigned program is scanned by antivirus software on its first start; that can take several seconds.
         for (var attempt = 0; attempt < 40 && !MirrorWindowControl.IsRunning(); attempt++)
@@ -132,6 +134,7 @@ public partial class MainWindow
 
     private async void OnMirrorClose(object sender, RoutedEventArgs e)
     {
+        AppLog.Write("Mirror window: closed.");
         MirrorWindowControl.Close();
         for (var attempt = 0; attempt < 10 && MirrorWindowControl.IsRunning(); attempt++) await Task.Delay(200);
         RefreshMirrorState();
