@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 - in development (1.9.x builds)
+## 2.0.0 - 2026-09-22
 
 - Everything that makes the mirror picture is this project's own code. No modified third-party layers any more.
 - OpenXR games and SteamVR games: the gaze mirror layer mirrors OpenXR games, a small SteamVR helper mirrors games that use SteamVR directly (OpenVR). Same crop, same ring, same OBS source.
