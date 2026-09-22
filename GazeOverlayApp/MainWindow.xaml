@@ -138,7 +138,7 @@
                     <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,2">
                         <TextBlock Text="Profile" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0"
                                    ToolTip="A saved framing (crop box, follow, steadying). One with a game name is applied by the mirror whenever that game starts." />
-                        <ComboBox x:Name="CropProfile" MinWidth="220" Margin="0,2,6,2" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CropProfile" MinWidth="220" Margin="0,2,6,2" VerticalAlignment="Center" DisplayMemberPath="Label" />
                         <Button x:Name="CropProfileSaveAs" Content="Save as..." ToolTip="Save the current framing as a profile" Margin="0,2,6,2" Click="OnProfileSaveAs" />
                         <StackPanel x:Name="CropProfileNamePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,6,0">
                             <TextBox x:Name="CropProfileName" Width="140" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Name of the profile. Enter saves, Esc cancels." />
@@ -146,8 +146,9 @@
                         </StackPanel>
                         <Button x:Name="CropProfileDelete" Content="Delete" Margin="0,2,12,2" Click="OnProfileDelete" />
                         <TextBlock Text="For game" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBox x:Name="CropProfileGame" Width="150" MinWidth="0" Margin="0,2,6,2" VerticalAlignment="Center"
-                                 ToolTip="The game's program file, for example DCS.exe or VRChat.exe (shown under the picture settings while it runs). Empty = only when chosen here. Enter applies." />
+                        <ComboBox x:Name="CropProfileGame" IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MinWidth="220" MaxDropDownHeight="240"
+                                  DisplayMemberPath="Label" TextSearch.TextPath="Exe" Margin="0,2,6,2" VerticalAlignment="Center"
+                                  ToolTip="The game's program file, for example DCS.exe or VRChat.exe. Open the list to pick a running program, or type - the list narrows as you type. Enter applies. Empty = the profile is only applied when chosen here." />
                     </WrapPanel>
                     <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap" />
                     <WrapPanel DockPanel.Dock="Top">

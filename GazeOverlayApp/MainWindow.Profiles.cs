@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -11,6 +12,12 @@ namespace GazeOverlay;
 /// </summary>
 public partial class MainWindow
 {
+    /// <summary>One entry of the profile list; Profile is null for "(none)".</summary>
+    private sealed record ProfileItem(CropProfile? Profile, string Label);
+
+    /// <summary>One running program with a window, for the game picker.</summary>
+    public sealed record RunningApp(string Exe, string Label);
+
     private List<CropProfile> _profiles = [];
     private CropProfile? _selectedProfile;
     private bool _profileLoading;
@@ -29,15 +36,24 @@ public partial class MainWindow
 
         // Crop profiles.
         _profileSaveTimer.Tick += (_, _) => { _profileSaveTimer.Stop(); SaveProfiles(); };
-        LoadProfiles();
         CropProfile.SelectionChanged += (_, _) => OnProfileSelected();
-        CropProfileGame.LostFocus += (_, _) => OnProfileGameChanged();
-        CropProfileGame.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnProfileGameChanged(); };
+        CropProfileGame.DropDownOpened += (_, _) => FillGamePicker(filter: "");
+        CropProfileGame.SelectionChanged += (_, _) => { if (CropProfileGame.SelectedItem is RunningApp app) { CropProfileGame.Text = app.Exe; OnProfileGameChanged(); } };
+        CropProfileGame.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler((_, _) =>
+        {
+            // Typing: the list narrows to the running programs whose name contains the text.
+            if (_profileLoading || CropProfileGame.SelectedItem is RunningApp) return;
+            FillGamePicker(CropProfileGame.Text);
+            if (CropProfileGame.HasItems && !CropProfileGame.IsDropDownOpen && CropProfileGame.IsKeyboardFocusWithin) CropProfileGame.IsDropDownOpen = true;
+        }));
+        CropProfileGame.LostKeyboardFocus += (_, _) => { if (!CropProfileGame.IsDropDownOpen) OnProfileGameChanged(); };
+        CropProfileGame.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) { CropProfileGame.IsDropDownOpen = false; OnProfileGameChanged(); } };
         CropProfileName.KeyDown += (_, e) =>
         {
             if (e.Key == System.Windows.Input.Key.Enter) OnProfileSaveConfirm(this, new RoutedEventArgs());
-            if (e.Key == System.Windows.Input.Key.Escape) { CropProfileNamePanel.Visibility = Visibility.Collapsed; }
+            if (e.Key == System.Windows.Input.Key.Escape) CropProfileNamePanel.Visibility = Visibility.Collapsed;
         };
+        LoadProfiles();
 
         // The helper.
         HelperAutostart.IsChecked = _appSettings.HelperAutostart;
@@ -48,40 +64,50 @@ public partial class MainWindow
 
     private void LoadProfiles()
     {
-        _profileLoading = true;
+        var selectedName = _selectedProfile?.Name ?? _appSettings.SelectedCropProfile;
         try { _profiles = CropProfiles.Load(); }
         catch (Exception e) { _profiles = []; CropProfileStatus.Text = "The profiles file could not be read: " + e.Message; }
-        var selectedName = _selectedProfile?.Name ?? _appSettings.SelectedCropProfile;
-        CropProfile.Items.Clear();
-        CropProfile.Items.Add(new ComboBoxItem { Content = "(none - the settings as they are)", Tag = null });
+        _selectedProfile = _profiles.FirstOrDefault(p => p.Name == selectedName);
+        RefreshProfileList();
+    }
+
+    /// <summary>Rebuilds the list from scratch (a fresh ItemsSource, so the drop-down always matches what is there).</summary>
+    private void RefreshProfileList()
+    {
+        _profileLoading = true;
+        var items = new List<ProfileItem>();
+        // "(none)" is only there while no profile is chosen: once one is, the settings belong to it.
+        if (_selectedProfile == null) items.Add(new ProfileItem(null, _profiles.Count == 0 ? "(none yet - save the framing as a profile)" : "(none - the settings as they are)"));
         foreach (var profile in _profiles)
         {
-            CropProfile.Items.Add(new ComboBoxItem { Content = profile.Game.Length > 0 ? $"{profile.Name}  ({profile.Game})" : profile.Name, Tag = profile });
+            items.Add(new ProfileItem(profile, profile.Game.Length > 0 ? $"{profile.Name}  ({profile.Game})" : profile.Name));
         }
-        _selectedProfile = _profiles.FirstOrDefault(p => p.Name == selectedName);
-        CropProfile.SelectedItem = CropProfile.Items.Cast<ComboBoxItem>().FirstOrDefault(i => ReferenceEquals(i.Tag, _selectedProfile)) ?? CropProfile.Items[0];
+        CropProfile.ItemsSource = items;
+        CropProfile.SelectedItem = items.FirstOrDefault(i => ReferenceEquals(i.Profile, _selectedProfile)) ?? items[0];
         _profileLoading = false;
         RefreshProfileUi();
     }
 
     private void RefreshProfileUi()
     {
-        var has = _selectedProfile != null;
-        CropProfileGame.IsEnabled = has;
-        CropProfileDelete.IsEnabled = has;
-        CropProfileGame.Text = _selectedProfile?.Game ?? "";
+        _profileLoading = true;
+        CropProfileDelete.IsEnabled = _selectedProfile != null;
+        if (!CropProfileGame.IsKeyboardFocusWithin) CropProfileGame.Text = _selectedProfile?.Game ?? CropProfileGame.Text;
+        _profileLoading = false;
         var live = MirrorLive.Read();
         var running = live is { Producing: true } ? live.Program : null;
         CropProfileStatus.Text = _selectedProfile == null
-            ? (running != null ? $"Running now: {running}. Save the framing as a profile for it to have it applied whenever it starts." : "Save the framing as a profile to have it applied whenever a game starts.")
-            : _selectedProfile.Game.Length == 0 ? "Edits are saved into this profile. Type a game's program file (for example DCS.exe) to have it applied when that game starts."
+            ? (running != null ? $"Running now: {running}. Save the framing as a profile to have it applied whenever that game starts." : "Save the framing as a profile to have it applied whenever a game starts. \"For game\" can be filled in first.")
+            : _selectedProfile.Game.Length == 0 ? "Edits are saved into this profile. Choose or type a game (its program file, for example DCS.exe) to have it applied when that game starts."
             : $"Edits are saved into this profile. It is applied when {_selectedProfile.Game} starts" + (running != null && !string.Equals(running, _selectedProfile.Game, StringComparison.OrdinalIgnoreCase) ? $" (running now: {running})." : ".");
     }
 
     private void OnProfileSelected()
     {
         if (_profileLoading) return;
-        _selectedProfile = CropProfile.SelectedItem is ComboBoxItem { Tag: CropProfile profile } ? profile : null;
+        var chosen = CropProfile.SelectedItem is ProfileItem item ? item.Profile : null;
+        if (ReferenceEquals(chosen, _selectedProfile)) return;
+        _selectedProfile = chosen;
         _appSettings.SelectedCropProfile = _selectedProfile?.Name ?? "";
         _appSettings.Save();
         if (_selectedProfile != null && _selectedProfile.Values.Count > 0)
@@ -91,17 +117,48 @@ public partial class MainWindow
             ApplyCropMargin(moveBox: false);
             DrawCrop();
         }
-        RefreshProfileUi();
+        RefreshProfileList();
+    }
+
+    /// <summary>The running programs that have a window (no background processes), for the game picker.</summary>
+    private void FillGamePicker(string filter)
+    {
+        var apps = new List<RunningApp>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                if (process.Id == Environment.ProcessId || process.MainWindowHandle == 0 || string.IsNullOrWhiteSpace(process.MainWindowTitle)) continue;
+                var exe = process.ProcessName + ".exe";
+                if (filter.Length > 0 && !exe.Contains(filter, StringComparison.OrdinalIgnoreCase) && !process.MainWindowTitle.Contains(filter, StringComparison.OrdinalIgnoreCase)) continue;
+                if (seen.Add(exe)) apps.Add(new RunningApp(exe, $"{exe}  -  {process.MainWindowTitle}"));
+            }
+            catch
+            {
+                // A process that ended or refuses questions.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        apps.Sort((a, b) => string.Compare(a.Exe, b.Exe, StringComparison.OrdinalIgnoreCase));
+        var text = CropProfileGame.Text;
+        _profileLoading = true;
+        CropProfileGame.ItemsSource = apps;
+        CropProfileGame.Text = text; // Changing the list must not wipe what was typed.
+        _profileLoading = false;
     }
 
     private void OnProfileGameChanged()
     {
-        if (_selectedProfile == null) return;
+        if (_profileLoading || _selectedProfile == null) return;
         var game = CropProfileGame.Text.Trim();
         if (game == _selectedProfile.Game) return;
         _selectedProfile.Game = game;
         SaveProfiles();
-        LoadProfiles();
+        RefreshProfileList();
     }
 
     /// <summary>A crop key changed while a profile is selected: the profile follows (debounced - sliders fire a lot).</summary>
@@ -122,7 +179,9 @@ public partial class MainWindow
     private void OnProfileSaveAs(object sender, RoutedEventArgs e)
     {
         var live = MirrorLive.Read();
-        CropProfileName.Text = live is { Producing: true } && live.Program.Length > 0 ? System.IO.Path.GetFileNameWithoutExtension(live.Program) : "";
+        var suggested = CropProfileGame.Text.Trim();
+        if (suggested.Length == 0 && live is { Producing: true }) suggested = live.Program;
+        CropProfileName.Text = suggested.Length > 0 ? System.IO.Path.GetFileNameWithoutExtension(suggested) : "";
         CropProfileNamePanel.Visibility = Visibility.Visible;
         CropProfileName.Focus();
         CropProfileName.SelectAll();
@@ -136,8 +195,10 @@ public partial class MainWindow
         var profile = _profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
         if (profile == null)
         {
-            var live = MirrorLive.Read();
-            profile = new CropProfile { Name = name, Game = live is { Producing: true } ? live.Program : "" };
+            // The game: what is in the box, or the game running now.
+            var game = CropProfileGame.Text.Trim();
+            if (game.Length == 0 && MirrorLive.Read() is { Producing: true } live) game = live.Program;
+            profile = new CropProfile { Name = name, Game = game };
             _profiles.Add(profile);
         }
         profile.Values.Clear();
@@ -149,7 +210,7 @@ public partial class MainWindow
         _appSettings.SelectedCropProfile = profile.Name;
         _appSettings.Save();
         SaveProfiles();
-        LoadProfiles();
+        RefreshProfileList();
     }
 
     private void OnProfileDelete(object sender, RoutedEventArgs e)
@@ -160,7 +221,45 @@ public partial class MainWindow
         _appSettings.SelectedCropProfile = "";
         _appSettings.Save();
         SaveProfiles();
-        LoadProfiles();
+        _profileLoading = true;
+        CropProfileGame.Text = "";
+        _profileLoading = false;
+        RefreshProfileList();
+    }
+
+    /// <summary>Development aid for --screenshots: saves, re-saves and deletes profiles and reports what the list shows after each step.</summary>
+    public string ExerciseProfiles(Action<string> snapshot)
+    {
+        var report = new System.Text.StringBuilder();
+        string Describe(string step)
+        {
+            var items = CropProfile.ItemsSource as List<ProfileItem> ?? [];
+            var selected = CropProfile.SelectedItem is ProfileItem item ? item.Label : "(nothing)";
+            return $"{step}: {items.Count} entries [{string.Join(" | ", items.Select(i => i.Label))}], selected \"{selected}\", game box \"{CropProfileGame.Text}\"\n";
+        }
+        report.Append(Describe("start"));
+        CropProfileGame.Text = "DCS.exe";
+        CropProfileName.Text = "First";
+        OnProfileSaveConfirm(this, new RoutedEventArgs());
+        report.Append(Describe("after saving First for DCS.exe"));
+        snapshot("profiles-first");
+        CropProfileGame.Text = "";
+        CropProfileName.Text = "Second";
+        OnProfileSaveConfirm(this, new RoutedEventArgs());
+        report.Append(Describe("after saving Second"));
+        CropProfile.SelectedItem = (CropProfile.ItemsSource as List<ProfileItem>)!.First(i => i.Profile?.Name == "First");
+        report.Append(Describe("after choosing First"));
+        OnProfileDelete(this, new RoutedEventArgs());
+        report.Append(Describe("after deleting First"));
+        snapshot("profiles-after-delete");
+        OnProfileDelete(this, new RoutedEventArgs());
+        report.Append(Describe("after deleting with nothing chosen (no-op)"));
+        CropProfile.SelectedItem = (CropProfile.ItemsSource as List<ProfileItem>)!.First(i => i.Profile?.Name == "Second");
+        OnProfileDelete(this, new RoutedEventArgs());
+        report.Append(Describe("after deleting Second"));
+        FillGamePicker("");
+        report.Append($"game picker: {(CropProfileGame.ItemsSource as List<RunningApp>)?.Count ?? 0} running programs with a window\n");
+        return report.ToString();
     }
 
     // ------------------------------------------------------------------ the SteamVR helper and what the mirror is doing

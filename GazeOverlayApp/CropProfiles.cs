@@ -19,7 +19,9 @@ public sealed class CropProfile
 /// </summary>
 public static class CropProfiles
 {
-    public static string FilePath => Path.Combine(AppSettings.Folder, "crop-profiles.ini");
+    /// <summary>The environment variable is for tests (the mirror honours the same one).</summary>
+    public static string FilePath => Environment.GetEnvironmentVariable("GAZE_MIRROR_PROFILES_FILE") is { Length: > 0 } overridden
+        ? overridden : Path.Combine(AppSettings.Folder, "crop-profiles.ini");
 
     /// <summary>The keys a profile holds: the framing (crop, follow, steadying) - not the eye or the output size.</summary>
     public static bool IsProfileKey(string key) =>

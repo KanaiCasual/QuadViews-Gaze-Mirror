@@ -44,13 +44,10 @@ public partial class App : Application
             window.ShowCropTestPicture();
             window.Dispatcher.InvokeAsync(() =>
             {
-                for (var i = 0; i < window.Tabs.Items.Count; i++)
+                void Snapshot(string name)
                 {
-                    window.Tabs.SelectedIndex = i;
                     window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                     var root = (FrameworkElement)window.Content;
-                    File.AppendAllText(Path.Combine(outputDir, "layout.txt"),
-                        $"tab{i}: window {window.ActualWidth:0}x{window.ActualHeight:0}, root {root.ActualWidth:0}, tabs {window.Tabs.ActualWidth:0}, preview {window.RingPanel.Visibility} {window.RingPanel.ActualWidth:0}, column {window.PreviewColumn.ActualWidth:0} ({window.PreviewColumn.Width}), inner grid {((FrameworkElement)window.Tabs.Parent).ActualWidth:0}, tabs margin {window.Tabs.Margin}\n");
                     var visual = new System.Windows.Media.DrawingVisual();
                     using (var context = visual.RenderOpen())
                     {
@@ -62,8 +59,24 @@ public partial class App : Application
                     bitmap.Render(visual);
                     var encoder = new PngBitmapEncoder();
                     encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                    using var file = File.Create(Path.Combine(outputDir, $"tab{i}.png"));
+                    using var file = File.Create(Path.Combine(outputDir, $"{name}.png"));
                     encoder.Save(file);
+                }
+                for (var i = 0; i < window.Tabs.Items.Count; i++)
+                {
+                    window.Tabs.SelectedIndex = i;
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    var root = (FrameworkElement)window.Content;
+                    File.AppendAllText(Path.Combine(outputDir, "layout.txt"),
+                        $"tab{i}: window {window.ActualWidth:0}x{window.ActualHeight:0}, root {root.ActualWidth:0}, tabs {window.Tabs.ActualWidth:0}, preview {window.RingPanel.Visibility} {window.RingPanel.ActualWidth:0}, column {window.PreviewColumn.ActualWidth:0} ({window.PreviewColumn.Width}), inner grid {((FrameworkElement)window.Tabs.Parent).ActualWidth:0}, tabs margin {window.Tabs.Margin}\n");
+                    Snapshot($"tab{i}");
+                }
+                // GAZE_SCREENSHOT_PROFILES=1 (with GAZE_MIRROR_PROFILES_FILE pointing at a scratch file): exercise the crop profiles on the Mirror tab.
+                if (Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_PROFILES") == "1")
+                {
+                    window.Tabs.SelectedItem = window.CropTab;
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    File.WriteAllText(Path.Combine(outputDir, "profiles.txt"), window.ExerciseProfiles(Snapshot));
                 }
                 Shutdown(0);
             }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
