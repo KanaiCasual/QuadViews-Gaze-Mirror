@@ -15,3 +15,4 @@ echo.
 echo OpenXR layers now registered (first = closest to the game):
 reg query "HKLM\SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
 pause
+z
