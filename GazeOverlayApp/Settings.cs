@@ -475,7 +475,7 @@ public static class Settings
         new()
         {
             Key = "gaze_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "auto",
-            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset: OpenXR's eye-gaze extension or SteamVR's eye tracking. VRChat: the avatar's eye parameters, which VRChat sends out over OSC to the SteamVR helper - for headsets whose software drives the avatar (VRCFaceTracking, EyeTrackVR, ALVR, ...) but not SteamVR. Needs OSC on in VRChat and an avatar with eye parameters.",
+            Label = "Gaze from", Description = "Where the ring gets the eyes from. Headset: the eye tracker's own numbers, through OpenXR or SteamVR - exact, nothing to set up. VRChat: the eye values of your VRChat avatar, which VRChat sends out over OSC to the SteamVR helper - for setups where the eye tracking only reaches VRChat (VRCFaceTracking with SRanibro, EyeTrackVR, ALVR, ...). Those values are not angles, so this source needs the one-time calibration below; VRChat must have OSC on. Headset, else VRChat: the headset when it gives gaze, VRChat otherwise.",
             Choices = [new("auto", "Headset, else VRChat"), new("headset", "Headset only"), new("vrchat", "VRChat only")],
         },
     ];

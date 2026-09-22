@@ -220,9 +220,15 @@ avatar's eye parameters (through [VRCFaceTracking](https://github.com/benaclejam
 EyeTrackVR, Quest Pro over ALVR, ...). For those, the SteamVR helper is an **OSCQuery service**: VRChat finds it on the
 machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing to install or set up - OSC has to
 be on in VRChat (it is, for every face-tracking user) and the avatar needs eye parameters (face-tracking avatars have
-them). The Gaze card says *VRChat: eye parameters arriving* once it works. Those values are not angles, and not in
-proportion to them either, so calibrate once: **Calibrate in headset** shows a small target inside the headset at nine
-places for about 25 seconds; look at each without moving your head, and the ring follows your eyes from then on.
+them). The Gaze card says *VRChat: eye parameters arriving* once it works.
+
+**Calibrate VRChat gaze** (only for this source - the headset's own eye tracking needs none): the avatar's eye values
+are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
+Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
+sixteen places, about two seconds each - straight ahead, then out to 35 degrees to each side, 22 up and 30 down.
+Follow it with your eyes only, head still; the status line counts the targets. After about 35 seconds the target
+disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own calibration;
+**Forget** drops it.
 
 ### Quad Views
 

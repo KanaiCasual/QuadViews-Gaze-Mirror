@@ -23,14 +23,17 @@ namespace gaze_mirror {
 
         constexpr float Pi = 3.14159265f;
         constexpr float TargetDistance = 2.f; // Metres in front of the head.
-        constexpr int SettleMs = 900;         // The eyes travel and settle before sampling starts...
-        constexpr int SampleMs = 1600;        // ...and this long is sampled.
+        constexpr int SettleMs = 800;         // The eyes travel and settle before sampling starts...
+        constexpr int SampleMs = 1400;        // ...and this long is sampled.
 
         struct Target {
             float yawDeg, pitchDeg; // Right and up positive.
         };
-        // Centre first, then the ends of each axis, then the halves: nine looks, about 25 seconds.
-        constexpr Target Targets[] = {{0, 0}, {25, 0}, {-25, 0}, {0, 15}, {0, -15}, {12, 0}, {-12, 0}, {0, 8}, {0, -8}};
+        // Centre first, then outwards along each axis in turn, alternating sides so the eyes never travel far at once:
+        // sideways in four steps out to 35 degrees, up in three steps to 22 and down in four to 30 (people look further
+        // down than up). Sixteen looks, about 35 seconds; the curve gets a point at every one of them.
+        constexpr Target Targets[] = {{0, 0},  {8, 0},   {-8, 0},  {16, 0},  {-16, 0}, {25, 0},  {-25, 0}, {35, 0},
+                                      {-35, 0}, {0, 7},   {0, -7},  {0, 14},  {0, -14}, {0, 22},  {0, -22}, {0, -30}};
 
         float Median(std::vector<float> values) {
             if (values.empty()) return 0.f;
@@ -118,7 +121,12 @@ namespace gaze_mirror {
 
         std::vector<std::pair<float, float>> xs, ys; // (value, tangent)
         int missing = 0;
+        int step = 0;
         for (const Target& target : Targets) {
+            // The app shows which target is up (one small settings write per target; nothing runs on a timer).
+            char progress[32];
+            snprintf(progress, sizeof(progress), "running %d/%d", ++step, int(std::size(Targets)));
+            pipeline->persist({{"vrchat_calibrated", progress}});
             const float tanYaw = std::tan(target.yawDeg * Pi / 180.f), tanPitch = std::tan(target.pitchDeg * Pi / 180.f);
             // Head-locked: x right, y up, z towards the viewer (so in front is -z).
             vr::HmdMatrix34_t m = {{{1, 0, 0, TargetDistance * tanYaw}, {0, 1, 0, TargetDistance * tanPitch}, {0, 0, 1, -TargetDistance}}};

@@ -313,10 +313,12 @@ public partial class MainWindow
         var requested = _values.GetValueOrDefault("vrchat_calibrate") == "1";
         var calibrated = _values.GetValueOrDefault("vrchat_calibrated") ?? "";
         var mapped = (_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0;
-        VrchatCalibrationStatus.Text = requested ? "Calibrating: look at the target in the headset as it moves, without moving your head."
-            : mapped ? $"Calibrated {calibrated}."
+        VrchatCalibrationStatus.Text = requested && calibrated.StartsWith("running ", StringComparison.Ordinal) ? $"Calibrating, target {calibrated[8..]}: follow it with your eyes, head still."
+            : requested ? "Calibrating: follow the target in the headset with your eyes, head still."
+            : calibrated.StartsWith("running ", StringComparison.Ordinal) ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
+            : mapped ? $"VRChat gaze calibrated {calibrated}."
             : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
-            : "Not calibrated yet: the ring will not land where you look until you calibrate once.";
+            : "VRChat gaze not calibrated yet: until then the ring only roughly follows your eyes in VRChat.";
         VrchatCalibrate.IsEnabled = !requested;
         VrchatCalibrationForget.IsEnabled = mapped;
     }
@@ -326,7 +328,7 @@ public partial class MainWindow
     {
         if (MirrorLive.Read() is not { Producing: true, OpenXR: false })
         {
-            VrchatCalibrationStatus.Text = "Start the SteamVR game first: the helper shows the target while it mirrors.";
+            VrchatCalibrationStatus.Text = "Start VRChat (or another SteamVR game) first: the helper shows the target while it mirrors.";
             return;
         }
         AppLog.Write("VRChat gaze calibration requested.");
