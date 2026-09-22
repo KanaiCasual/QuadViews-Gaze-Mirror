@@ -34,7 +34,7 @@ public partial class MainWindow
             row.ColumnDefinitions[0].Width = new GridLength(78);
             PanelOutput.Children.Add(row);
         }
-        foreach (var key in new[] { "gaze_source", "vrchat_scale" })
+        foreach (var key in new[] { "gaze_source", "vrchat_scale", "vrchat_scale_up", "vrchat_scale_down" })
         {
             var def = Settings.All.First(d => d.Key == key);
             var row = (Grid)BuildRow(def);

@@ -86,7 +86,8 @@ namespace gaze_mirror {
         if (ext.leftOpenness < 0.15f && ext.rightOpenness < 0.15f) return gaze;
         // The two eyes' pairs, averaged and scaled, as a direction in head space (x right, y up, looking down -z).
         const float x = 0.5f * (ext.left[0] + ext.right[0]) * s.vrchatScale;
-        const float y = 0.5f * (ext.left[1] + ext.right[1]) * s.vrchatScale;
+        const float rawY = 0.5f * (ext.left[1] + ext.right[1]);
+        const float y = rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
         const float length = std::sqrt(x * x + y * y + 1.f);
         gaze.valid = true;
         gaze.hasRay = true;
@@ -94,7 +95,7 @@ namespace gaze_mirror {
         gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
                        0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
                        0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
-        LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f)", ext.writer, s.vrchatScale);
+        LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f sideways, %.2f up, %.2f down)", ext.writer, s.vrchatScale, s.vrchatScaleUp, s.vrchatScaleDown);
         return gaze;
     }
 

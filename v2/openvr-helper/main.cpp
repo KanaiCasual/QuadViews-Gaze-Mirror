@@ -301,6 +301,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         }
         idleTicks = 0;
         if (publishing && pipeline.settings().eye != mirror.eye) {
+            // Once per opened mirror: the eye's geometry, so that where a gaze lands can be checked from the log.
+            for (int e = 0; e < 2; e++) {
+                float l = 0, r = 0, t = 0, b = 0;
+                system->GetProjectionRaw(e == 0 ? vr::Eye_Left : vr::Eye_Right, &l, &r, &t, &b);
+                const vr::HmdMatrix34_t m = system->GetEyeToHeadTransform(e == 0 ? vr::Eye_Left : vr::Eye_Right);
+                const Quat q = Orientation(m);
+                Log("helper: %s eye fov tangents left %.3f right %.3f top %.3f bottom %.3f; eye-to-head position (%.4f, %.4f, %.4f) rotation (%.4f, %.4f, %.4f, %.4f)",
+                    e == 0 ? "left" : "right", l, r, t, b, m.m[0][3], m.m[1][3], m.m[2][3], q.x, q.y, q.z, q.w);
+            }
             if (!OpenMirror(compositor, device.Get(), pipeline.settings().eye, mirror)) {
                 WaitForSingleObject(g_stop, 1000);
                 continue;
