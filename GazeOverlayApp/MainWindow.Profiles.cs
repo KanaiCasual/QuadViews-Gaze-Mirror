@@ -55,9 +55,9 @@ public partial class MainWindow
         };
         LoadProfiles();
 
-        // The helper.
-        HelperAutostart.IsChecked = _appSettings.HelperAutostart;
-        HelperAutostart.Click += async (_, _) => await OnHelperAutostartChangedAsync();
+        // The helper: always on. SteamVR starts it with itself once it has been told about it (once, here, on the first
+        // start of this app - the installer runs no code), and it is started now in case SteamVR is already running.
+        if (!App.Headless) _ = EnsureHelperAsync();
     }
 
     // ------------------------------------------------------------------ crop profiles
@@ -271,45 +271,29 @@ public partial class MainWindow
             ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")} - {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         var helper = MirrorLive.FindHelper();
-        var running = helper != null && MirrorLive.IsHelperRunning();
-        HelperStart.IsEnabled = helper != null && !running;
-        HelperStop.IsEnabled = running;
         HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
-            : running ? "The SteamVR helper is running." : "The SteamVR helper is not running (it leaves by itself when SteamVR is not running).";
+            : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."
+            : _appSettings.HelperAutostart ? "The helper starts with SteamVR and leaves with it. Not running now."
+            : "SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.";
     }
 
-    private async void OnHelperStart(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Registers the helper with SteamVR to be started with it (once; SteamVR remembers), then starts it now - it leaves
+    /// by itself when SteamVR is not running, so this costs nothing otherwise.
+    /// </summary>
+    private async Task EnsureHelperAsync()
     {
-        if (!MirrorLive.StartHelper()) { HelperStatus.Text = "The helper could not be started."; return; }
-        for (var attempt = 0; attempt < 20 && !MirrorLive.IsHelperRunning(); attempt++) await Task.Delay(250);
-        RefreshMirrorLive();
-        if (!MirrorLive.IsHelperRunning()) HelperStatus.Text = "The helper left again: SteamVR is not running.";
-    }
-
-    private async void OnHelperStop(object sender, RoutedEventArgs e)
-    {
-        MirrorLive.StopHelper();
-        for (var attempt = 0; attempt < 20 && MirrorLive.IsHelperRunning(); attempt++) await Task.Delay(250);
-        RefreshMirrorLive();
-    }
-
-    private async Task OnHelperAutostartChangedAsync()
-    {
-        var on = HelperAutostart.IsChecked == true;
-        HelperAutostart.IsEnabled = false;
-        var result = await MirrorLive.SetHelperAutostartAsync(on);
-        HelperAutostart.IsEnabled = true;
-        if (result == 0)
+        if (MirrorLive.FindHelper() == null) return;
+        if (!_appSettings.HelperAutostart)
         {
-            _appSettings.HelperAutostart = on;
-            _appSettings.Save();
-            HelperStatus.Text = on ? "SteamVR will start the helper with itself from now on." : "SteamVR no longer starts the helper.";
+            var result = await MirrorLive.SetHelperAutostartAsync(true);
+            if (result == 0)
+            {
+                _appSettings.HelperAutostart = true;
+                _appSettings.Save();
+            }
         }
-        else
-        {
-            HelperAutostart.IsChecked = !on;
-            HelperStatus.Text = result == null ? "GazeMirrorHelper.exe was not found next to this app."
-                : "SteamVR could not be told (is Steam installed?). The helper's log says more.";
-        }
+        if (!MirrorLive.IsHelperRunning()) MirrorLive.StartHelper();
+        RefreshMirrorLive();
     }
 }
