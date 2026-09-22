@@ -1,24 +1,26 @@
 {\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\fs18
 {\b QuadViews Gaze Mirror \emdash  unofficial community build}\par
 \par
-This package shows stream viewers where you are looking in VR, by drawing a ring on your OBS mirror image. The ring is never visible in the headset.\par
+This package mirrors your VR view for OBS and window capture, and draws a ring on that mirror where you are looking. The ring is never visible in the headset.\par
 \par
-It installs modified builds of two open-source OpenXR API layers, plus an unmodified OBS plugin:\par
+Everything it installs is this project's own code (MIT licence):\par
 \par
-\bullet  {\b Quad-Views-Foveated} by Matthieu Bucchianeri (MIT licence). Change: it also publishes where your eyes are looking.\par
-\bullet  {\b OpenXR-Layer-OBSMirror} by Jabbah (MIT licence). Changes: it draws the gaze ring on the mirror image, and fixes a texture leak.\par
-\bullet  The OBS plugin (win-openxr) from OpenXR-Layer-OBSMirror, unmodified.\par
+\bullet  {\b The gaze mirror layer} \emdash  an OpenXR API layer that makes the mirror picture for OpenXR games.\par
+\bullet  {\b The SteamVR helper} \emdash  makes the mirror picture for games that use SteamVR directly. It uses Valve's OpenVR library (BSD licence).\par
+\bullet  {\b The "Gaze Mirror" OBS plugin} \emdash  shows the picture in OBS (GPL-2, as OBS plugins are).\par
+\bullet  {\b The mirror window and the settings app.}\par
 \par
-{\b These are not the original authors' releases.} They did not build, test or endorse this package. Please do not ask them for support with it.\par
+Nothing third-party is modified. {\b Quad-Views-Foveated} by Matthieu Bucchianeri (MIT licence) is optional: it gives foveated rendering and is not needed for the ring. His official, unmodified 1.1.3 installer is shipped with this package and offered on the last page when it is not installed. He did not build, test or endorse this package; please do not ask him for support with it.\par
 \par
-This package is not code-signed. Games that use anti-cheat software may refuse to load the layers.\par
+Upgrading from 1.x removes the modified layers and the "OpenXR Mirror Capture" OBS plugin that 1.x installed. Replace that source in your OBS scenes with the new "Gaze Mirror" source.\par
 \par
-The full licence texts and third-party notices are installed next to each layer (LICENSE.txt and THIRD_PARTY.txt).\par
+This package is not code-signed. Games that use anti-cheat software may refuse to load the layer.\par
+\par
+The full licence texts are installed in the Licences folder next to the app.\par
 \par
 {\b MIT License}\par
 \par
-Copyright (c) 2022-2023 Matthieu Bucchianeri\par
-Copyright (c) Jabbah and contributors (OpenXR-Layer-OBSMirror)\par
+Copyright (c) 2026 KanaiCasual\par
 \par
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\par
 \par
