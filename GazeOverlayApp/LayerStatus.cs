@@ -1,11 +1,10 @@
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Win32;
 
 namespace GazeOverlay;
 
-public enum LayerHealth { NotActive, GazeBuild, OriginalWithoutGaze, Duplicate }
+public enum LayerHealth { NotActive, Active, Duplicate }
 
 /// <param name="PerUser">Registered for this Windows user only (HKCU) rather than for the whole PC (HKLM).</param>
 public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName, string? DllPath, bool PerUser = false)
@@ -16,9 +15,10 @@ public sealed record LayerEntry(string JsonPath, bool Enabled, string? LayerName
 
 public sealed record LayerReport(LayerHealth Health, string Detail);
 
+/// <param name="QuadViewsInstalled">Any Quad-Views-Foveated is registered (on or off); false = the bundled installer can be offered.</param>
 public sealed record SystemStatus(
-    LayerReport QuadViews, LayerReport ObsMirror, string? ObsPath, bool ObsPluginPresent,
-    IReadOnlyList<LayerEntry> Layers, bool? OrderCorrect);
+    LayerReport QuadViews, LayerReport GazeMirror, string? ObsPath, bool ObsPluginPresent,
+    IReadOnlyList<LayerEntry> Layers, bool? OrderCorrect, bool QuadViewsInstalled);
 
 /// <summary>
 /// Read-only look at how the OpenXR layers are set up. This app never installs or changes them - the MSI does that -
@@ -27,7 +27,8 @@ public sealed record SystemStatus(
 public static class LayerStatus
 {
     public const string QuadViewsLayer = "XR_APILAYER_MBUCCHIA_quad_views_foveated";
-    public const string ObsMirrorLayer = "XR_APILAYER_NOVENDOR_OBSMirror";
+    public const string GazeMirrorLayer = "XR_APILAYER_NOVENDOR_gaze_mirror";
+    public const string ObsPluginFile = "gaze-mirror-capture.dll";
     private const string LayersKey = @"SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit";
 
     public const string LayersKeyPath = LayersKey;
@@ -119,45 +120,43 @@ public static class LayerStatus
     public static SystemStatus Get()
     {
         var layers = ReadLayers();
-        // Gaze builds are recognised by a string only they contain.
-        var quadViews = Describe(layers, QuadViewsLayer, "Quad-Views-Foveated", Encoding.Unicode.GetBytes("QuadViewsFoveated.EyeGaze"));
-        var obsMirror = Describe(layers, ObsMirrorLayer, "OBS Mirror", Encoding.ASCII.GetBytes("Gaze overlay:"));
+        // Quad-Views-Foveated is optional and Matthieu Bucchianeri's own (unmodified) product: any copy is fine.
+        var quadViews = Describe(layers, QuadViewsLayer, "Quad-Views-Foveated",
+            "Not installed. It is optional - foveated rendering and the Quad Views tab need it; the mirror and the ring do not. Press Install to set up the official version shipped with this app.");
+        var gazeMirror = Describe(layers, GazeMirrorLayer, "the gaze mirror layer", "Not installed. Run the QuadViews Gaze Mirror installer (.msi), or its Repair option.");
 
         var obsPath = FindObs();
-        var pluginPresent = obsPath != null && File.Exists(Path.Combine(obsPath, "obs-plugins", "64bit", "win-openxr.dll"));
+        var pluginPresent = obsPath != null && File.Exists(Path.Combine(obsPath, "obs-plugins", "64bit", ObsPluginFile));
 
         // Quad views must sit closer to the game than the mirror, which only understands the final stereo image.
         var enabled = layers.Where(l => l.Enabled).ToList();
         var quadIndex = enabled.FindIndex(l => l.LayerName == QuadViewsLayer);
-        var mirrorIndex = enabled.FindIndex(l => l.LayerName == ObsMirrorLayer);
+        var mirrorIndex = enabled.FindIndex(l => l.LayerName == GazeMirrorLayer);
         bool? orderCorrect = quadIndex >= 0 && mirrorIndex >= 0 ? quadIndex < mirrorIndex : null;
 
-        return new SystemStatus(quadViews, obsMirror, obsPath, pluginPresent, layers, orderCorrect);
+        return new SystemStatus(quadViews, gazeMirror, obsPath, pluginPresent, layers, orderCorrect, layers.Any(l => l.LayerName == QuadViewsLayer));
     }
 
-    private static LayerReport Describe(List<LayerEntry> layers, string layerName, string friendlyName, byte[] gazeMarker)
+    private static LayerReport Describe(List<LayerEntry> layers, string layerName, string friendlyName, string notInstalled)
     {
         var active = layers.Where(l => l.Enabled && l.LayerName == layerName).ToList();
         if (active.Count == 0)
         {
             return new LayerReport(LayerHealth.NotActive, layers.Any(l => l.LayerName == layerName)
-                ? $"{friendlyName} is installed but switched off, so games do not load it."
-                : $"Not installed. Run the QuadViews Gaze Mirror installer (.msi).");
+                ? $"Installed but switched off, so games do not load it (see the layer list below)."
+                : notInstalled);
         }
         if (active.Count > 1)
         {
             return new LayerReport(LayerHealth.Duplicate,
-                $"{active.Count} copies of {friendlyName} are active at once, which breaks it. Uninstall the original one and keep the gaze build:\n" +
+                $"{active.Count} copies of {friendlyName} are active at once, which breaks it. Keep one:\n" +
                 string.Join("\n", active.Select(l => "  " + Path.GetDirectoryName(l.JsonPath))));
         }
-
         var entry = active[0];
-        var folder = Path.GetDirectoryName(entry.JsonPath);
-        var isGazeBuild = entry.DllPath != null && File.Exists(entry.DllPath) && File.ReadAllBytes(entry.DllPath).AsSpan().IndexOf(gazeMarker) >= 0;
-        return isGazeBuild
-            ? new LayerReport(LayerHealth.GazeBuild, $"Active, with gaze support ({folder}).")
-            : new LayerReport(LayerHealth.OriginalWithoutGaze,
-                $"The original {friendlyName} is active ({folder}). It works, but it cannot drive the gaze ring. Uninstall it, then run the QuadViews Gaze Mirror installer.");
+        var present = entry.DllPath != null && File.Exists(entry.DllPath);
+        return present
+            ? new LayerReport(LayerHealth.Active, $"Active ({Path.GetDirectoryName(entry.JsonPath)}).")
+            : new LayerReport(LayerHealth.NotActive, $"Registered, but its file is missing ({entry.DllPath}). Run the installer again.");
     }
 
     public static string? FindObs()

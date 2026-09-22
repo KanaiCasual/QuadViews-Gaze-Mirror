@@ -453,6 +453,25 @@ public static class Settings
             Label = "Room to move",
             Description = "How far the box may counter-move each way, as a share of the mirror image. Shown on the picture as the green band around the box; the box cannot enter it, so it always stays inside the image. The steadier you make the picture, the more room it needs: when the room runs out during a head turn, the picture simply turns with your head until you stop.",
         },
+        // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
+        new()
+        {
+            Key = "mirror_eye", Group = GroupCrop, Kind = SettingKind.Choice, Default = "right",
+            Label = "Eye", Description = "Which eye's picture the mirror shows - in OBS and in the mirror window alike.",
+            Choices = [new("right", "Right eye"), new("left", "Left eye")],
+        },
+        new()
+        {
+            Key = "output_max_side", Group = GroupCrop, Kind = SettingKind.Choice, Default = "3840",
+            Label = "Picture size", Description = "The longest side of the picture handed to OBS and the mirror window is scaled down to this if the crop box is larger. Smaller = less video memory and less work for OBS; the box itself does not change.",
+            Choices = [new("3840", "Up to 3840 (4K)"), new("2560", "Up to 2560"), new("1920", "Up to 1920 (1080p)"), new("0", "As large as the box")],
+        },
+        new()
+        {
+            Key = "output_fps", Group = GroupCrop, Kind = SettingKind.Choice, Default = "0",
+            Label = "Picture rate", Description = "How many pictures a second the mirror makes at most. Fewer = less graphics card time; the game's own frame rate is not affected.",
+            Choices = [new("0", "Every game frame"), new("60", "Up to 60"), new("30", "Up to 30")],
+        },
     ];
 
     public static readonly Preset[] Presets =

@@ -66,7 +66,7 @@
                         <TextBlock x:Name="LayerNote" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" />
 
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,12,0,0"
-                                   Text="In OBS: add an &quot;OpenXR Mirror Capture&quot; source and pick the eye to record. The ring follows that eye and only appears while a game runs with eye tracking active." />
+                                   Text="In OBS: add a &quot;Gaze Mirror&quot; source (Ctrl+F once to fit it). Eye, crop and ring are set on the Mirror tab; the ring only appears while a game runs with eye tracking active." />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -95,11 +95,6 @@
                                           ToolTip="Filling a monitor gives capture tools the full resolution of that monitor. The window stays behind every other window there." />
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Eye" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox x:Name="MirrorEye" MinWidth="110" Margin="0,2,12,2" VerticalAlignment="Center"
-                                          ToolTip="Which eye's picture is mirrored. (With the OBS plugin this is chosen in the OBS source's properties instead.)" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Size" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox x:Name="MirrorSize" MinWidth="150" Margin="0,2,12,2" VerticalAlignment="Center"
                                           ToolTip="How many pixels the mirror window's picture has - that is what OBS or Discord get. Smaller costs less graphics card time. With a size chosen, the window sits in the monitor's top left corner (behind everything) instead of covering the monitor." />
@@ -116,14 +111,45 @@
                                 </StackPanel>
                             </WrapPanel>
                             <WrapPanel>
-                                <CheckBox x:Name="MirrorExclusive" Content="While it is open, send nothing to the OBS plugin" MinWidth="0" Margin="0,0,16,0"
-                                          ToolTip="An OpenXR Mirror Capture source left in an OBS scene then shows black and costs nothing, instead of copying the whole picture every frame for no reason. Untick to feed both at once." />
                                 <CheckBox x:Name="MirrorTitled" Content="Keep a title bar" MinWidth="0" Margin="0,0,16,0"
                                           ToolTip="Only when filling a monitor: keep a title bar (pushed off the top of the monitor). Try it if a capture tool does not list the window." />
                                 <TextBlock x:Name="MirrorStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
                             </WrapPanel>
                         </StackPanel>
                     </Border>
+                    <!-- The picture itself: what every reader (OBS source, mirror window) gets, and where it comes from. -->
+                    <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,4,10,6" Background="{StaticResource Panel}"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6">
+                        <StackPanel>
+                            <UniformGrid x:Name="PanelOutput" Columns="1" />
+                            <TextBlock x:Name="MirrorSource" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            <WrapPanel Margin="0,4,0,0">
+                                <TextBlock Text="SteamVR games" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           ToolTip="Games that use SteamVR directly (OpenVR) instead of OpenXR never load the mirror layer. A small helper program next to SteamVR mirrors them instead - same crop, same ring." />
+                                <CheckBox x:Name="HelperAutostart" Content="Start the helper with SteamVR" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center"
+                                          ToolTip="SteamVR starts the helper whenever SteamVR starts, and it leaves when SteamVR closes. Nothing runs otherwise." />
+                                <Button x:Name="HelperStart" Content="Start now" Margin="0,2,6,2" Click="OnHelperStart" />
+                                <Button x:Name="HelperStop" Content="Stop" Margin="0,2,12,2" Click="OnHelperStop" />
+                                <TextBlock x:Name="HelperStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <!-- Crop profiles: saved framings, each optionally applied when a given game starts. -->
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,2">
+                        <TextBlock Text="Profile" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,6,0"
+                                   ToolTip="A saved framing (crop box, follow, steadying). One with a game name is applied by the mirror whenever that game starts." />
+                        <ComboBox x:Name="CropProfile" MinWidth="220" Margin="0,2,6,2" VerticalAlignment="Center" />
+                        <Button x:Name="CropProfileSaveAs" Content="Save as..." ToolTip="Save the current framing as a profile" Margin="0,2,6,2" Click="OnProfileSaveAs" />
+                        <StackPanel x:Name="CropProfileNamePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,6,0">
+                            <TextBox x:Name="CropProfileName" Width="140" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Name of the profile. Enter saves, Esc cancels." />
+                            <Button Content="OK" Margin="0,2,0,2" Click="OnProfileSaveConfirm" />
+                        </StackPanel>
+                        <Button x:Name="CropProfileDelete" Content="Delete" Margin="0,2,12,2" Click="OnProfileDelete" />
+                        <TextBlock Text="For game" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox x:Name="CropProfileGame" Width="150" MinWidth="0" Margin="0,2,6,2" VerticalAlignment="Center"
+                                 ToolTip="The game's program file, for example DCS.exe or VRChat.exe (shown under the picture settings while it runs). Empty = only when chosen here. Enter applies." />
+                    </WrapPanel>
+                    <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap" />
                     <WrapPanel DockPanel.Dock="Top">
                         <CheckBox x:Name="CropEnabled" Content="Crop the mirror image" FontWeight="SemiBold" MinWidth="0" Margin="0,0,14,0" VerticalAlignment="Center"
                                   ToolTip="Hand OBS only the box instead of the whole eye image" />

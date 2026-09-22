@@ -164,7 +164,7 @@ public partial class App : Application
     private static bool SelfTestLayerOrder(string outputDir, StreamWriter report)
     {
         LayerEntry Layer(string name, params string[] extensions) => new($@"C:\Layers\{name}.json", true, name, null) { Extensions = extensions };
-        var mirror = Layer(LayerStatus.ObsMirrorLayer);
+        var mirror = Layer(LayerStatus.GazeMirrorLayer);
         var toolkit = Layer("XR_APILAYER_MBUCCHIA_toolkit");
         var quadViews = Layer(LayerStatus.QuadViewsLayer, "XR_VARJO_quad_views", "XR_VARJO_foveated_rendering");
         var eyeTracking = Layer("XR_APILAYER_EXAMPLE_eye_tracker", "XR_EXT_eye_gaze_interaction");
@@ -221,7 +221,7 @@ public partial class App : Application
         var checks = new (string Name, bool Ok)[]
         {
             ("a bad order is reported (mirror under quad views and under the overlay layer, toolkit under quad views, quad views and toolkit above the eye tracker)",
-                problems.Count == 5 && problems.Any(p => p.StartsWith("MBUCCHIA_quad_views_foveated must be above NOVENDOR_OBSMirror")) &&
+                problems.Count == 5 && problems.Any(p => p.StartsWith("MBUCCHIA_quad_views_foveated must be above NOVENDOR_gaze_mirror")) &&
                 problems.Any(p => p.StartsWith("MBUCCHIA_quad_views_foveated must be above EXAMPLE_eye_tracker"))),
             ("the suggested order satisfies every rule and leaves unrelated layers where they were",
                 suggested != null && LayerOrder.Problems(suggested).Count == 0 && suggested.IndexOf(unknown) < suggested.IndexOf(eyeTracking)),
@@ -348,7 +348,7 @@ public partial class App : Application
         {
             var status = LayerStatus.Get();
             report.WriteLine($"quad views: {status.QuadViews.Health} - {status.QuadViews.Detail}");
-            report.WriteLine($"obs mirror: {status.ObsMirror.Health} - {status.ObsMirror.Detail}");
+            report.WriteLine($"gaze mirror: {status.GazeMirror.Health} - {status.GazeMirror.Detail}");
             report.WriteLine($"obs: {status.ObsPath ?? "(not found)"} plugin present={status.ObsPluginPresent}");
             report.WriteLine($"order correct: {status.OrderCorrect?.ToString() ?? "n/a"}");
             foreach (var layer in status.Layers) report.WriteLine($"  [{(layer.Enabled ? "on " : "off")}] {layer.LayerName ?? "?"}  {layer.JsonPath}");
@@ -412,9 +412,9 @@ public partial class App : Application
             quadViewsOk &= SelfTestCrop(report);
 
             // Mirror window: what this PC offers, and the command line the settings turn into.
-            var mirrorArguments = MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 2, MirrorEye = "left", MirrorExclusive = false, MirrorTitled = true, MirrorOutputWidth = 1920, MirrorOutputHeight = 1080, MirrorFps = 30 });
-            var mirrorOk = mirrorArguments == "--monitor 2 --titled 1 --size 1920x1080 --fps 30 --eye left --exclusive 0" &&
-                           MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 0 }) == "--windowed --size fill --fps 60 --eye right --exclusive 1";
+            var mirrorArguments = MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 2, MirrorTitled = true, MirrorOutputWidth = 1920, MirrorOutputHeight = 1080, MirrorFps = 30 });
+            var mirrorOk = mirrorArguments == "--monitor 2 --titled 1 --size 1920x1080 --fps 30" &&
+                           MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 0 }) == "--windowed --size fill --fps 60";
             report.WriteLine($"mirror window - {(mirrorOk ? "ok  " : "FAIL")} settings become the expected command line");
             report.WriteLine($"mirror window: program {MirrorWindowControl.FindProgram() ?? "(not found)"}, running={MirrorWindowControl.IsRunning()}, monitors: " +
                              string.Join(", ", MirrorWindowControl.Monitors().Select(m => $"{m.Number}={m.Width}x{m.Height}")));

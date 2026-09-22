@@ -248,7 +248,6 @@ public partial class MainWindow
 
     private void OnCaptureTick(object? sender, EventArgs e)
     {
-        MirrorSnapshot.KeepMirrorAlive();
         if (MirrorSnapshot.ReadGeneration() is { } generation && generation != _captureGenerationBefore)
         {
             // The layer has delivered.

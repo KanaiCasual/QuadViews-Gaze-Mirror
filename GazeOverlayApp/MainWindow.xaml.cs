@@ -40,13 +40,15 @@ public partial class MainWindow : Window
         BuildMirrorUi();
         LoadQuadViews();
         AboutText.Text =
-            "QuadViews Gaze Mirror - unofficial combined fork: foveated rendering (quad views) plus an OBS mirror that shows where you look.\n\n" +
-            "It is made of two modified OpenXR API layers:\n" +
-            "  - Quad-Views-Foveated by Matthieu Bucchianeri (MIT licence). Change: it also publishes where your eyes are looking.\n" +
-            "  - OpenXR-Layer-OBSMirror by Jabbah (MIT licence). Changes: it draws the gaze indicator on the mirror image, and fixes a texture leak.\n" +
-            "The OBS plugin (win-openxr) is the unmodified one from OpenXR-Layer-OBSMirror.\n\n" +
-            "These are not the authors' official releases - please do not ask them for support with this build. " +
-            "The licence texts are installed next to the layers (in the install folder under Program Files).\n\n" +
+            "QuadViews Gaze Mirror - a mirror of your VR view for OBS and window capture that shows where you look.\n\n" +
+            "It is made of:\n" +
+            "  - the gaze mirror layer (OpenXR games) and the SteamVR helper (SteamVR games), which make the picture - cropped, steadied, with the ring;\n" +
+            "  - the OBS plugin \"Gaze Mirror\" and the mirror window, which show it;\n" +
+            "  - this app.\n" +
+            "All of it is this project's own code (MIT licence; the OBS plugin under the GPL-2, as OBS plugins are). Nothing third-party is modified: " +
+            "Quad-Views-Foveated by Matthieu Bucchianeri is optional and installed unchanged (his official installer is shipped with this app), " +
+            "and the SteamVR helper uses Valve's OpenVR library. Please do not ask those authors for support with this app. " +
+            "The licence texts are in the install folder under Program Files.\n\n" +
             "Nothing here is code-signed, so Windows may warn about the installer, and games with anti-cheat may refuse to load the layers.\n\n" +
             "The Quad Views tab edits the same settings as QuadViews Companion by TallyMouse, and follows its slider logic so both can be used on the same file. " +
             "It is not TallyMouse's app and is not endorsed by them.\n\n" +
@@ -438,6 +440,7 @@ public partial class MainWindow : Window
         _values[key] = value;
         _dirtyKeys.Add(key);
         if (key == "headset_marker") RefreshStatus();
+        OnProfileValueChanged(key, value);
         if (key.StartsWith("crop_follow", StringComparison.Ordinal)) DrawCrop();
         if (key.StartsWith("stabilize", StringComparison.Ordinal)) ApplyCropMargin(moveBox: true);
         if (!_previewTimer.IsEnabled) _previewTimer.Start();
@@ -602,13 +605,15 @@ public partial class MainWindow : Window
         }
 
         StatusRows.Children.Clear();
-        AddStatusRow("Quad-Views-Foveated", status.QuadViews.Detail, HealthColor(status.QuadViews.Health));
-        AddStatusRow("OpenXR OBS Mirror layer", status.ObsMirror.Detail, HealthColor(status.ObsMirror.Health));
+        AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
         AddStatusRow("OBS plugin",
             status.ObsPath == null ? "OBS Studio was not found on this PC."
-            : status.ObsPluginPresent ? "Present in OBS."
+            : status.ObsPluginPresent ? "Present in OBS: add a \"Gaze Mirror\" source."
             : $"Not in OBS yet ({status.ObsPath}). Re-run the installer with OBS installed, or use its Repair option.",
             status.ObsPath != null && status.ObsPluginPresent ? Colors.SeaGreen : Colors.Gray);
+        AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
+            status.QuadViews.Health == LayerHealth.NotActive && !status.QuadViewsInstalled ? Colors.Gray : HealthColor(status.QuadViews.Health),
+            !status.QuadViewsInstalled && MirrorLive.FindQuadViewsInstaller() != null ? ("Install", OnQuadViewsInstall) : null);
         if (_values.GetValueOrDefault("headset_marker") == "1")
         {
             AddStatusRow("Calibration is ON",
@@ -618,7 +623,7 @@ public partial class MainWindow : Window
         if (status.OrderCorrect == false)
         {
             AddStatusRow("Layer order",
-                "OBS Mirror is above Quad-Views-Foveated, so the ring cannot work. Use \"Fix order\" under the layer list below.", Colors.Firebrick);
+                "The gaze mirror layer is above Quad-Views-Foveated, so it sees the wrong picture. Use \"Fix order\" under the layer list below.", Colors.Firebrick);
         }
 
         BuildLayerRows(status.Layers);
@@ -683,7 +688,7 @@ public partial class MainWindow : Window
     private FrameworkElement BuildLayerRow(List<LayerEntry> group, int index, int position, bool pending)
     {
         var layer = group[index];
-        var ours = layer.LayerName is LayerStatus.QuadViewsLayer or LayerStatus.ObsMirrorLayer;
+        var ours = layer.LayerName is LayerStatus.QuadViewsLayer or LayerStatus.GazeMirrorLayer;
         var box = new CheckBox
         {
             IsChecked = layer.Enabled, VerticalAlignment = VerticalAlignment.Top, MinWidth = 0, Margin = new Thickness(0, 0, 4, 0),
@@ -793,24 +798,37 @@ public partial class MainWindow : Window
 
     private static Color HealthColor(LayerHealth health) => health switch
     {
-        LayerHealth.GazeBuild => Colors.SeaGreen,
-        LayerHealth.OriginalWithoutGaze => Colors.DarkOrange,
+        LayerHealth.Active => Colors.SeaGreen,
         LayerHealth.Duplicate => Colors.Firebrick,
         _ => Colors.Gray,
     };
 
-    private void AddStatusRow(string title, string detail, Color color)
+    private void AddStatusRow(string title, string detail, Color color, (string Label, RoutedEventHandler Click)? button = null)
     {
         var row = new Grid { Margin = new Thickness(0, 5, 0, 5) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.Children.Add(new Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 4, 0, 0) });
         var text = new StackPanel();
         text.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold });
-        text.Children.Add(new TextBlock { Text = detail, Style = (Style)FindResource("Hint") });
+        text.Children.Add(new TextBlock { Text = detail, Style = (Style)FindResource("Hint"), TextWrapping = TextWrapping.Wrap });
         Grid.SetColumn(text, 1);
         row.Children.Add(text);
+        if (button is { } action)
+        {
+            var control = new Button { Content = action.Label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8, 0, 0, 0) };
+            control.Click += action.Click;
+            Grid.SetColumn(control, 2);
+            row.Children.Add(control);
+        }
         StatusRows.Children.Add(row);
+    }
+
+    /// <summary>Starts the official Quad-Views-Foveated installer shipped with this app (Windows Installer asks for permission itself).</summary>
+    private void OnQuadViewsInstall(object sender, RoutedEventArgs e)
+    {
+        if (!MirrorLive.RunQuadViewsInstaller()) LiveText.Text = "The Quad-Views-Foveated installer could not be started.";
     }
 
     private void UpdateLive()

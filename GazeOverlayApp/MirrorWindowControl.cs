@@ -40,7 +40,7 @@ public static class MirrorWindowControl
     {
         var placement = settings.MirrorMonitor > 0 ? $"--monitor {settings.MirrorMonitor} --titled {(settings.MirrorTitled ? 1 : 0)}" : "--windowed";
         var size = settings.MirrorOutputWidth >= 64 && settings.MirrorOutputHeight >= 64 ? $"{settings.MirrorOutputWidth}x{settings.MirrorOutputHeight}" : "fill";
-        return $"{placement} --size {size} --fps {(settings.MirrorFps <= 30 ? 30 : 60)} --eye {(settings.MirrorEye == "left" ? "left" : "right")} --exclusive {(settings.MirrorExclusive ? 1 : 0)}";
+        return $"{placement} --size {size} --fps {(settings.MirrorFps <= 30 ? 30 : 60)}";
     }
 
     /// <summary>Opens the window, or - if it is open - applies the settings to it.</summary>

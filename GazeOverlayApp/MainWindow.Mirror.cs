@@ -23,10 +23,6 @@ public partial class MainWindow
         }
         MirrorPlacement.SelectedItem = MirrorPlacement.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == _appSettings.MirrorMonitor) ?? MirrorPlacement.Items[0];
 
-        MirrorEye.Items.Add(new ComboBoxItem { Content = "Left eye", Tag = "left" });
-        MirrorEye.Items.Add(new ComboBoxItem { Content = "Right eye", Tag = "right" });
-        MirrorEye.SelectedIndex = _appSettings.MirrorEye == "left" ? 0 : 1;
-        MirrorExclusive.IsChecked = _appSettings.MirrorExclusive;
         MirrorTitled.IsChecked = _appSettings.MirrorTitled;
 
         MirrorSize.Items.Add(new ComboBoxItem { Content = "Fill the monitor", Tag = "fill" });
@@ -48,8 +44,6 @@ public partial class MainWindow
         _mirrorArguments = MirrorWindowControl.Arguments(_appSettings);
 
         MirrorPlacement.SelectionChanged += (_, _) => OnMirrorSettingChanged();
-        MirrorEye.SelectionChanged += (_, _) => OnMirrorSettingChanged();
-        MirrorExclusive.Click += (_, _) => OnMirrorSettingChanged();
         MirrorTitled.Click += (_, _) => OnMirrorSettingChanged();
         MirrorSize.SelectionChanged += (_, _) => OnMirrorSettingChanged();
         MirrorRate.SelectionChanged += (_, _) => OnMirrorSettingChanged();
@@ -62,6 +56,8 @@ public partial class MainWindow
         // Whether the window is open is looked up when it can have changed and somebody is looking - not on a timer.
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, CropTab)) RefreshMirrorState(); };
         Activated += (_, _) => { if (ReferenceEquals(Tabs.SelectedItem, CropTab)) RefreshMirrorState(); };
+        BuildOutputAndProfilesUi();
+        PanelOutput.SizeChanged += (_, _) => PanelOutput.Columns = PanelOutput.ActualWidth >= 1250 ? 3 : PanelOutput.ActualWidth >= 700 ? 2 : 1;
         RefreshMirrorState();
     }
 
@@ -69,8 +65,6 @@ public partial class MainWindow
     {
         if (_loading) return;
         _appSettings.MirrorMonitor = MirrorPlacement.SelectedItem is ComboBoxItem { Tag: int monitor } ? monitor : 0;
-        _appSettings.MirrorEye = MirrorEye.SelectedItem is ComboBoxItem { Tag: string eye } ? eye : "right";
-        _appSettings.MirrorExclusive = MirrorExclusive.IsChecked == true;
         _appSettings.MirrorTitled = MirrorTitled.IsChecked == true;
         _appSettings.MirrorFps = MirrorRate.SelectedItem is ComboBoxItem { Tag: int fps } ? fps : 60;
 
@@ -106,6 +100,8 @@ public partial class MainWindow
 
     private void RefreshMirrorState(string? note = null)
     {
+        RefreshMirrorLive();
+        RefreshProfileUi();
         var program = MirrorWindowControl.FindProgram();
         var running = program != null && MirrorWindowControl.IsRunning();
         MirrorOpen.IsEnabled = program != null && !running;

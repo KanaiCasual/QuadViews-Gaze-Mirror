@@ -35,10 +35,10 @@ public static class LayerOrder
         new(LayerStatus.QuadViewsLayer, ["XR_EXT_eye_gaze_interaction"], [], []),
         new("XR_APILAYER_MBUCCHIA_toolkit", ["XR_EXT_eye_gaze_interaction", "XR_EXT_hand_tracking"], ["XR_VARJO_foveated_rendering"], [Overlay]),
         new("XR_APILAYER_NOVENDOR_motion_compensation", ["XR_APILAYER_FREDEMMOTT_HandTrackedCockpitClicking"], [], [TransformsPoses]),
-        new("XR_APILAYER_MBUCCHIA_vulkan_d3d12_interop", ["XR_APILAYER_MBUCCHIA_toolkit", LayerStatus.ObsMirrorLayer], [], []),
+        new("XR_APILAYER_MBUCCHIA_vulkan_d3d12_interop", ["XR_APILAYER_MBUCCHIA_toolkit", LayerStatus.GazeMirrorLayer], [], []),
         // The mirror must see the finished picture: below everything that draws into it, and below quad views (which
         // turns four views into the two the mirror understands - and, in this project, tells it where the eyes look).
-        new(LayerStatus.ObsMirrorLayer, [], [Overlay, "XR_VARJO_foveated_rendering", LayerStatus.QuadViewsLayer], []),
+        new(LayerStatus.GazeMirrorLayer, [], [Overlay, "XR_VARJO_foveated_rendering", LayerStatus.QuadViewsLayer], []),
         new("XR_APILAYER_NOVENDOR_XRNeckSafer", ["XR_APILAYER_FREDEMMOTT_HandTrackedCockpitClicking", Overlay], [], []),
     ];
 

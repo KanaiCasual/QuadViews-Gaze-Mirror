@@ -1,53 +1,34 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
   <!--
-    QuadViews Gaze Mirror (called "OpenXR Gaze Overlay" up to 0.9.0): both modified OpenXR API layers, the (unmodified) OBS plugin, and the settings app.
+    QuadViews Gaze Mirror 2.0: the gaze mirror layer (OpenXR games), the SteamVR helper (OpenVR games), the OBS plugin,
+    the mirror window and the settings app - all this project's own code. Quad-Views-Foveated is not part of the
+    product any more: it is optional, and its OFFICIAL, unmodified installer is shipped here and offered on the last page
+    when it is not installed.
 
-    Everything here is declarative - files and registry values that Windows Installer (msiexec) puts in place and removes
-    again. There are no custom actions and no code of ours runs during setup. That is deliberate: an exe that installed
-    these same files itself was quarantined by antivirus heuristics, and had also left the machine with no active layers.
-    For the same reason this package never edits another product's registry entries: if the original layers are
-    installed, it stops and asks the user to remove them first.
+    Everything is declarative - files and registry values that Windows Installer (msiexec) puts in place and removes
+    again. No code of ours runs during setup; the only custom actions are WiX's stock ones ("print the licence", and
+    "open a file when Finish is pressed", which is how the Quad-Views-Foveated installer is started - by Windows, with
+    its own permission prompt). This package never edits another product's registry entries.
   -->
   <Package Name="QuadViews Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
 
-    <SummaryInformation Description="Foveated rendering (quad views) plus an OBS mirror that shows where you look. Unofficial combined fork of Quad-Views-Foveated and OpenXR-Layer-OBSMirror." />
+    <SummaryInformation Description="A mirror of your VR view for OBS and window capture that shows where you look - OpenXR and SteamVR games." />
     <!--
       AllowSameVersionUpgrades: test builds made between releases keep the number of the release they lead up to, and
-      each one has to install over the previous one. (Windows Installer otherwise treats an equal version as "not an
-      upgrade" and would install a second copy next to the first.) Released versions still always go up.
+      each one has to install over the previous one. Released versions still always go up. Upgrading from 1.x removes
+      its two (modified) layers; the 1.x OBS plugin stays, because scenes may still use it.
     -->
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
-    <!--
-      Renamed from "OpenXR Gaze Overlay" in 0.10.0. The UpgradeCode is the same, so this replaces the old product. The
-      registry keys below keep the old identifier (OpenXRGazeOverlay) on purpose: nobody sees them, and the remembered
-      desktop-shortcut choice carries over without any migration.
-    -->
-    <!-- Shown in Windows' installed-apps list and on the Start menu shortcut. -->
     <Icon Id="AppIcon.ico" SourceFile="..\GazeOverlayApp\Assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
-    <!-- Originals at their usual locations. Two copies of the same layer must never be active at once. -->
-    <Property Id="ORIGINALQUADVIEWS">
-      <RegistrySearch Id="FindOriginalQuadViews" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
-                      Name="[ProgramFiles64Folder]OpenXR-Quad-Views-Foveated\openxr-api-layer.json" Type="raw" Bitness="always64" />
-    </Property>
-    <Property Id="ORIGINALOBSMIRROR">
-      <RegistrySearch Id="FindOriginalObsMirror" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
-                      Name="[ProgramFiles64Folder]OpenXR-Layer-OBSMirror\XR_APILAYER_NOVENDOR_OBSMirror.json" Type="raw" Bitness="always64" />
-    </Property>
-    <Launch Condition="Installed OR NOT ORIGINALQUADVIEWS"
-            Message="The original Quad-Views-Foveated is installed, and two copies cannot be active together. Uninstall &quot;OpenXR-Quad-Views-Foveated&quot; in Windows' installed apps, then run this installer again. Your settings are kept." />
-    <Launch Condition="Installed OR NOT ORIGINALOBSMIRROR"
-            Message="The original OpenXR OBS Mirror layer is installed, and two copies cannot be active together. Run Uninstall-Layer.ps1 from its folder as administrator, then run this installer again. The OBS plugin can stay." />
-
     <!--
       Desktop shortcut: ticked by default on a first install. The choice is written to the registry and read back by later
-      versions, so an upgrade neither brings back a shortcut somebody did not want nor drops one they did.
-      A tick box counts as ticked for ANY value, so "not wanted" has to be the property being empty, not "0".
+      versions (the key keeps the product's first name on purpose: nobody sees it, and the choice carries over).
       Silent installs: DESKTOPSHORTCUT=0 (or DESKTOPSHORTCUT="") switches it off.
     -->
     <Property Id="DESKTOPSHORTCUT" Value="1" Secure="yes" />
@@ -64,21 +45,36 @@
       <RegistrySearch Id="FindObs32" Root="HKLM" Key="SOFTWARE\OBS Studio" Type="raw" Bitness="always32" />
     </Property>
 
+    <!--
+      Quad-Views-Foveated, at its official place. When it is not there, the last page offers to start its installer (the
+      unmodified 1.1.3 shipped in the Quad-Views-Foveated folder). Silent installs: nothing is offered or started.
+    -->
+    <Property Id="QUADVIEWSPRESENT">
+      <RegistrySearch Id="FindOfficialQuadViews" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
+                      Name="[ProgramFiles64Folder]OpenXR-Quad-Views-Foveated\openxr-api-layer.json" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Also install Quad-Views-Foveated 1.1.3 now (optional: foveated rendering). Its own installer opens when you press Finish."
+                 After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
+    <Property Id="WixShellExecTarget" Value="[#QuadViewsInstallerFile]" />
+    <CustomActionRef Id="WixShellExec" />
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="QuadViews-Gaze-Mirror">
-        <Directory Id="QuadViewsDir" Name="QuadViewsFoveated" />
-        <Directory Id="ObsMirrorDir" Name="OBSMirror" />
+        <Directory Id="LayerDir" Name="Layer" />
+        <Directory Id="QuadViewsDir" Name="Quad-Views-Foveated" />
+        <Directory Id="LicencesDir" Name="Licences" />
       </Directory>
     </StandardDirectory>
 
-    <!-- Only used when OBSDIR was found (the component is conditioned on it). -->
+    <!-- Only used when OBSDIR was found (the components are conditioned on it). -->
     <Directory Id="OBSDIR" Name="obs-studio">
       <Directory Id="ObsPluginsDir" Name="obs-plugins">
         <Directory Id="ObsPlugins64Dir" Name="64bit" />
       </Directory>
       <Directory Id="ObsDataDir" Name="data">
         <Directory Id="ObsDataPluginsDir" Name="obs-plugins">
-          <Directory Id="ObsDataOpenXrDir" Name="win-openxr">
+          <Directory Id="ObsDataGazeMirrorDir" Name="gaze-mirror-capture">
             <Directory Id="ObsDataLocaleDir" Name="locale" />
           </Directory>
         </Directory>
@@ -86,10 +82,11 @@
     </Directory>
 
     <Feature Id="Main" Title="QuadViews Gaze Mirror" Level="1">
-      <ComponentGroupRef Id="QuadViewsFiles" />
-      <ComponentGroupRef Id="ObsMirrorFiles" />
+      <ComponentGroupRef Id="LayerFiles" />
       <ComponentRef Id="LayerRegistration" />
       <ComponentGroupRef Id="SettingsApp" />
+      <ComponentGroupRef Id="QuadViewsInstaller" />
+      <ComponentGroupRef Id="Licences" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="DesktopShortcut" />
       <ComponentRef Id="RememberChoices" />
@@ -100,65 +97,60 @@
     <UIRef Id="GazeOverlayUI" />
     <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;QuadViews Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add an &quot;OpenXR Mirror Capture&quot; source to your scene. Running this installer again offers Repair and Uninstall." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;QuadViews Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status tab reports the layer order, press its Fix order button. Running this installer again offers Repair and Uninstall." />
   </Package>
 
   <Fragment>
-    <ComponentGroup Id="QuadViewsFiles" Directory="QuadViewsDir">
+    <!-- The gaze mirror layer: loaded by OpenXR games. -->
+    <ComponentGroup Id="LayerFiles" Directory="LayerDir">
       <Component>
-        <File Id="QuadViewsDll" Source="$(var.PayloadDir)\QuadViewsFoveated\XR_APILAYER_MBUCCHIA_quad_views_foveated.dll" />
+        <File Id="LayerDll" Source="$(var.PayloadDir)\Layer\XR_APILAYER_NOVENDOR_gaze_mirror.dll" />
       </Component>
       <Component>
-        <File Id="QuadViewsJson" Source="$(var.PayloadDir)\QuadViewsFoveated\openxr-api-layer.json" />
-      </Component>
-      <Component>
-        <!-- Defaults only; users override them in %LocalAppData%\Quad-Views-Foveated\settings.cfg, which is never touched. -->
-        <File Id="QuadViewsSettings" Source="$(var.PayloadDir)\QuadViewsFoveated\settings.cfg" />
-      </Component>
-      <Component>
-        <File Id="QuadViewsLicense" Source="$(var.PayloadDir)\QuadViewsFoveated\LICENSE" Name="LICENSE.txt" />
-      </Component>
-      <Component>
-        <File Id="QuadViewsThirdParty" Source="$(var.PayloadDir)\QuadViewsFoveated\THIRD_PARTY" Name="THIRD_PARTY.txt" />
-      </Component>
-    </ComponentGroup>
-
-    <ComponentGroup Id="ObsMirrorFiles" Directory="ObsMirrorDir">
-      <Component>
-        <File Id="ObsMirrorDll" Source="$(var.PayloadDir)\OBSMirror\XR_APILAYER_NOVENDOR_OBSMirror.dll" />
-      </Component>
-      <Component>
-        <File Id="ObsMirrorJson" Source="$(var.PayloadDir)\OBSMirror\XR_APILAYER_NOVENDOR_OBSMirror.json" />
-      </Component>
-      <Component>
-        <File Id="ObsMirrorLicense" Source="$(var.PayloadDir)\OBSMirror\LICENSE" Name="LICENSE.txt" />
-      </Component>
-      <Component>
-        <File Id="ObsMirrorThirdParty" Source="$(var.PayloadDir)\OBSMirror\THIRD_PARTY" Name="THIRD_PARTY.txt" />
+        <File Id="LayerJson" Source="$(var.PayloadDir)\Layer\XR_APILAYER_NOVENDOR_gaze_mirror.json" />
       </Component>
     </ComponentGroup>
 
     <!--
-      OpenXR loads implicit layers in the order their registry values were created, and Quad-Views-Foveated must come
-      before OBSMirror (which only understands the final stereo image). Both values live in one component and their row
-      ids sort in that order, which is the order Windows Installer writes them in. The settings app's Status tab
-      double-checks the result.
+      OpenXR loads implicit layers in the order their registry values were created. This layer must sit below
+      Quad-Views-Foveated; when that is installed later (for example from the offer on the last page), the settings
+      app's Status tab notices and its "Fix order" button puts it right.
     -->
     <Component Id="LayerRegistration" Directory="INSTALLFOLDER" Guid="9C7E2A51-6B0D-4F5E-A3C4-2D1F8E7B6A90">
-      <RegistryValue Id="Layer1QuadViews" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
-                     Name="[QuadViewsDir]openxr-api-layer.json" Type="integer" Value="0" KeyPath="yes" />
-      <RegistryValue Id="Layer2ObsMirror" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
-                     Name="[ObsMirrorDir]XR_APILAYER_NOVENDOR_OBSMirror.json" Type="integer" Value="0" />
+      <RegistryValue Id="LayerGazeMirror" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
+                     Name="[LayerDir]XR_APILAYER_NOVENDOR_gaze_mirror.json" Type="integer" Value="0" KeyPath="yes" />
     </Component>
 
-    <!-- The settings app: a self-contained .NET program, harvested as published. -->
+    <!-- The settings app, the mirror window and the SteamVR helper (with Valve's OpenVR library), harvested as published. -->
     <ComponentGroup Id="SettingsApp" Directory="INSTALLFOLDER">
       <Files Include="$(var.AppDir)\**" />
     </ComponentGroup>
 
+    <!-- The official, unmodified Quad-Views-Foveated installer, for the offer on the last page and the app's Install button. -->
+    <ComponentGroup Id="QuadViewsInstaller" Directory="QuadViewsDir">
+      <Component>
+        <File Id="QuadViewsInstallerFile" Source="$(var.PayloadDir)\Quad-Views-Foveated\Quad-Views-Foveated-1.1.3.msi" />
+      </Component>
+      <Component>
+        <File Id="QuadViewsLicence" Source="$(var.PayloadDir)\Quad-Views-Foveated\LICENSE" Name="LICENSE.txt" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="Licences" Directory="LicencesDir">
+      <Component>
+        <File Id="LicenceOwn" Source="$(var.PayloadDir)\Licences\LICENSE-QuadViews-Gaze-Mirror.txt" />
+      </Component>
+      <Component>
+        <File Id="LicenceObsPlugin" Source="$(var.PayloadDir)\Licences\LICENSE-OBS-plugin-GPL-2.txt" />
+      </Component>
+      <Component>
+        <File Id="LicenceOpenVR" Source="$(var.PayloadDir)\Licences\LICENSE-OpenVR.txt" />
+      </Component>
+    </ComponentGroup>
+
     <StandardDirectory Id="ProgramMenuFolder">
       <Component Id="StartMenuShortcut" Guid="4E1B7C36-0A92-4D8F-B5E7-9F3A6C2D1B48">
-        <Shortcut Id="SettingsShortcut" Name="QuadViews Gaze Mirror" Description="Quad views, OBS mirror and gaze ring settings"
+        <Shortcut Id="SettingsShortcut" Name="QuadViews Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
                   Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -166,7 +158,7 @@
 
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Condition="DESKTOPSHORTCUT = &quot;1&quot;">
-        <Shortcut Id="SettingsDesktopShortcut" Name="QuadViews Gaze Mirror" Description="Quad views, OBS mirror and gaze ring settings"
+        <Shortcut Id="SettingsDesktopShortcut" Name="QuadViews Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
                   Target="[INSTALLFOLDER]QuadViewsGazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -176,27 +168,13 @@
       <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="DesktopShortcut" Type="string" Value="[DESKTOPSHORTCUTCHOICE]" KeyPath="yes" />
     </Component>
 
-    <!--
-      The OBS plugin is the unmodified upstream one. NeverOverwrite: leave a plugin that is already there alone.
-      Permanent: never remove it on uninstall, since it may have come from the original OBSMirror install and OBS
-      scenes may depend on it.
-    -->
+    <!-- The OBS plugin is this project's own: replaced by every version, removed on uninstall. -->
     <ComponentGroup Id="ObsPlugin">
-      <Component Id="ObsPluginDll" Directory="ObsPlugins64Dir" Guid="B2D94F10-7C3E-4A68-9E51-3F8A0D6C7E25" Condition="OBSDIR"
-                 Permanent="yes" NeverOverwrite="yes">
-        <File Id="ObsPluginDllFile" Source="$(var.PayloadDir)\OBSPlugin\obs-plugins\64bit\win-openxr.dll" KeyPath="yes" />
+      <Component Id="ObsPluginDll" Directory="ObsPlugins64Dir" Guid="B2D94F10-7C3E-4A68-9E51-3F8A0D6C7E25" Condition="OBSDIR">
+        <File Id="ObsPluginDllFile" Source="$(var.PayloadDir)\OBSPlugin\obs-plugins\64bit\gaze-mirror-capture.dll" KeyPath="yes" />
       </Component>
-      <Component Id="ObsPluginPresets" Directory="ObsDataOpenXrDir" Guid="6A0F3E82-D15B-4C97-8B24-E7C9A1F05D33" Condition="OBSDIR"
-                 Permanent="yes" NeverOverwrite="yes">
-        <File Id="ObsPluginPresetsFile" Source="$(var.PayloadDir)\OBSPlugin\data\obs-plugins\win-openxr\win_openxrmirror-presets.ini" KeyPath="yes" />
-      </Component>
-      <Component Id="ObsPluginLocaleEn" Directory="ObsDataLocaleDir" Guid="D7C21B95-3E4A-4F06-A8D2-5B9E0C1F7A64" Condition="OBSDIR"
-                 Permanent="yes" NeverOverwrite="yes">
-        <File Id="ObsPluginLocaleEnFile" Source="$(var.PayloadDir)\OBSPlugin\data\obs-plugins\win-openxr\locale\en-US.ini" KeyPath="yes" />
-      </Component>
-      <Component Id="ObsPluginLocaleFi" Directory="ObsDataLocaleDir" Guid="1F8E5A07-B96C-4D23-9A7F-C0D4E2B8F156" Condition="OBSDIR"
-                 Permanent="yes" NeverOverwrite="yes">
-        <File Id="ObsPluginLocaleFiFile" Source="$(var.PayloadDir)\OBSPlugin\data\obs-plugins\win-openxr\locale\fi-FI.ini" KeyPath="yes" />
+      <Component Id="ObsPluginLocaleEn" Directory="ObsDataLocaleDir" Guid="D7C21B95-3E4A-4F06-A8D2-5B9E0C1F7A64" Condition="OBSDIR">
+        <File Id="ObsPluginLocaleEnFile" Source="$(var.PayloadDir)\OBSPlugin\data\obs-plugins\gaze-mirror-capture\locale\en-US.ini" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

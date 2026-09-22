@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -92,5 +93,11 @@ namespace gaze_mirror {
 
         Reader readers[ReaderCount];
     };
+
+    // The settings app reads this block from C# by offset: keep them where they are (or bump FramesVersion).
+    static_assert(offsetof(Frames, producerKind) == 12 && offsetof(Frames, width) == 24 && offsetof(Frames, height) == 28, "layout");
+    static_assert(offsetof(Frames, eye) == 84 && offsetof(Frames, gazeValid) == 96 && offsetof(Frames, gazeU) == 100, "layout");
+    static_assert(offsetof(Frames, producerProgram) == 112 && offsetof(Frames, producerApplication) == 176, "layout");
+    static_assert(offsetof(Frames, readers) == 304 && sizeof(Frames) == 400, "layout");
 
 } // namespace gaze_mirror

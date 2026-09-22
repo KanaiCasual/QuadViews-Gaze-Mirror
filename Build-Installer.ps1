@@ -1,14 +1,15 @@
-# Builds dist\QuadViews-Gaze-Mirror-<version>.msi: both OpenXR layers, the OBS plugin and the settings app.
-# Prerequisites: both layers already built (Build-Layers.ps1), the .NET 10 SDK, and internet access the first time (the
-# WiX toolset comes from nuget.org as part of the build).
+# Builds dist\QuadViews-Gaze-Mirror-<version>.msi: the gaze mirror layer, the SteamVR helper, the OBS plugin, the mirror
+# window and the settings app (all from v2\), plus the official Quad-Views-Foveated installer as an optional extra.
+# Prerequisites: Visual Studio 2022 (C++), the .NET 10 SDK, the GitHub CLI for v2\Get-External.ps1 (first time only),
+# and internet access the first time (the WiX toolset comes from nuget.org as part of the build).
 #
-#   .\Build-Installer.ps1 -Version 1.2.2                 a normal release
-#   .\Build-Installer.ps1 -Version 0.4.1 -Label beta.1   a beta: the app calls itself 0.4.1-beta.1, the MSI is 0.4.1
+#   .\Build-Installer.ps1 -Version 1.9.0                 a normal build
+#   .\Build-Installer.ps1 -Version 2.0.0 -Label beta.1   a beta: the app calls itself 2.0.0-beta.1, the MSI is 2.0.0
 #
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '1.2.2',
+    [string]$Version = '1.9.0',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
     [string]$GitHubRepository = 'KanaiCasual/QuadViews-Gaze-Mirror'
@@ -21,20 +22,25 @@ $dist = Join-Path $root 'dist'
 $appOut = Join-Path $dist 'app'
 $appVersion = if ($Label) { "$Version-$Label" } else { $Version }
 
-# 1) Layer DLLs, manifests, licences and the OBS plugin -> GazeOverlayApp\Payload
+# 1) Third-party files (fetched once) and every 2.0 binary, with the offline layer test.
+& (Join-Path $root 'v2\Get-External.ps1') | Out-Null
+& (Join-Path $root 'v2\Build-Dev.ps1') | Out-Null
+
+# 2) Layer, OBS plugin, Quad-Views-Foveated installer and licences -> GazeOverlayApp\Payload
 & (Join-Path $root 'GazeOverlayApp\Collect-Payload.ps1') | Out-Null
 
-# 2) Settings app, self-contained, as a plain folder (the MSI installs it).
+# 3) Settings app, self-contained, as a plain folder (the MSI installs it).
 if (Test-Path $appOut) { Remove-Item $appOut -Recurse -Force }
 dotnet publish (Join-Path $root 'GazeOverlayApp\GazeOverlayApp.csproj') -c Release -o $appOut -v q --nologo `
     "-p:Version=$appVersion" "-p:GitHubRepository=$GitHubRepository"
 if ($LASTEXITCODE -ne 0) { throw "Publishing the settings app failed." }
 
-# 2b) The mirror window, next to the settings app (the MSI installs everything in that folder).
-& (Join-Path $root 'Build-MirrorWindow.ps1') | Out-Null
-Copy-Item (Join-Path $root 'MirrorWindow\bin\x64\Release\MirrorWindow.exe') $appOut -Force
+# 3b) The mirror window and the SteamVR helper, next to the settings app (the app finds them there).
+Copy-Item (Join-Path $root 'v2\bin\mirror-window\MirrorWindow.exe') $appOut -Force
+Copy-Item (Join-Path $root 'v2\bin\helper\GazeMirrorHelper.exe') $appOut -Force
+Copy-Item (Join-Path $root 'v2\bin\helper\openvr_api.dll') $appOut -Force
 
-# 3) The MSI.
+# 4) The MSI.
 $payload = Join-Path $root 'GazeOverlayApp\Payload'
 dotnet build (Join-Path $root 'Installer\GazeOverlay.Installer.wixproj') -c Release -v q --nologo `
     "-p:ProductVersion=$Version" "-p:PayloadDir=$payload" "-p:AppDir=$appOut"

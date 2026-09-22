@@ -37,6 +37,22 @@ namespace gaze_mirror {
         return std::wstring(folder) + L"\\XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg";
     }
 
+    std::wstring ProfilesFilePath() {
+        wchar_t overridden[MAX_PATH];
+        const DWORD overriddenLength = GetEnvironmentVariableW(L"GAZE_MIRROR_PROFILES_FILE", overridden, MAX_PATH);
+        if (overriddenLength > 0 && overriddenLength < MAX_PATH) return overridden;
+        wchar_t folder[MAX_PATH];
+        const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", folder, MAX_PATH);
+        if (length == 0 || length >= MAX_PATH) return {};
+        return std::wstring(folder) + L"\\QuadViewsGazeMirror\\crop-profiles.ini";
+    }
+
+    void SettingsSource::setGame(const char* program, const char* application) {
+        _program = program ? program : "";
+        _application = application ? application : "";
+        applyProfile(_settings);
+    }
+
     SettingsSource::~SettingsSource() {
         if (_signal) UnmapViewOfFile(_signal);
         if (_mapping) CloseHandle(_mapping);
@@ -83,9 +99,59 @@ namespace gaze_mirror {
             if (comment != std::string::npos) text.erase(comment);
             const size_t equals = text.find('=');
             if (equals == std::string::npos) continue;
-            const std::string key = Trim(text.substr(0, equals));
-            const std::string value = Trim(text.substr(equals + 1));
+            ApplyKey(fresh, Trim(text.substr(0, equals)), Trim(text.substr(equals + 1)));
+        }
+        fclose(file);
+        applyProfile(fresh);
+        _settings = fresh;
+        Log("settings: ring %s style %d, crop %s h %.3f aspect %.3f at (%.3f, %.3f) follow %s steady %s, eye %s, output max %u fps %.0f%s%s",
+            fresh.enabled ? "on" : "off", int(fresh.style), fresh.cropEnabled ? "on" : "off", fresh.cropHeight, fresh.cropAspect,
+            fresh.cropCenterX, fresh.cropCenterY, fresh.cropFollowVertical ? "on" : "off", fresh.stabilize ? "on" : "off",
+            fresh.eye == 0 ? "left" : "right", fresh.outputMaxSide, fresh.outputFps, _activeProfile.empty() ? "" : ", crop profile ",
+            _activeProfile.c_str());
+    }
 
+    // The crop profile made for the running game, if any, on top of the file's values.
+    void SettingsSource::applyProfile(Settings& settings) {
+        _activeProfile.clear();
+        if (_program.empty() && _application.empty()) return;
+        const std::wstring path = ProfilesFilePath();
+        FILE* file = path.empty() ? nullptr : _wfsopen(path.c_str(), L"r", _SH_DENYNO);
+        if (!file) return;
+        // First pass: find the section whose game matches; second pass: apply its keys.
+        std::vector<std::pair<std::string, std::vector<std::pair<std::string, std::string>>>> sections;
+        char line[512];
+        while (fgets(line, sizeof(line), file)) {
+            std::string text = Trim(line);
+            if (text.empty() || text[0] == '#' || text[0] == ';') continue;
+            if (text.front() == '[' && text.back() == ']') {
+                sections.push_back({Trim(text.substr(1, text.size() - 2)), {}});
+                continue;
+            }
+            const size_t equals = text.find('=');
+            if (equals == std::string::npos || sections.empty()) continue;
+            sections.back().second.push_back({Trim(text.substr(0, equals)), Trim(text.substr(equals + 1))});
+        }
+        fclose(file);
+        const auto sameName = [](const std::string& a, const std::string& b) {
+            return a.size() == b.size() && _strnicmp(a.c_str(), b.c_str(), a.size()) == 0;
+        };
+        for (const auto& section : sections) {
+            bool matches = false;
+            for (const auto& entry : section.second) {
+                if (entry.first == "game" && !entry.second.empty() && (sameName(entry.second, _program) || sameName(entry.second, _application))) matches = true;
+            }
+            if (!matches) continue;
+            for (const auto& entry : section.second) {
+                if (entry.first != "game" && entry.first != "mirror_eye" && entry.first.rfind("output_", 0) != 0) ApplyKey(settings, entry.first, entry.second);
+            }
+            _activeProfile = section.first;
+            return;
+        }
+    }
+
+    void SettingsSource::ApplyKey(Settings& fresh, const std::string& key, const std::string& value) {
+        {
             if (key == "enabled") fresh.enabled = Flag(value, fresh.enabled);
             else if (key == "style") {
                 static const std::pair<const char*, Style> names[] = {{"ring", Style::Ring}, {"glow", Style::Glow}, {"dot", Style::Dot},
@@ -152,12 +218,6 @@ namespace gaze_mirror {
             else if (key == "output_max_side") fresh.outputMaxSide = static_cast<uint32_t>(Number(value, 3840.f, 0.f, 16384.f));
             else if (key == "output_fps") fresh.outputFps = Number(value, 0.f, 0.f, 1000.f);
         }
-        fclose(file);
-        _settings = fresh;
-        Log("settings: ring %s style %d, crop %s h %.3f aspect %.3f at (%.3f, %.3f) follow %s steady %s, eye %s, output max %u fps %.0f",
-            fresh.enabled ? "on" : "off", int(fresh.style), fresh.cropEnabled ? "on" : "off", fresh.cropHeight, fresh.cropAspect,
-            fresh.cropCenterX, fresh.cropCenterY, fresh.cropFollowVertical ? "on" : "off", fresh.stabilize ? "on" : "off",
-            fresh.eye == 0 ? "left" : "right", fresh.outputMaxSide, fresh.outputFps);
     }
 
     // Rewrites only the lines of the given keys; unknown keys are appended. Comments and order stay as they are.

@@ -31,7 +31,6 @@ public static class MirrorSnapshot
     public const int MaxSize = 640;
     public const int SecondPixelsOffset = PixelsOffset + MaxSize * MaxSize * 4;
     public const int BlockSize = SecondPixelsOffset + MaxSize * MaxSize * 4;
-    private const string SurfaceName = "OpenXROBSMirrorSurface";
 
     /// <summary>
     /// Arms "capture with key" in the running game: the LAYER then watches that key (virtual-key code) and takes one picture
@@ -69,25 +68,6 @@ public static class MirrorSnapshot
         }
     }
 
-    /// <summary>
-    /// "Somebody is reading the mirror picture": the layer only works on the mirror image while that counter moves (OBS
-    /// showing the source, or the mirror window, do it). While a capture is armed the app says so itself, so that the key
-    /// works with neither of them open.
-    /// </summary>
-    public static void KeepMirrorAlive()
-    {
-        try
-        {
-            using var mapping = MemoryMappedFile.OpenExisting(SurfaceName, MemoryMappedFileRights.ReadWrite);
-            using var view = mapping.CreateViewAccessor(0, 8, MemoryMappedFileAccess.ReadWrite);
-            view.Write(4, view.ReadUInt32(4) + 1);
-        }
-        catch
-        {
-            // No game running (yet).
-        }
-    }
-
     public static async Task<(MirrorPicture? Picture, string Message)> RequestAsync()
     {
         try
@@ -107,7 +87,7 @@ public static class MirrorSnapshot
                 await Task.Delay(50);
                 if (ReadGeneration() is { } now && now != before) return (Read(), "");
             }
-            return (null, "The game did not answer. It only works on the mirror image while OBS is showing the OpenXR Mirror Capture source.");
+            return (null, "The game did not answer. Is it showing a picture in the headset?");
         }
         catch (FileNotFoundException)
         {

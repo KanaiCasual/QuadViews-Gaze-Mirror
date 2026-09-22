@@ -8,6 +8,7 @@ namespace gaze_mirror {
     bool Pipeline::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application) {
         stop();
         _settings.open();
+        _settings.setGame(program, application);
         if (!_renderer.start(device)) return false;
         if (!_publisher.start(device, producerKind, program, application)) {
             _renderer.stop();

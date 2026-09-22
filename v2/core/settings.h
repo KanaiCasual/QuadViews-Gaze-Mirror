@@ -85,6 +85,13 @@ namespace gaze_mirror {
         // Reads the file now and connects to the app's signal.
         void open();
 
+        // The game this producer runs for; a crop profile made for it (crop-profiles.ini, see below) then overrides the
+        // crop keys of the file, now and at every reload. Empty = no profile.
+        void setGame(const char* program, const char* application);
+        const std::string& activeProfile() const {
+            return _activeProfile;
+        }
+
         // Once per frame. True when the settings were read again.
         bool refreshIfSignalled();
 
@@ -113,12 +120,19 @@ namespace gaze_mirror {
       private:
         void read();
 
+        void applyProfile(Settings& settings);
+        static void ApplyKey(Settings& settings, const std::string& key, const std::string& value);
+
         Settings _settings;
+        std::string _program, _application, _activeProfile;
         HANDLE _mapping = nullptr;
         Signal* _signal = nullptr;
         LONG _seenGeneration = 0;
     };
 
     std::wstring SettingsFilePath();
+    // %LocalAppData%\QuadViewsGazeMirror\crop-profiles.ini: "[name]" sections with "game=<program or application>"
+    // and any crop_* / stabilize* keys, written by the settings app.
+    std::wstring ProfilesFilePath();
 
 } // namespace gaze_mirror

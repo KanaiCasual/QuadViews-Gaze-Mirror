@@ -5,8 +5,9 @@
 // SteamVR's eye-gaze point and the head pose, and hands them to the same core the OpenXR layer uses - so crop, framing
 // and ring are the same, and the OBS plugin and the mirror window cannot tell the two apart.
 //
-//   - Started by SteamVR itself (the app registers it for auto-launch; "--steamvr" on that command line) or by the
-//     settings app. It never starts SteamVR: with SteamVR closed it leaves at once.
+//   - Started by SteamVR itself ("--steamvr" on that command line) once the settings app has registered it with
+//     "--register" (undone with "--unregister"), or by the settings app. It never starts SteamVR: with SteamVR
+//     closed it leaves at once.
 //   - Leaves when SteamVR closes (VREvent_Quit) and when an OpenXR game's layer takes the shared block over it stands
 //     by, on an event, until that game is gone.
 //   - Nothing polls: with no reader it sleeps on the producer-wake event (SteamVR's own event queue is looked at
@@ -117,10 +118,64 @@ namespace {
         return mirror.texture != nullptr;
     }
 
+    constexpr char AppKey[] = "kanaicasual.quadviewsgazemirror.helper";
+
+    // Tells SteamVR about this program (an application manifest next to the exe) and asks it to start it with SteamVR,
+    // or takes that back. Works without a headset (utility connection). Exit code 0 = done.
+    int Register(bool on) {
+        wchar_t modulePath[MAX_PATH];
+        GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+        std::wstring folder = modulePath;
+        folder.erase(folder.find_last_of(L'\\'));
+        const std::wstring manifestPath = folder + L"\\GazeMirrorHelper.vrmanifest";
+        if (on) {
+            FILE* file = _wfsopen(manifestPath.c_str(), L"w", _SH_DENYWR);
+            if (!file) {
+                Log("register: the manifest could not be written");
+                return 2;
+            }
+            // is_dashboard_overlay: SteamVR only auto-launches programs it regards as overlays; this one never shows one.
+            fprintf(file,
+                    "{\n  \"source\": \"builtin\",\n  \"applications\": [ {\n"
+                    "    \"app_key\": \"%s\",\n    \"launch_type\": \"binary\",\n"
+                    "    \"binary_path_windows\": \"GazeMirrorHelper.exe\",\n    \"arguments\": \"--steamvr\",\n"
+                    "    \"is_dashboard_overlay\": true,\n"
+                    "    \"strings\": { \"en_us\": { \"name\": \"QuadViews Gaze Mirror helper\", "
+                    "\"description\": \"Mirror picture with gaze ring for SteamVR games (OBS, mirror window)\" } }\n  } ]\n}\n",
+                    AppKey);
+            fclose(file);
+        }
+        vr::EVRInitError initError = vr::VRInitError_None;
+        vr::VR_Init(&initError, vr::VRApplication_Utility);
+        if (initError != vr::VRInitError_None || !vr::VRApplications()) {
+            Log("register: SteamVR's application list is not reachable (%d: %s)", int(initError), vr::VR_GetVRInitErrorAsEnglishDescription(initError));
+            return 3;
+        }
+        char utf8[MAX_PATH * 3] = {};
+        WideCharToMultiByte(CP_UTF8, 0, manifestPath.c_str(), -1, utf8, sizeof(utf8) - 1, nullptr, nullptr);
+        int result = 0;
+        if (on) {
+            const vr::EVRApplicationError added = vr::VRApplications()->AddApplicationManifest(utf8);
+            const vr::EVRApplicationError launch = added == vr::VRApplicationError_None ? vr::VRApplications()->SetApplicationAutoLaunch(AppKey, true)
+                                                                                         : added;
+            Log("register: manifest %d, auto-launch %d", int(added), int(launch));
+            result = launch == vr::VRApplicationError_None ? 0 : 4;
+        } else {
+            vr::VRApplications()->SetApplicationAutoLaunch(AppKey, false);
+            const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(utf8);
+            Log("unregister: manifest removed %d", int(removed));
+            DeleteFileW(manifestPath.c_str());
+        }
+        vr::VR_Shutdown();
+        return result;
+    }
+
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     SetLogName(L"gaze-mirror-helper");
+    if (wcsstr(commandLine, L"--register")) return Register(true);
+    if (wcsstr(commandLine, L"--unregister")) return Register(false);
     const bool bySteamVR = wcsstr(commandLine, L"--steamvr") != nullptr;
     HANDLE running = CreateMutexW(nullptr, TRUE, L"GazeMirror2.HelperRunning");
     if (running && GetLastError() == ERROR_ALREADY_EXISTS) {
