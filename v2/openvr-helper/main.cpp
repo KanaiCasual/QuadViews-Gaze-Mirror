@@ -123,10 +123,15 @@ namespace {
     // Tells SteamVR about this program (an application manifest next to the exe) and asks it to start it with SteamVR,
     // or takes that back. Works without a headset (utility connection). Exit code 0 = done.
     int Register(bool on) {
+        // The manifest goes to the user's data folder (the exe may sit in Program Files, which needs administrator rights
+        // to write to - and nothing here ever runs elevated); it names the exe by its full path.
         wchar_t modulePath[MAX_PATH];
         GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
-        std::wstring folder = modulePath;
-        folder.erase(folder.find_last_of(L'\\'));
+        wchar_t dataFolder[MAX_PATH];
+        const DWORD dataLength = GetEnvironmentVariableW(L"LOCALAPPDATA", dataFolder, MAX_PATH);
+        if (dataLength == 0 || dataLength >= MAX_PATH) return 2;
+        std::wstring folder = std::wstring(dataFolder) + L"\\QuadViewsGazeMirror";
+        CreateDirectoryW(folder.c_str(), nullptr);
         const std::wstring manifestPath = folder + L"\\GazeMirrorHelper.vrmanifest";
         if (on) {
             FILE* file = _wfsopen(manifestPath.c_str(), L"w", _SH_DENYWR);
@@ -134,15 +139,24 @@ namespace {
                 Log("register: the manifest could not be written");
                 return 2;
             }
+            std::string exePath;
+            {
+                char utf8Path[MAX_PATH * 3] = {};
+                WideCharToMultiByte(CP_UTF8, 0, modulePath, -1, utf8Path, sizeof(utf8Path) - 1, nullptr, nullptr);
+                for (const char* c = utf8Path; *c; c++) { // JSON: backslashes and quotes escaped.
+                    if (*c == '\\' || *c == '"') exePath += '\\';
+                    exePath += *c;
+                }
+            }
             // is_dashboard_overlay: SteamVR only auto-launches programs it regards as overlays; this one never shows one.
             fprintf(file,
                     "{\n  \"source\": \"builtin\",\n  \"applications\": [ {\n"
                     "    \"app_key\": \"%s\",\n    \"launch_type\": \"binary\",\n"
-                    "    \"binary_path_windows\": \"GazeMirrorHelper.exe\",\n    \"arguments\": \"--steamvr\",\n"
+                    "    \"binary_path_windows\": \"%s\",\n    \"arguments\": \"--steamvr\",\n"
                     "    \"is_dashboard_overlay\": true,\n"
                     "    \"strings\": { \"en_us\": { \"name\": \"QuadViews Gaze Mirror helper\", "
                     "\"description\": \"Mirror picture with gaze ring for SteamVR games (OBS, mirror window)\" } }\n  } ]\n}\n",
-                    AppKey);
+                    AppKey, exePath.c_str());
             fclose(file);
         }
         vr::EVRInitError initError = vr::VRInitError_None;
