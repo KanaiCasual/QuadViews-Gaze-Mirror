@@ -28,6 +28,7 @@
 
 #include "../core/log.h"
 #include "../core/pipeline.h"
+#include "vrchat_osc.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace gaze_mirror;
@@ -190,6 +191,14 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     SetLogName(L"gaze-mirror-helper");
     if (wcsstr(commandLine, L"--register")) return Register(true);
     if (wcsstr(commandLine, L"--unregister")) return Register(false);
+    if (wcsstr(commandLine, L"--vrchat-test")) {
+        // Development aid: only the VRChat link, without SteamVR, for half a minute - to poke it from a script.
+        VrchatOscLink link;
+        if (!link.start()) return 1;
+        Sleep(30000);
+        link.stop();
+        return 0;
+    }
     const bool bySteamVR = wcsstr(commandLine, L"--steamvr") != nullptr;
     HANDLE running = CreateMutexW(nullptr, TRUE, L"GazeMirror2.HelperRunning");
     if (running && GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -225,6 +234,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
 
     HANDLE wake = CreateEventW(nullptr, FALSE, FALSE, ProducerWakeName);
     Pipeline pipeline;
+    // VRChat's eye parameters over OSC, for headsets SteamVR gets no gaze from. Runs as long as the helper does.
+    VrchatOscLink vrchat;
+    vrchat.start();
     Mirror mirror;
     SceneApp scene;
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);
@@ -339,6 +351,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
 
     if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
     mirror = {};
+    vrchat.stop();
     pipeline.stop();
     vr::VR_Shutdown();
     if (wake) CloseHandle(wake);

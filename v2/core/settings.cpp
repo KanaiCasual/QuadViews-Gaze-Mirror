@@ -217,8 +217,8 @@ namespace gaze_mirror {
             else if (key == "mirror_eye") fresh.eye = value == "left" ? 0 : 1;
             else if (key == "output_max_side") fresh.outputMaxSide = static_cast<uint32_t>(Number(value, 3840.f, 0.f, 16384.f));
             else if (key == "output_fps") fresh.outputFps = Number(value, 0.f, 0.f, 1000.f);
-            else if (key == "gaze_source") fresh.gazeSource = value == "headset" ? 1 : value == "vrcft" ? 2 : 0;
-            else if (key == "vrcft_scale") fresh.vrcftScale = Number(value, 1.f, 0.1f, 5.f);
+            else if (key == "gaze_source") fresh.gazeSource = value == "headset" ? 1 : value == "vrchat" ? 2 : 0;
+            else if (key == "vrchat_scale") fresh.vrchatScale = Number(value, 1.f, 0.1f, 5.f);
         }
     }
 

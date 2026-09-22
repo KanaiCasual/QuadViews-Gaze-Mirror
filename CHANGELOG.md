@@ -14,7 +14,7 @@
 - New look: a rail of pages on the left, cards, dark only. Look is now called Ring.
 - Updates from inside the app: "Download and install" saves the new installer into Downloads, checks it against the SHA-256 published with the release, and opens it with Windows Installer.
 - The Quad Views page is only listed while Quad-Views-Foveated is installed. A changelog on the About page.
-- Optional VRCFaceTracking module: a zip to add in VRCFT (Module Registry > Install from file). It passes the eye tracking that only VRCFT sees (SRanibro, EyeTrackVR, ALVR, ...) on to the mirror, so the ring works in SteamVR games on those setups too. "Gaze from" and a scale on the Mirror page.
+- Gaze from VRChat: the SteamVR helper is an OSCQuery service, so VRChat sends it the avatar's eye parameters. The ring then works in VRChat on headsets whose software drives the avatar but not SteamVR (VRCFaceTracking with SRanibro, EyeTrackVR, ALVR, ...). Nothing to install or configure; OSC must be on in VRChat. "Gaze from" and a scale on the Mirror page.
 - The app keeps a small log of what it did (app.log next to the layer's and the helper's logs; the Logs button on the About page opens the folder).
 
 ## 1.2.2 - 2026-09-20

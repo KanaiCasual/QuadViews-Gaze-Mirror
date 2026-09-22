@@ -1,4 +1,4 @@
-// VR Gaze Mirror 2.0 - core: eye gaze handed in from outside (the optional VRCFaceTracking module), see
+// VR Gaze Mirror 2.0 - core: eye gaze handed in from outside (VRChat's OSC output, received by the helper), see
 // protocol/gaze_mirror_protocol.h (ExternalGaze). Read only when a frame needs it; opening the block is retried now
 // and then, never on a timer.
 #pragma once

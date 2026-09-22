@@ -3,11 +3,10 @@
 #   external\libobs-lib\  an import library made from the INSTALLED obs.dll  - no download
 #   external\openvr\      Valve's OpenVR SDK v2.15.6: header, import library, redistributable DLL (BSD-3) - for the OpenVR helper
 #   external\qvf\         mbucchia's official Quad-Views-Foveated 1.1.3 installer (MIT) - bundled, offered by our installer
-#   external\vrcft\       VRCFaceTracking.Core's source, tag 5.2.3.0 (Apache-2.0) - the library the optional VRCFT module compiles against
 # Needs the GitHub CLI (gh) and Visual Studio 2022. Nothing is executed or installed.
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot 'external'
-New-Item -ItemType Directory -Force "$root\libobs", "$root\libobs-lib", "$root\openvr", "$root\qvf", "$root\vrcft" | Out-Null
+New-Item -ItemType Directory -Force "$root\libobs", "$root\libobs-lib", "$root\openvr", "$root\qvf" | Out-Null
 
 function Fetch($repo, $ref, $path, $target) {
     New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
@@ -44,18 +43,5 @@ if (-not (Test-Path "$root\qvf\Quad-Views-Foveated-1.1.3.msi")) {
     gh release download 1.1.3 --repo mbucchia/Quad-Views-Foveated --pattern 'Quad-Views-Foveated-1.1.3.msi' --dir "$root\qvf" --clobber
     Fetch 'mbucchia/Quad-Views-Foveated' '1.1.3' 'LICENSE' "$root\qvf\LICENSE"
     'Quad-Views-Foveated 1.1.3 installer fetched.'
-}
-if (-not (Test-Path "$root\vrcft\VRCFaceTracking.Core\VRCFaceTracking.Core.csproj")) {
-    # The module only needs to compile against the same types VRCFT itself has; at run time VRCFT's own copy is used.
-    # (No quotes inside the jq expression: Windows PowerShell 5.1 drops them on the way to gh.)
-    $tree = gh api 'repos/benaclejames/VRCFaceTracking/git/trees/5.2.3.0?recursive=1' --jq '.tree[] | [.type, .path] | @tsv' |
-        ForEach-Object { $type, $path = $_ -split "`t", 2; if ($type -eq 'blob') { $path } } |
-        Where-Object { $_ -like 'VRCFaceTracking.Core/*' -and $_ -notlike '*/Assets/*' }
-    foreach ($path in $tree) { Fetch 'benaclejames/VRCFaceTracking' '5.2.3.0' $path (Join-Path "$root\vrcft" ($path -replace '/', '\')) }
-    Fetch 'benaclejames/VRCFaceTracking' '5.2.3.0' 'LICENSE' "$root\vrcft\LICENSE"
-    # Its project file wants a native helper DLL copied to the output; that file belongs to the app, not to the library.
-    $csproj = "$root\vrcft\VRCFaceTracking.Core\VRCFaceTracking.Core.csproj"
-    (Get-Content $csproj -Raw) -replace '(?s)\s*<ItemGroup>\s*<Content Include="\.\.\\fti_osc\.dll".*?</ItemGroup>', '' | Set-Content $csproj -Encoding utf8
-    "VRCFaceTracking.Core source fetched ($($tree.Count) files)."
 }
 'External files are in place.'

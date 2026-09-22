@@ -475,13 +475,13 @@ public static class Settings
         new()
         {
             Key = "gaze_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "auto",
-            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset: OpenXR's eye-gaze extension or SteamVR's eye tracking. The VRCFT module: the optional VRCFaceTracking module shipped with this app (Status page), for headsets whose software only feeds VRCFT.",
-            Choices = [new("auto", "Headset, else the VRCFT module"), new("headset", "Headset only"), new("vrcft", "VRCFT module only")],
+            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset: OpenXR's eye-gaze extension or SteamVR's eye tracking. VRChat: the avatar's eye parameters, which VRChat sends out over OSC to the SteamVR helper - for headsets whose software drives the avatar (VRCFaceTracking, EyeTrackVR, ALVR, ...) but not SteamVR. Needs OSC on in VRChat and an avatar with eye parameters.",
+            Choices = [new("auto", "Headset, else VRChat"), new("headset", "Headset only"), new("vrchat", "VRChat only")],
         },
         new()
         {
-            Key = "vrcft_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.25, Max = 3, Step = 0.05,
-            Label = "VRCFT scale", Description = "Only with the VRCFT module. VRCFT's gaze is a -1..1 pair whose reach differs between eye-tracking modules; if the ring travels too little or too far for how far your eyes move, change this.",
+            Key = "vrchat_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.25, Max = 3, Step = 0.05,
+            Label = "VRChat scale", Description = "Only with gaze from VRChat. The avatar's eye parameters are a -1..1 pair whose reach differs between setups; if the ring travels too little or too far for how far your eyes move, change this.",
         },
     ];
 

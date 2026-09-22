@@ -75,7 +75,7 @@ namespace gaze_mirror {
 
       private:
         bool target(const FrameInput& input, int eye, float out[2]) const;
-        // The frame's gaze, or the VRCFT module's in its place (gaze_source), as a ray in head space.
+        // The frame's gaze, or VRChat's in its place (gaze_source), as a ray in head space.
         GazeFrame chooseGaze(const FrameInput& input);
         void nudgeKeys();
 

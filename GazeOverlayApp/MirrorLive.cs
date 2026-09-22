@@ -8,7 +8,7 @@ namespace GazeOverlay;
 /// <summary>What the 2.0 mirror is doing right now, read from the shared block every producer and reader share.</summary>
 public sealed record MirrorState(bool Producing, bool OpenXR, string Program, string Application, int Width, int Height, bool GazeValid, int Eye);
 
-/// <summary>What the VRCFaceTracking module last wrote (see MirrorLive.ReadExternalGaze).</summary>
+/// <summary>What the helper last received from VRChat (see MirrorLive.ReadExternalGaze).</summary>
 public sealed record ExternalGazeState(bool Fresh, long AgeMs, string Writer, float LeftX, float LeftY, float RightX, float RightY);
 
 /// <summary>
@@ -115,18 +115,15 @@ public static class MirrorLive
 
     // ------------------------------------------------------------------ Quad-Views-Foveated's official installer
 
-    // ------------------------------------------------------------------ eye gaze from the VRCFaceTracking module
+    // ------------------------------------------------------------------ eye gaze from VRChat (received by the helper)
 
     private const string ExternalGazeName = "GazeMirror2.ExternalGaze";
     private const uint ExternalGazeMagic = 0x58324D47; // 'GM2X'
     private const int ExternalGazeSize = 400, ExternalGazeFreshMs = 250;
 
-    /// <summary>The optional VRCFT module's zip shipped with this app, or null.</summary>
-    public static string? FindVrcftModuleZip() => FindBeside("VR-Gaze-Mirror-VRCFT-module.zip", Path.Combine("v2", "bin", "vrcft-module"), subfolder: "VRCFT-module");
-
     /// <summary>
-    /// The block the VRCFT module writes (protocol: ExternalGaze), or null when no module has run since Windows started.
-    /// AgeMs is -1 until the first sample; Fresh = a sample within the last quarter second from a writer still there.
+    /// The block the helper fills with VRChat's eye parameters (protocol: ExternalGaze), or null when no helper has run
+    /// since Windows started. AgeMs is -1 until the first sample; Fresh = a sample within the last quarter second.
     /// </summary>
     public static ExternalGazeState? ReadExternalGaze()
     {

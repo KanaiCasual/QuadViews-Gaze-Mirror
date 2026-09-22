@@ -180,7 +180,7 @@
                         <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitle}" Text="GAZE"
-                                           ToolTip="Where the ring gets the eyes from. Normally the headset's own interface; the optional VRCFaceTracking module fills in for headsets whose software only feeds VRCFT." />
+                                           ToolTip="Where the ring gets the eyes from. Normally the headset's own interface; in VRChat, the avatar's eye parameters fill in for headsets whose software drives the avatar but not SteamVR." />
                                 <UniformGrid x:Name="PanelGaze" Columns="1" />
                                 <TextBlock x:Name="ExternalGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                             </StackPanel>

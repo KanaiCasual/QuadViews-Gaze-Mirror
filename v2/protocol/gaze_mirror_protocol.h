@@ -102,18 +102,19 @@ namespace gaze_mirror {
 
     // ---- Eye gaze from outside the headset's own interfaces.
     //
-    // Some headsets' software never feeds SteamVR's eye-tracking input or OpenXR's eye-gaze extension, but does feed
-    // VRCFaceTracking. The optional VRCFT module (v2/vrcft-module) copies VRCFT's eye data here, and a producer that
-    // has no gaze of its own (or is told to prefer this) reads it. Single writer; a sequence lock (odd while writing)
+    // Some headsets' software never feeds SteamVR's eye-tracking input or OpenXR's eye-gaze extension, but does drive
+    // a VRChat avatar's eye parameters (through VRCFaceTracking, EyeTrackVR, ALVR, ...). VRChat sends those out over
+    // OSC; the OpenVR helper receives them (openvr-helper/vrchat_osc.h) and writes them here, and a producer that has
+    // no gaze of its own (or is told to prefer this) reads it. Single writer; a sequence lock (odd while writing)
     // lets a reader notice a torn read and read again. Age is judged by writtenMs against GetTickCount64().
     //
-    // The gaze values are VRCFT's: per eye, x right and y up, the tangent-like -1..1 pair VRCFT's modules agree on
-    // (each module maps its hardware slightly differently, hence the vrcft_scale setting).
+    // The gaze values are the avatar's: per eye, x right and y up, -1..1, whose reach depends on the software that
+    // drives the avatar (hence the vrchat_scale setting).
 
     constexpr wchar_t ExternalGazeMappingName[] = L"GazeMirror2.ExternalGaze";
     constexpr uint32_t ExternalGazeMagic = 0x58324D47; // 'GM2X'
     constexpr uint32_t ExternalGazeVersion = 1;
-    constexpr LONG ExternalGazeSourceVrcft = 1;
+    constexpr LONG ExternalGazeSourceVrchatOsc = 2;
     constexpr ULONGLONG ExternalGazeFreshMs = 250; // Older than this = the writer stopped; the gaze counts as lost.
 
     struct ExternalGaze {
@@ -124,14 +125,14 @@ namespace gaze_mirror {
         volatile LONGLONG sequence;  // Odd while the writer is inside a write.
         volatile LONGLONG writtenMs; // GetTickCount64() (Environment.TickCount64) at the last write.
         volatile LONG writerPid;     // 0 once the writer has left.
-        LONG source;                 // ExternalGazeSourceVrcft.
+        LONG source;                 // ExternalGazeSourceVrchatOsc.
         LONG leftValid;
         LONG rightValid;
         float leftX, leftY;          // Left eye gaze.
         float rightX, rightY;        // Right eye gaze.
         float leftOpenness, rightOpenness; // 0 closed .. 1 open.
         float leftPupilMm, rightPupilMm;
-        char writerName[32];         // UTF-8, zero-terminated: "VRCFT module 2.0.0".
+        char writerName[32];         // UTF-8, zero-terminated: "VRChat OSC".
         uint8_t reserved[400 - 112];
     };
 

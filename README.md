@@ -215,14 +215,13 @@ Moving the box is only a different source rectangle for the copy the layer makes
 steadying cost nothing.
 
 **Gaze from** (the Gaze card): normally the ring gets the eyes from the headset itself - OpenXR's eye-gaze extension in
-OpenXR games, SteamVR's eye tracking in SteamVR games. Some headsets' software feeds neither, but does feed
-[VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking): SRanibro on Pimax, EyeTrackVR, Quest Pro over ALVR,
-and others. For those, the app ships an **optional VRCFT module**: a zip in the install folder (the Status page's *Show
-zip* button finds it). In VRCFT choose *Module Registry > Install from file*, pick the zip, restart VRCFT. The module
-makes no tracking data of its own - keep your real eye-tracking module - it only passes the eye data on to the mirror,
-and it loads last by design. The Gaze card then says *VRCFT module: feeding*. VRCFT's gaze is a -1..1 pair whose reach
-differs between modules, so **VRCFT scale** adjusts how far the ring travels. Works with VRCFT 5.2.x; a future VRCFT
-that runs modules in separate processes would need a different route.
+OpenXR games, SteamVR's eye tracking in SteamVR games. Some headsets' software feeds neither, but does drive a VRChat
+avatar's eye parameters (through [VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking) with SRanibro,
+EyeTrackVR, Quest Pro over ALVR, ...). For those, the SteamVR helper is an **OSCQuery service**: VRChat finds it on the
+machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing to install or set up - OSC has to
+be on in VRChat (it is, for every face-tracking user) and the avatar needs eye parameters (face-tracking avatars have
+them). The Gaze card says *VRChat: eye parameters arriving* once it works. The parameters are a -1..1 pair whose reach
+differs between setups, so **VRChat scale** adjusts how far the ring travels.
 
 ### Quad Views
 
@@ -271,7 +270,6 @@ Where things are:
 | What | Where |
 |---|---|
 | Program, layers, mirror window | `C:\Program Files\VR-Gaze-Mirror` |
-| The optional VRCFT module (zip for VRCFT's "Install from file") | `C:\Program Files\VR-Gaze-Mirror\VRCFT-module` |
 | Ring, crop, follow, steadying settings | `%LocalAppData%\XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg` ([sample](gaze.cfg)) |
 | Quad-Views-Foveated settings and log | `%LocalAppData%\Quad-Views-Foveated\` |
 | Mirror layer log | `%LocalAppData%\XR_APILAYER_NOVENDOR_OBSMirror.log` |

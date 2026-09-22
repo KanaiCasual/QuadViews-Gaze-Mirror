@@ -34,7 +34,7 @@ public partial class MainWindow
             row.ColumnDefinitions[0].Width = new GridLength(78);
             PanelOutput.Children.Add(row);
         }
-        foreach (var key in new[] { "gaze_source", "vrcft_scale" })
+        foreach (var key in new[] { "gaze_source", "vrchat_scale" })
         {
             var def = Settings.All.First(d => d.Key == key);
             var row = (Grid)BuildRow(def);
@@ -293,10 +293,10 @@ public partial class MainWindow
             ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")} - {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         var external = MirrorLive.ReadExternalGaze();
-        ExternalGazeStatus.Text = external == null ? "VRCFT module: not seen since Windows started. The zip is on the Status page."
-            : external.Fresh ? $"VRCFT module: feeding ({external.Writer}). Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
-            : external.AgeMs < 0 ? "VRCFT module: was loaded, nothing received yet."
-            : $"VRCFT module: stopped {external.AgeMs / 1000.0:0} s ago (VRCFT closed, or the module unloaded).";
+        ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
+            : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
+            : external.AgeMs < 0 ? "VRChat: the helper is listening; no eye parameters received yet (is the avatar one with eye tracking, and OSC on?)."
+            : $"VRChat: last eye parameters {external.AgeMs / 1000.0:0} s ago.";
         var helper = MirrorLive.FindHelper();
         HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
             : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."

@@ -736,11 +736,6 @@ public partial class MainWindow : Window
         AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
             status.QuadViews.Health == LayerHealth.NotActive && !status.QuadViewsInstalled ? Colors.Gray : HealthColor(status.QuadViews.Health),
             !status.QuadViewsInstalled && MirrorLive.FindQuadViewsInstaller() != null ? ("Install", OnQuadViewsInstall) : null);
-        AddStatusRow("VRCFT module (optional)",
-            MirrorLive.FindVrcftModuleZip() == null ? "The module zip was not found next to this app."
-            : "For eye tracking that only VRCFaceTracking sees (SRanibro, EyeTrackVR, ALVR, ...). In VRCFT: Module Registry > Install from file, pick the zip, restart VRCFT.",
-            MirrorLive.ReadExternalGaze() is { Fresh: true } ? Colors.SeaGreen : Colors.Gray,
-            MirrorLive.FindVrcftModuleZip() != null ? ("Show zip", OnShowVrcftModule) : null);
         if (_values.GetValueOrDefault("headset_marker") == "1")
         {
             AddStatusRow("Calibration is ON",
@@ -1048,14 +1043,6 @@ public partial class MainWindow : Window
     }
 
     private void OnOpenLogs(object sender, RoutedEventArgs e) => OpenFolder(AppSettings.Folder);
-
-    /// <summary>Opens the folder with the VRCFT module's zip, the zip selected, for VRCFT's "Install from file".</summary>
-    private void OnShowVrcftModule(object sender, RoutedEventArgs e)
-    {
-        var zip = MirrorLive.FindVrcftModuleZip();
-        if (zip == null) return;
-        try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{zip}\"") { UseShellExecute = true }); } catch { /* nothing to show it with */ }
-    }
 
     /// <summary>Starts the official Quad-Views-Foveated installer shipped with this app (Windows Installer asks for permission itself).</summary>
     private void OnQuadViewsInstall(object sender, RoutedEventArgs e)
