@@ -480,7 +480,7 @@ public static class Settings
         },
         new()
         {
-            Key = "vrchat_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.25, Max = 3, Step = 0.05,
+            Key = "vrchat_scale", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1.6", Min = 0.25, Max = 4, Step = 0.05,
             Label = "VRChat scale", Description = "Only with gaze from VRChat. The avatar's eye parameters are a -1..1 pair whose reach differs between setups; if the ring travels too little or too far for how far your eyes move, change this.",
         },
     ];

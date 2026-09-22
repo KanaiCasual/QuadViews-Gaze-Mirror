@@ -77,7 +77,7 @@ namespace gaze_mirror {
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.
         float outputFps = 0.f;      // output_fps: 0 = every frame the game makes.
         int gazeSource = 0;         // gaze_source=auto|headset|vrchat: 0 the headset's gaze, else VRChat's; 1 headset only; 2 VRChat only.
-        float vrchatScale = 1.f;    // vrchat_scale: multiplies the avatar's gaze pair before it becomes a direction (setups differ).
+        float vrchatScale = 1.6f;   // vrchat_scale: multiplies the avatar's gaze pair before it becomes a direction (setups differ).
     };
 
     class SettingsSource {
