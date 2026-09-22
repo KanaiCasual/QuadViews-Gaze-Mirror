@@ -65,8 +65,7 @@
       <RegistrySearch Id="FindOfficialQuadViews" Root="HKLM" Key="SOFTWARE\Khronos\OpenXR\1\ApiLayers\Implicit"
                       Name="[ProgramFiles64Folder]OpenXR-Quad-Views-Foveated\openxr-api-layer.json" Type="raw" Bitness="always64" />
     </Property>
-    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Also install Quad-Views-Foveated 1.1.3 now (optional: foveated rendering). Its own installer opens when you press Finish."
-                 After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
+    <!-- The offer's tick box on the last page starts ticked; its words are part of that page's picture (GazeUI.wxs). -->
     <SetProperty Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" After="AppSearch" Sequence="first" Condition="NOT QUADVIEWSPRESENT" />
     <Property Id="WixShellExecTarget" Value="[#QuadViewsInstallerFile]" />
     <CustomActionRef Id="Wix4ShellExec_X64" />
@@ -109,11 +108,11 @@
       <ComponentRef Id="OldObsPluginRemoval" />
     </Feature>
 
-    <!-- Pages: GazeUI.wxs. Pictures: tools\make_installer_art.py draws them from the app logo. -->
+    <!-- Pages: GazeUI.wxs. Pictures: tools\make_installer_pages.py draws the dark pages (Build-Installer.ps1 runs it);
+         the two below are for the few stock dialogs that remain. -->
     <UIRef Id="GazeOverlayUI" />
     <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;QuadViews Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status tab reports the layer order, press its Fix order button. Running this installer again offers Repair and Uninstall." />
   </Package>
 
   <Fragment>

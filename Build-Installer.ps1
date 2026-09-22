@@ -40,7 +40,9 @@ Copy-Item (Join-Path $root 'v2\bin\mirror-window\MirrorWindow.exe') $appOut -For
 Copy-Item (Join-Path $root 'v2\bin\helper\GazeMirrorHelper.exe') $appOut -Force
 Copy-Item (Join-Path $root 'v2\bin\helper\openvr_api.dll') $appOut -Force
 
-# 4) The MSI.
+# 4) The installer's pages (pictures with the version drawn in), then the MSI.
+python (Join-Path $root 'tools\make_installer_pages.py') $appVersion | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Drawing the installer's pages failed (python with Pillow is needed)." }
 $payload = Join-Path $root 'GazeOverlayApp\Payload'
 dotnet build (Join-Path $root 'Installer\GazeOverlay.Installer.wixproj') -c Release -v q --nologo `
     "-p:ProductVersion=$Version" "-p:PayloadDir=$payload" "-p:AppDir=$appOut"
