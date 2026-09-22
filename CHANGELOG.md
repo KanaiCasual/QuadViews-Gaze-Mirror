@@ -11,6 +11,8 @@
 - The eye is chosen once on the Mirror page, for OBS and the mirror window alike. Right eye by default.
 - Quad-Views-Foveated is optional: the official 1.1.3 installer is shipped and offered on the installer's last page and on the Status page.
 - New look: a rail of pages on the left, cards, dark only. Look is now called Ring.
+- Updates from inside the app: "Download and install" saves the new installer into Downloads, checks it against the SHA-256 published with the release, and opens it with Windows Installer.
+- The Quad Views page is only listed while Quad-Views-Foveated is installed. A changelog on the About page.
 
 ## 1.2.2 - 2026-09-20
 

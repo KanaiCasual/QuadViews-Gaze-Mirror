@@ -6,7 +6,15 @@ using System.Text.RegularExpressions;
 
 namespace GazeOverlay;
 
-public sealed record ReleaseInfo(Version Version, string Tag, string Title, bool IsBeta, string Url);
+/// <summary>A file attached to a release: the installer, or the text file with its SHA-256.</summary>
+public sealed record ReleaseAsset(string Name, string Url, long Size);
+
+/// <summary>A release the app can tell the user about. Installer and Checksum are set only when the release carries both,
+/// from this project's own download address; without them the app can only open the release page.</summary>
+public sealed record ReleaseInfo(Version Version, string Tag, string Title, bool IsBeta, string Url, ReleaseAsset? Installer = null, ReleaseAsset? Checksum = null)
+{
+    public bool CanInstall => Installer != null && Checksum != null;
+}
 
 /// <summary>What the app itself remembers (not the ring settings - those live in the layer's own file).</summary>
 /// <summary>One of the user's own preset slots: the values as they were when it was saved.</summary>
@@ -116,9 +124,11 @@ public sealed class AppSettings
 }
 
 /// <summary>
-/// Looks at the project's GitHub releases to tell the user when a newer version exists. It only ever reads that public
-/// list and offers a link to the release page: it never downloads or installs anything (an app that fetches and runs
-/// installers is exactly what antivirus software is suspicious of - and the MSI handles upgrades properly anyway).
+/// Looks at the project's GitHub releases to tell the user when a newer version exists, and can fetch the new installer
+/// for them. Kept as plain as a browser download so that antivirus software has nothing to object to: the .msi is
+/// saved into the user's Downloads folder, from this project's own release address only, checked against the SHA-256
+/// the release publishes next to it, and then handed to Windows Installer (msiexec) like a double-clicked file. The app
+/// never elevates, never unpacks anything and never runs code it downloaded.
 /// </summary>
 public static partial class UpdateChecker
 {
@@ -171,10 +181,134 @@ public static partial class UpdateChecker
             {
                 url = $"https://github.com/{repository}/releases";
             }
-            releases.Add(new ReleaseInfo(version, tag, string.IsNullOrWhiteSpace(title) ? tag : title!, prerelease || tag.Contains('-'), url));
+            var (installer, checksum) = PickAssets(item, repository);
+            releases.Add(new ReleaseInfo(version, tag, string.IsNullOrWhiteSpace(title) ? tag : title!, prerelease || tag.Contains('-'), url, installer, checksum));
         }
         return releases;
     }
+
+    /// <summary>
+    /// The installer and its checksum file among a release's attachments. Only an .msi named like this project's own
+    /// builds, only from this project's own download address, and only with its "name.msi.sha256" next to it.
+    /// </summary>
+    private static (ReleaseAsset? Installer, ReleaseAsset? Checksum) PickAssets(JsonElement release, string repository)
+    {
+        if (!release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) return (null, null);
+        var prefix = $"https://github.com/{repository}/releases/download/";
+        var found = new List<ReleaseAsset>();
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var assetName = asset.TryGetProperty("name", out var n) ? n.GetString() : null;
+            var assetUrl = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
+            var size = asset.TryGetProperty("size", out var s) && s.TryGetInt64(out var bytes) ? bytes : 0;
+            if (assetName == null || assetUrl == null || !assetUrl.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            found.Add(new ReleaseAsset(assetName, assetUrl, size));
+        }
+        var installer = found.FirstOrDefault(a => InstallerNamePattern().IsMatch(a.Name) && a.Size > 0);
+        if (installer == null) return (null, null);
+        var checksum = found.FirstOrDefault(a => string.Equals(a.Name, installer.Name + ".sha256", StringComparison.OrdinalIgnoreCase) && a.Size is > 0 and < 4096);
+        return (installer, checksum);
+    }
+
+    /// <summary>The user's Downloads folder, where a browser would put the file too.</summary>
+    public static string DownloadFolder
+    {
+        get
+        {
+            var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            return Directory.Exists(downloads) ? downloads : Path.GetTempPath();
+        }
+    }
+
+    /// <summary>
+    /// Fetches the release's installer into the Downloads folder and checks it: the size the release lists, and the
+    /// SHA-256 from the checksum file published with it. Returns the path of the checked file. Throws when anything
+    /// does not match; nothing unchecked is left behind under the final name.
+    /// </summary>
+    public static async Task<string> DownloadInstallerAsync(ReleaseInfo release, IProgress<double>? progress, CancellationToken cancellation = default)
+    {
+        if (release.Installer is not { } installer || release.Checksum is not { } checksum) throw new InvalidOperationException("This release has no checked installer to download.");
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("QuadViews-Gaze-Mirror/" + CurrentVersion.ToString(3));
+
+        var expected = ParseChecksum(await http.GetStringAsync(checksum.Url, cancellation), installer.Name)
+            ?? throw new InvalidDataException("The release's checksum file does not name this installer.");
+
+        var final = Path.Combine(DownloadFolder, installer.Name);
+        var partial = final + ".partial";
+        try
+        {
+            using (var response = await http.GetAsync(installer.Url, HttpCompletionOption.ResponseHeadersRead, cancellation))
+            {
+                response.EnsureSuccessStatusCode();
+                await using var source = await response.Content.ReadAsStreamAsync(cancellation);
+                await using var target = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true);
+                var buffer = new byte[1 << 16];
+                long done = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
+                {
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
+                    done += read;
+                    if (done > installer.Size) throw new InvalidDataException("The download is larger than the release says.");
+                    progress?.Report((double)done / installer.Size);
+                }
+            }
+            if (new FileInfo(partial).Length != installer.Size) throw new InvalidDataException("The download is not the size the release says.");
+            var actual = await Sha256Async(partial, cancellation);
+            if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("The download does not match the SHA-256 the release publishes.");
+            File.Move(partial, final, overwrite: true);
+            return final;
+        }
+        catch
+        {
+            try { File.Delete(partial); } catch { /* nothing more to do */ }
+            throw;
+        }
+    }
+
+    /// <summary>The hash for a file name out of a "hash  name" checksum file (sha256sum style; a lone hash counts too).</summary>
+    public static string? ParseChecksum(string text, string fileName)
+    {
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            var match = ChecksumLinePattern().Match(line);
+            if (!match.Success) continue;
+            var named = match.Groups[2].Value.TrimStart('*').Trim();
+            if (named.Length == 0 || string.Equals(named, fileName, StringComparison.OrdinalIgnoreCase)) return match.Groups[1].Value.ToLowerInvariant();
+        }
+        return null;
+    }
+
+    public static async Task<string> Sha256Async(string path, CancellationToken cancellation = default)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await System.Security.Cryptography.SHA256.HashDataAsync(stream, cancellation);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>Hands the downloaded installer to Windows Installer, as opening the file would. Windows asks for permission itself.</summary>
+    public static bool StartInstaller(string path)
+    {
+        if (!File.Exists(path) || !Path.GetExtension(path).Equals(".msi", StringComparison.OrdinalIgnoreCase)) return false;
+        try
+        {
+            var msiexec = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "msiexec.exe");
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(msiexec, $"/i \"{path}\"") { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    [GeneratedRegex(@"^QuadViews-Gaze-Mirror-\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?\.msi$")]
+    private static partial Regex InstallerNamePattern();
+
+    [GeneratedRegex(@"^([A-Fa-f0-9]{64})(?:\s+(.*))?$")]
+    private static partial Regex ChecksumLinePattern();
 
     /// <summary>Takes the first x.y.z (or x.y) found in a tag like "v0.4.0-beta.1". Betas are told apart by GitHub's flag, not by number.</summary>
     public static Version? ParseVersion(string text)

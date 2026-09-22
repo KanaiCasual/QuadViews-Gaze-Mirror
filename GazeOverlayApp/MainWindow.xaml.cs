@@ -1115,8 +1115,62 @@ public partial class MainWindow : Window
         UpdateTitle.Text = update.IsBeta
             ? $"A beta version is available: {update.Version.ToString(3)}"
             : $"A new version is available: {update.Version.ToString(3)}";
-        UpdateDetail.Text = $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" - download the .msi from the release page and run it; it upgrades in place.";
+        UpdateDetail.Text = update.CanInstall
+            ? $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" - it upgrades in place; close the game and OBS first."
+            : $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" - download the .msi from the release page and run it; it upgrades in place.";
+        UpdateInstallButton.Visibility = update.CanInstall ? Visibility.Visible : Visibility.Collapsed;
         UpdateBanner.Visibility = Visibility.Visible;
+    }
+
+    private bool _updating;
+
+    /// <summary>
+    /// Fetches the new installer and hands it to Windows Installer. Nothing of ours may be in use while it replaces
+    /// files, so a running game or OBS stops it here with a plain message; the mirror window and the SteamVR helper
+    /// are closed by the app itself, and the app closes last.
+    /// </summary>
+    private async void OnInstallUpdate(object sender, RoutedEventArgs e)
+    {
+        if (_availableUpdate is not { CanInstall: true } update || _updating) return;
+        if (GazeLive.Read().State != GazeLiveState.NoGame)
+        {
+            UpdateDetail.Text = "A VR game is still running. Close it, then press Download and install again.";
+            return;
+        }
+        if (Process.GetProcessesByName("obs64").Length > 0 || Process.GetProcessesByName("obs32").Length > 0)
+        {
+            UpdateDetail.Text = "OBS is still running (the installer replaces its Gaze Mirror plugin). Close OBS, then press Download and install again.";
+            return;
+        }
+
+        _updating = true;
+        UpdateInstallButton.IsEnabled = UpdateSkipButton.IsEnabled = UpdateLaterButton.IsEnabled = false;
+        try
+        {
+            var name = update.Installer!.Name;
+            var progress = new Progress<double>(p => UpdateDetail.Text = $"Downloading {name} into your Downloads folder... {p:P0}");
+            UpdateDetail.Text = $"Downloading {name} into your Downloads folder...";
+            var path = await UpdateChecker.DownloadInstallerAsync(update, progress);
+            UpdateDetail.Text = "Checked against the release's SHA-256. Closing the mirror window and the SteamVR helper, then opening the installer...";
+            if (MirrorWindowControl.IsRunning()) MirrorWindowControl.Close();
+            MirrorLive.StopHelper();
+            await Task.Delay(500);
+            if (!UpdateChecker.StartInstaller(path))
+            {
+                UpdateDetail.Text = $"Windows Installer could not be started. The checked installer is in your Downloads folder: {name}. Open it yourself.";
+                return;
+            }
+            Close();
+        }
+        catch (Exception error)
+        {
+            UpdateDetail.Text = "The download did not go through: " + error.Message + " Nothing was installed. You can still use View release.";
+        }
+        finally
+        {
+            _updating = false;
+            UpdateInstallButton.IsEnabled = UpdateSkipButton.IsEnabled = UpdateLaterButton.IsEnabled = true;
+        }
     }
 
     private static void OpenInBrowser(string url)

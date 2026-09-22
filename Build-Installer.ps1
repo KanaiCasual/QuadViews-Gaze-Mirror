@@ -50,4 +50,8 @@ $msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'QuadVie
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $target = Join-Path $dist "QuadViews-Gaze-Mirror-$appVersion.msi"
 Copy-Item $msi.FullName $target -Force
-'{0}  ({1:N1} MB)' -f $target, ((Get-Item $target).Length / 1MB)
+# The checksum file the app's updater checks a download against. Upload it with the .msi to every release
+# (gh release create vX.Y.Z dist\<msi> dist\<msi>.sha256 ...); without it the app only links to the release page.
+$hash = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
+[IO.File]::WriteAllText("$target.sha256", "$hash  $(Split-Path $target -Leaf)`n")
+'{0}  ({1:N1} MB)  SHA-256 {2}' -f $target, ((Get-Item $target).Length / 1MB), $hash

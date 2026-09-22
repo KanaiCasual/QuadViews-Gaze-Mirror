@@ -43,9 +43,11 @@
                         <TextBlock x:Name="UpdateDetail" Style="{StaticResource Hint}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="View release" FontWeight="SemiBold" Margin="12,0,8,0" Click="OnViewUpdate" />
-                        <Button Content="Skip this version" Margin="0,0,8,0" Click="OnSkipUpdate" />
-                        <Button Content="Later" Click="OnDismissUpdate" />
+                        <Button x:Name="UpdateInstallButton" Content="Download and install" FontWeight="SemiBold" Style="{DynamicResource AccentButtonStyle}" Margin="12,0,8,0" Click="OnInstallUpdate"
+                                ToolTip="Saves the new installer into your Downloads folder, checks it against the SHA-256 the release publishes, and opens it with Windows Installer. This app closes for that; Windows asks for permission as for any installer." />
+                        <Button x:Name="UpdateViewButton" Content="View release" Margin="0,0,8,0" Click="OnViewUpdate" />
+                        <Button x:Name="UpdateSkipButton" Content="Skip this version" Margin="0,0,8,0" Click="OnSkipUpdate" />
+                        <Button x:Name="UpdateLaterButton" Content="Later" Click="OnDismissUpdate" />
                     </StackPanel>
                 </Grid>
             </Border>
