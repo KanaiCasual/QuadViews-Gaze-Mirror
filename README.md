@@ -225,9 +225,9 @@ them). The Gaze card says *VRChat: eye parameters arriving* once it works.
 **Calibrate VRChat gaze** (only for this source - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
 Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
-sixteen places, about two seconds each - straight ahead, then out to 35 degrees to each side, 22 up and 30 down.
-Follow it with your eyes only, head still; the status line counts the targets. After about 35 seconds the target
-disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own calibration;
+twenty places, about two seconds each - straight ahead, then out to 30 degrees to each side, 22 up and 30 down, then
+the four corners. Follow it with your eyes only, head still; the status line counts the targets. After about 45 seconds
+the target disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own calibration;
 **Forget** drops it.
 
 ### Quad Views

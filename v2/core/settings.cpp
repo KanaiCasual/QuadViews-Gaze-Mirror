@@ -20,6 +20,29 @@ namespace gaze_mirror {
             if (end == value.c_str() || !std::isfinite(parsed)) return fallback;
             return std::clamp(parsed, low, high);
         }
+        // "tx,ty,gainX,gainY;..." -> the four corner gains, or nothing when they do not all read.
+        std::vector<Settings::CornerGain> Corners(const std::string& value) {
+            std::vector<Settings::CornerGain> corners;
+            size_t start = 0;
+            while (start < value.size()) {
+                size_t end = value.find(';', start);
+                if (end == std::string::npos) end = value.size();
+                const std::string item = value.substr(start, end - start);
+                float v[4];
+                const char* p = item.c_str();
+                bool ok = true;
+                for (int i = 0; i < 4 && ok; i++) {
+                    char* stop = nullptr;
+                    v[i] = std::strtof(p, &stop);
+                    ok = stop != p && std::isfinite(v[i]) && (i == 3 || *stop == ',');
+                    p = stop + 1;
+                }
+                if (ok) corners.push_back({v[0], v[1], std::clamp(v[2], 0.5f, 2.f), std::clamp(v[3], 0.5f, 2.f)});
+                start = end + 1;
+            }
+            if (corners.size() != 4) corners.clear();
+            return corners;
+        }
         // "value:tangent,value:tangent,..." -> sorted points; anything unreadable is left out.
         std::vector<std::pair<float, float>> Map(const std::string& value) {
             std::vector<std::pair<float, float>> points;
@@ -245,6 +268,8 @@ namespace gaze_mirror {
             else if (key == "vrchat_calibrate") fresh.vrchatCalibrate = Flag(value, false);
             else if (key == "vrchat_map_x") fresh.vrchatMapX = Map(value);
             else if (key == "vrchat_map_y") fresh.vrchatMapY = Map(value);
+            else if (key == "vrchat_map_corners") fresh.vrchatCorners = Corners(value);
+            else if (key == "vrchat_calibrated") fresh.vrchatCalibrated = value;
         }
     }
 

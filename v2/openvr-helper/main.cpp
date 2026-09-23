@@ -171,10 +171,23 @@ namespace {
         WideCharToMultiByte(CP_UTF8, 0, manifestPath.c_str(), -1, utf8, sizeof(utf8) - 1, nullptr, nullptr);
         int result = 0;
         if (on) {
+            // The manifest the 1.9 dev builds wrote under the old data folder name carries the same key; SteamVR keeps
+            // every manifest it was ever given and starts the binary of the first one - the old install path, or a
+            // development copy. It goes first, so that the one written above is what SteamVR starts.
+            const std::wstring legacyPath = std::wstring(dataFolder) + L"\\QuadViewsGazeMirror\\GazeMirrorHelper.vrmanifest";
+            if (GetFileAttributesW(legacyPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                char legacyUtf8[MAX_PATH * 3] = {};
+                WideCharToMultiByte(CP_UTF8, 0, legacyPath.c_str(), -1, legacyUtf8, sizeof(legacyUtf8) - 1, nullptr, nullptr);
+                const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(legacyUtf8);
+                Log("register: the old data folder's manifest removed (%d)", int(removed));
+                DeleteFileW(legacyPath.c_str());
+            }
             const vr::EVRApplicationError added = vr::VRApplications()->AddApplicationManifest(utf8);
             const vr::EVRApplicationError launch = added == vr::VRApplicationError_None ? vr::VRApplications()->SetApplicationAutoLaunch(AppKey, true)
                                                                                          : added;
-            Log("register: manifest %d, auto-launch %d", int(added), int(launch));
+            char resolved[MAX_PATH * 3] = {};
+            vr::VRApplications()->GetApplicationPropertyString(AppKey, vr::VRApplicationProperty_BinaryPath_String, resolved, sizeof(resolved));
+            Log("register: manifest %d, auto-launch %d; SteamVR will start %s", int(added), int(launch), resolved);
             result = launch == vr::VRApplicationError_None ? 0 : 4;
         } else {
             vr::VRApplications()->SetApplicationAutoLaunch(AppKey, false);
@@ -239,6 +252,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     VrchatOscLink vrchat;
     vrchat.start();
     GazeCalibration calibration;
+    // A calibration that was under way when the last helper went away: say so, rather than count forever.
+    if (pipeline.settings().vrchatCalibrated.rfind("running", 0) == 0) pipeline.persist({{"vrchat_calibrated", "failed: the previous run did not finish"}});
     Mirror mirror;
     SceneApp scene;
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);

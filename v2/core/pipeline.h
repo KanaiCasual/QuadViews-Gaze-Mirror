@@ -78,6 +78,7 @@ namespace gaze_mirror {
         }
         // A calibrated curve: straight lines between its points, continued straight beyond the ends.
         static float MapValue(const std::vector<std::pair<float, float>>& map, float value);
+        static void CornerCorrect(const std::vector<Settings::CornerGain>& corners, float& x, float& y);
         void forget(const std::vector<ID3D11Texture2D*>& textures) {
             _renderer.forget(textures);
         }

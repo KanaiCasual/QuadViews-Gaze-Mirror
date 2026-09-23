@@ -1,3 +1,4 @@
+using System.IO;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -310,16 +311,21 @@ public partial class MainWindow
 
     private void RefreshVrchatCalibrationStatus()
     {
+        // The button writes vrchat_calibrate=1; the helper takes it back with its first "running n/m" and ends with a date
+        // or "failed: ...". A "running" left behind by a helper that is gone is a run that never finished.
         var requested = _values.GetValueOrDefault("vrchat_calibrate") == "1";
         var calibrated = _values.GetValueOrDefault("vrchat_calibrated") ?? "";
+        var underWay = calibrated.StartsWith("running ", StringComparison.Ordinal);
+        var running = underWay && MirrorLive.IsHelperRunning();
         var mapped = (_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0;
-        VrchatCalibrationStatus.Text = requested && calibrated.StartsWith("running ", StringComparison.Ordinal) ? $"Calibrating, target {calibrated[8..]}: follow it with your eyes, head still."
+        var corners = (_values.GetValueOrDefault("vrchat_map_corners") ?? "").Length > 0;
+        VrchatCalibrationStatus.Text = running ? $"Calibrating, target {calibrated[8..]}: follow it with your eyes, head still."
             : requested ? "Calibrating: follow the target in the headset with your eyes, head still."
-            : calibrated.StartsWith("running ", StringComparison.Ordinal) ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
-            : mapped ? $"VRChat gaze calibrated {calibrated}."
+            : underWay ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
+            : mapped ? $"VRChat gaze calibrated {calibrated}{(corners ? "" : " (axes only, no corners)")}."
             : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
             : "VRChat gaze not calibrated yet: until then the ring only roughly follows your eyes in VRChat.";
-        VrchatCalibrate.IsEnabled = !requested;
+        VrchatCalibrate.IsEnabled = !requested && !running;
         VrchatCalibrationForget.IsEnabled = mapped;
     }
 
@@ -341,6 +347,7 @@ public partial class MainWindow
         AppLog.Write("VRChat gaze calibration dropped.");
         OnValueChanged("vrchat_map_x", "");
         OnValueChanged("vrchat_map_y", "");
+        OnValueChanged("vrchat_map_corners", "");
         OnValueChanged("vrchat_calibrated", "");
         RefreshVrchatCalibrationStatus();
     }
@@ -353,7 +360,10 @@ public partial class MainWindow
     {
         var helper = MirrorLive.FindHelper();
         if (helper == null) { AppLog.Write("SteamVR helper: GazeMirrorHelper.exe not found next to the app."); return; }
-        if (!string.Equals(_appSettings.HelperRegisteredPath, helper, StringComparison.OrdinalIgnoreCase))
+        // A manifest left by the 1.9 dev builds under the old data folder name makes SteamVR start the old binary; the
+        // helper removes it while registering, so register again as long as it is there.
+        var legacyManifest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror", "GazeMirrorHelper.vrmanifest");
+        if (!string.Equals(_appSettings.HelperRegisteredPath, helper, StringComparison.OrdinalIgnoreCase) || File.Exists(legacyManifest))
         {
             var result = await MirrorLive.SetHelperAutostartAsync(true);
             AppLog.Write($"SteamVR helper: registration of {helper} with SteamVR {(result == 0 ? "done" : $"not done (exit code {result?.ToString() ?? "none"}); tried again next start")}.");

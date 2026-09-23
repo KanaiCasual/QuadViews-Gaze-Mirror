@@ -87,6 +87,17 @@ namespace gaze_mirror {
         return y0 + (value - x0) * (y1 - y0) / span;
     }
 
+    // The axis maps come from looks along the axes. Towards a corner each axis reads a little differently (the tracker
+    // gives components of a direction, not angles), so the diagonal targets measured a gain per axis at each corner;
+    // it is applied in proportion to how far the OTHER axis is from the centre, up to a little beyond the corner.
+    void Pipeline::CornerCorrect(const std::vector<Settings::CornerGain>& corners, float& x, float& y) {
+        const Settings::CornerGain& c = corners[(x < 0.f ? 1 : 0) + (y < 0.f ? 2 : 0)];
+        const float towardsY = std::min(std::fabs(y) / std::max(std::fabs(c.ty), 1e-3f), 1.25f);
+        const float towardsX = std::min(std::fabs(x) / std::max(std::fabs(c.tx), 1e-3f), 1.25f);
+        x *= 1.f + (c.gainX - 1.f) * towardsY;
+        y *= 1.f + (c.gainY - 1.f) * towardsX;
+    }
+
     GazeFrame Pipeline::chooseGaze(const FrameInput& input) {
         const Settings& s = _settings.get();
         if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
@@ -99,8 +110,9 @@ namespace gaze_mirror {
         const float rawX = 0.5f * (ext.left[0] + ext.right[0]);
         const float rawY = 0.5f * (ext.left[1] + ext.right[1]);
         const bool calibrated = s.vrchatMapX.size() >= 2 && s.vrchatMapY.size() >= 2;
-        const float x = calibrated ? MapValue(s.vrchatMapX, rawX) : rawX * s.vrchatScale;
-        const float y = calibrated ? MapValue(s.vrchatMapY, rawY) : rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
+        float x = calibrated ? MapValue(s.vrchatMapX, rawX) : rawX * s.vrchatScale;
+        float y = calibrated ? MapValue(s.vrchatMapY, rawY) : rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
+        if (calibrated && s.vrchatCorners.size() == 4) CornerCorrect(s.vrchatCorners, x, y);
         const float length = std::sqrt(x * x + y * y + 1.f);
         gaze.valid = true;
         gaze.hasRay = true;
@@ -108,7 +120,7 @@ namespace gaze_mirror {
         gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
                        0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
                        0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
-        if (calibrated) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %zu x %zu points)", ext.writer, s.vrchatMapX.size(), s.vrchatMapY.size());
+        if (calibrated) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %zu x %zu points%s)", ext.writer, s.vrchatMapX.size(), s.vrchatMapY.size(), s.vrchatCorners.size() == 4 ? ", corners" : "");
         else LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f sideways, %.2f up, %.2f down)", ext.writer, s.vrchatScale, s.vrchatScaleUp, s.vrchatScaleDown);
         return gaze;
     }

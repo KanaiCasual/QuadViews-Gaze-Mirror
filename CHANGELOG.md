@@ -2,7 +2,7 @@
 
 ## 2.0.0 - in development (1.9.x builds)
 
-- Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start).
+- Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start, and the helper registration SteamVR kept under the old name is replaced).
 - Everything that makes the mirror picture is this project's own code. No modified third-party layers any more.
 - OpenXR games and SteamVR games: the gaze mirror layer mirrors OpenXR games, a small SteamVR helper mirrors games that use SteamVR directly (OpenVR). Same crop, same ring, same OBS source.
 - Gaze comes from the standard interfaces (OpenXR eye gaze, SteamVR eye tracking), so any eye-tracked headset that feeds them works. Quad-Views-Foveated is no longer needed for the ring.
@@ -14,7 +14,7 @@
 - New look: a rail of pages on the left, cards, dark only. Look is now called Ring.
 - Updates from inside the app: "Download and install" saves the new installer into Downloads, checks it against the SHA-256 published with the release, and opens it with Windows Installer.
 - The Quad Views page is only listed while Quad-Views-Foveated is installed. A changelog on the About page.
-- Gaze from VRChat: the SteamVR helper is an OSCQuery service, so VRChat sends it the avatar's eye parameters. The ring then works in VRChat on headsets whose software drives the avatar but not SteamVR (VRCFaceTracking with SRanibro, EyeTrackVR, ALVR, ...). Nothing to install or configure; OSC must be on in VRChat. Calibrated once from the app: a target shown in the headset at sixteen places, out to 35 degrees to the sides, 22 up and 30 down, gives the curve from the avatar values to angles.
+- Gaze from VRChat: the SteamVR helper is an OSCQuery service, so VRChat sends it the avatar's eye parameters. The ring then works in VRChat on headsets whose software drives the avatar but not SteamVR (VRCFaceTracking with SRanibro, EyeTrackVR, ALVR, ...). Nothing to install or configure; OSC must be on in VRChat. Calibrated once from the app: a target shown in the headset at twenty places - along both axes out to 30 degrees to the sides, 22 up and 30 down, and in the four corners - gives the curve from the avatar values to angles, with the corners corrected separately.
 - The app keeps a small log of what it did (app.log next to the layer's and the helper's logs; the Logs button on the About page opens the folder).
 
 ## 1.2.2 - 2026-09-20

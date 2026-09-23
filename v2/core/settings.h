@@ -84,6 +84,13 @@ namespace gaze_mirror {
         // vrchat_map_x / vrchat_map_y: "value:tangent,..." from that calibration, sorted by value. With two or more
         // points on each axis these replace the scales: value -> tangent of the angle, straight lines between points.
         std::vector<std::pair<float, float>> vrchatMapX, vrchatMapY;
+        // vrchat_map_corners: "tx,ty,gainX,gainY;..." for the four quadrants (+x+y, -x+y, +x-y, -x-y) from the diagonal
+        // targets: at the corner (tx, ty) the axis maps alone came out short or long by these factors. Empty = no correction.
+        struct CornerGain {
+            float tx, ty, gainX, gainY;
+        };
+        std::vector<CornerGain> vrchatCorners;
+        std::string vrchatCalibrated; // vrchat_calibrated: what the last calibration left ("running n/m" while it goes).
     };
 
     class SettingsSource {
