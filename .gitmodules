@@ -1,6 +1,0 @@
-[submodule "Quad-Views-Foveated"]
-	path = Quad-Views-Foveated
-	url = https://github.com/mbucchia/Quad-Views-Foveated.git
-[submodule "OpenXR-Layer-OBSMirror"]
-	path = OpenXR-Layer-OBSMirror
-	url = https://github.com/Jabbah/OpenXR-Layer-OBSMirror.git

@@ -3,25 +3,17 @@
 /*
 
 !/.gitignore
-!/.gitmodules
 !/README.md
 !/CHANGELOG.md
 !/LICENSE
 !/docs/
-!/Build-Layers.ps1
 !/Build-Installer.ps1
 !/gaze.cfg
 !/GazeOverlayApp/
 !/Installer/
-!/MirrorWindow/
-!/Build-MirrorWindow.ps1
-!/patches/
 !/tools/
-# 2.0: the new layer, OBS plugin, OpenVR helper, shared core, tests (see v2\README.md).
+# The layer, OBS plugin, SteamVR helper, shared core and tests.
 !/v2/
-# Upstream sources, as submodules pinned to the commits our patches apply to.
-!/Quad-Views-Foveated
-!/OpenXR-Layer-OBSMirror
 
 # Build output and anything binary/generated.
 bin/

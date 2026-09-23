@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 - in development (1.9.x builds)
+## 2.0.0 - 2026-09-23
 
 - Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start and the old folder is removed; the helper registration SteamVR kept under the old name is replaced).
 - The SteamVR helper's manifest ships next to it, so uninstalling leaves SteamVR nothing to start. The Status page has a row for the helper. With "Headset only" as the gaze source the Gaze card says nothing about VRChat. Reset all says what it keeps (the crop box, the VRChat calibration).
