@@ -123,34 +123,31 @@ namespace {
 
     constexpr char AppKey[] = "kanaicasual.quadviewsgazemirror.helper";
 
-    // Tells SteamVR about this program (an application manifest next to the exe) and asks it to start it with SteamVR,
-    // or takes that back. Works without a headset (utility connection). Exit code 0 = done.
+    // Tells SteamVR about this program (an application manifest) and asks it to start it with SteamVR, or takes that
+    // back. Works without a headset (utility connection). Exit code 0 = done.
+    //
+    // The manifest sits next to the exe and names it by a relative path: the installer ships it there, so an uninstall
+    // takes it away and SteamVR is left with nothing to start. Where the exe's folder has none and cannot be written to
+    // (nothing here ever runs elevated), one goes to the user's data folder with the full path instead.
     int Register(bool on) {
-        // The manifest goes to the user's data folder (the exe may sit in Program Files, which needs administrator rights
-        // to write to - and nothing here ever runs elevated); it names the exe by its full path.
         wchar_t modulePath[MAX_PATH];
         GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+        std::wstring exeFolder = modulePath;
+        exeFolder.erase(exeFolder.find_last_of(L'\\'));
         wchar_t dataFolder[MAX_PATH];
         const DWORD dataLength = GetEnvironmentVariableW(L"LOCALAPPDATA", dataFolder, MAX_PATH);
         if (dataLength == 0 || dataLength >= MAX_PATH) return 2;
-        std::wstring folder = std::wstring(dataFolder) + L"\\GazeMirror";
-        CreateDirectoryW(folder.c_str(), nullptr);
-        const std::wstring manifestPath = folder + L"\\GazeMirrorHelper.vrmanifest";
-        if (on) {
-            FILE* file = _wfsopen(manifestPath.c_str(), L"w", _SH_DENYWR);
-            if (!file) {
-                Log("register: the manifest could not be written");
-                return 2;
-            }
-            std::string exePath;
-            {
-                char utf8Path[MAX_PATH * 3] = {};
-                WideCharToMultiByte(CP_UTF8, 0, modulePath, -1, utf8Path, sizeof(utf8Path) - 1, nullptr, nullptr);
-                for (const char* c = utf8Path; *c; c++) { // JSON: backslashes and quotes escaped.
-                    if (*c == '\\' || *c == '"') exePath += '\\';
-                    exePath += *c;
-                }
-            }
+        const std::wstring dataManifest = std::wstring(dataFolder) + L"\\GazeMirror\\GazeMirrorHelper.vrmanifest";
+        const std::wstring legacyManifest = std::wstring(dataFolder) + L"\\QuadViewsGazeMirror\\GazeMirrorHelper.vrmanifest";
+        const auto exists = [](const std::wstring& path) { return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES; };
+        const auto utf8 = [](const std::wstring& wide) {
+            char text[MAX_PATH * 3] = {};
+            WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, text, sizeof(text) - 1, nullptr, nullptr);
+            return std::string(text);
+        };
+        const auto writeManifest = [](const std::wstring& path, const std::string& binary) {
+            FILE* file = _wfsopen(path.c_str(), L"w", _SH_DENYWR);
+            if (!file) return false;
             // is_dashboard_overlay: SteamVR only auto-launches programs it regards as overlays; this one never shows one.
             fprintf(file,
                     "{\n  \"source\": \"builtin\",\n  \"applications\": [ {\n"
@@ -159,31 +156,47 @@ namespace {
                     "    \"is_dashboard_overlay\": true,\n"
                     "    \"strings\": { \"en_us\": { \"name\": \"VR Gaze Mirror helper\", "
                     "\"description\": \"Mirror picture with gaze ring for SteamVR games (OBS, mirror window)\" } }\n  } ]\n}\n",
-                    AppKey, exePath.c_str());
+                    AppKey, binary.c_str());
             fclose(file);
+            return true;
+        };
+
+        std::wstring manifestPath = exeFolder + L"\\GazeMirrorHelper.vrmanifest";
+        if (on && !exists(manifestPath) && !writeManifest(manifestPath, "GazeMirrorHelper.exe")) {
+            std::string exePath; // JSON: backslashes and quotes escaped.
+            for (const char c : utf8(modulePath)) {
+                if (c == '\\' || c == '"') exePath += '\\';
+                exePath += c;
+            }
+            CreateDirectoryW((std::wstring(dataFolder) + L"\\GazeMirror").c_str(), nullptr);
+            manifestPath = dataManifest;
+            if (!writeManifest(manifestPath, exePath)) {
+                Log("register: the manifest could not be written");
+                return 2;
+            }
         }
+
         vr::EVRInitError initError = vr::VRInitError_None;
         vr::VR_Init(&initError, vr::VRApplication_Utility);
         if (initError != vr::VRInitError_None || !vr::VRApplications()) {
             Log("register: SteamVR's application list is not reachable (%d: %s)", int(initError), vr::VR_GetVRInitErrorAsEnglishDescription(initError));
             return 3;
         }
-        char utf8[MAX_PATH * 3] = {};
-        WideCharToMultiByte(CP_UTF8, 0, manifestPath.c_str(), -1, utf8, sizeof(utf8) - 1, nullptr, nullptr);
         int result = 0;
         if (on) {
-            // The manifest the 1.9 dev builds wrote under the old data folder name carries the same key; SteamVR keeps
-            // every manifest it was ever given and starts the binary of the first one - the old install path, or a
-            // development copy. It goes first, so that the one written above is what SteamVR starts.
-            const std::wstring legacyPath = std::wstring(dataFolder) + L"\\QuadViewsGazeMirror\\GazeMirrorHelper.vrmanifest";
-            if (GetFileAttributesW(legacyPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                char legacyUtf8[MAX_PATH * 3] = {};
-                WideCharToMultiByte(CP_UTF8, 0, legacyPath.c_str(), -1, legacyUtf8, sizeof(legacyUtf8) - 1, nullptr, nullptr);
-                const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(legacyUtf8);
-                Log("register: the old data folder's manifest removed (%d)", int(removed));
-                DeleteFileW(legacyPath.c_str());
+            // Manifests earlier builds left elsewhere carry the same key, and SteamVR starts the binary of the FIRST
+            // manifest it has for a key: the 1.x and 1.9 dev builds' one under the old data folder name, the 1.9.x
+            // builds' one in the data folder. They go first, so that the one next to the exe is what SteamVR starts.
+            for (const std::wstring& old : {legacyManifest, dataManifest}) {
+                if (old == manifestPath || !exists(old)) continue;
+                const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(utf8(old).c_str());
+                Log("register: an earlier build's manifest removed (%d)", int(removed));
+                DeleteFileW(old.c_str());
+                std::wstring oldFolder = old;
+                oldFolder.erase(oldFolder.find_last_of(L'\\'));
+                RemoveDirectoryW(oldFolder.c_str()); // Only goes when empty - the 1.x folder, once the app has moved its files.
             }
-            const vr::EVRApplicationError added = vr::VRApplications()->AddApplicationManifest(utf8);
+            const vr::EVRApplicationError added = vr::VRApplications()->AddApplicationManifest(utf8(manifestPath).c_str());
             const vr::EVRApplicationError launch = added == vr::VRApplicationError_None ? vr::VRApplications()->SetApplicationAutoLaunch(AppKey, true)
                                                                                          : added;
             char resolved[MAX_PATH * 3] = {};
@@ -192,9 +205,12 @@ namespace {
             result = launch == vr::VRApplicationError_None ? 0 : 4;
         } else {
             vr::VRApplications()->SetApplicationAutoLaunch(AppKey, false);
-            const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(utf8);
-            Log("unregister: manifest removed %d", int(removed));
-            DeleteFileW(manifestPath.c_str());
+            for (const std::wstring& path : {manifestPath, dataManifest, legacyManifest}) {
+                if (!exists(path)) continue;
+                const vr::EVRApplicationError removed = vr::VRApplications()->RemoveApplicationManifest(utf8(path).c_str());
+                Log("unregister: manifest removed (%d)", int(removed));
+                DeleteFileW(path.c_str()); // Fails harmlessly on the installer's copy in Program Files; the uninstall takes that one.
+            }
         }
         vr::VR_Shutdown();
         return result;

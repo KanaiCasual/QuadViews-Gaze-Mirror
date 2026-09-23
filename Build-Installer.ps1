@@ -39,6 +39,8 @@ if ($LASTEXITCODE -ne 0) { throw "Publishing the settings app failed." }
 Copy-Item (Join-Path $root 'v2\bin\mirror-window\MirrorWindow.exe') $appOut -Force
 Copy-Item (Join-Path $root 'v2\bin\helper\GazeMirrorHelper.exe') $appOut -Force
 Copy-Item (Join-Path $root 'v2\bin\helper\openvr_api.dll') $appOut -Force
+# The helper's SteamVR manifest (relative binary path): shipped next to the exe, so an uninstall takes it away too.
+Copy-Item (Join-Path $root 'v2\openvr-helper\GazeMirrorHelper.vrmanifest') $appOut -Force
 
 # 4) The MSI.
 $payload = Join-Path $root 'GazeOverlayApp\Payload'

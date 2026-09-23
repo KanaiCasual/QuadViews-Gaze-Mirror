@@ -555,6 +555,7 @@ public partial class MainWindow : Window
         _values[key] = value;
         _dirtyKeys.Add(key);
         if (key == "headset_marker") RefreshStatus();
+        if (key == "gaze_source") RefreshMirrorLive(); // The Gaze card shows or hides its VRChat part.
         OnProfileValueChanged(key, value);
         if (key.StartsWith("crop_follow", StringComparison.Ordinal)) DrawCrop();
         if (key.StartsWith("stabilize", StringComparison.Ordinal)) ApplyCropMargin(moveBox: true);
@@ -675,7 +676,7 @@ public partial class MainWindow : Window
 
     private void OnResetAll(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "Reset every setting to its default?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+        if (MessageBox.Show(this, "Reset every setting to its default?\n\nThe crop box and the VRChat gaze calibration are kept.", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
             // Ring settings only: the crop box belongs to the OBS scene, not to the look of the ring.
             var cropKeys = Settings.All.Where(d => d.Group == Settings.GroupCrop).Select(d => d.Key).ToHashSet();
@@ -734,6 +735,8 @@ public partial class MainWindow : Window
             : status.ObsPluginPresent ? "In OBS: add a \"Gaze Mirror\" source, then Ctrl+F once to fit it."
             : $"Not in OBS yet ({status.ObsPath}). Re-run the installer with OBS installed, or use its Repair option.",
             status.ObsPath != null && status.ObsPluginPresent ? Colors.SeaGreen : Colors.Gray);
+        var helper = HelperState();
+        AddStatusRow("SteamVR helper", helper.Text + " It mirrors games that use SteamVR directly; OpenXR games are the layer's.", helper.Color);
         AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
             status.QuadViews.Health == LayerHealth.NotActive && !status.QuadViewsInstalled ? Colors.Gray : HealthColor(status.QuadViews.Health),
             !status.QuadViewsInstalled && MirrorLive.FindQuadViewsInstaller() != null ? ("Install", OnQuadViewsInstall) : null);

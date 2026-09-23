@@ -1,0 +1,11 @@
+{
+  "source": "builtin",
+  "applications": [ {
+    "app_key": "kanaicasual.quadviewsgazemirror.helper",
+    "launch_type": "binary",
+    "binary_path_windows": "GazeMirrorHelper.exe",
+    "arguments": "--steamvr",
+    "is_dashboard_overlay": true,
+    "strings": { "en_us": { "name": "VR Gaze Mirror helper", "description": "Mirror picture with gaze ring for SteamVR games (OBS, mirror window)" } }
+  } ]
+}

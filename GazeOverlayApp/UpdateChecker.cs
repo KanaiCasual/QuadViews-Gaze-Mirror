@@ -84,18 +84,24 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(FilePath)) return;
             var data = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            Directory.CreateDirectory(Folder);
             var previous = Path.Combine(data, "QuadViewsGazeMirror");
             if (Directory.Exists(previous))
             {
+                // 1.x's folder: its files come over once (the first start without our own app.json), then the folder
+                // goes. Its SteamVR manifest stays for the helper, which takes the registration back and then removes it.
+                Directory.CreateDirectory(Folder);
+                var adopting = !File.Exists(FilePath);
                 foreach (var file in Directory.GetFiles(previous))
                 {
                     var target = Path.Combine(Folder, Path.GetFileName(file));
-                    if (!File.Exists(target)) File.Copy(file, target);
+                    if (adopting && !File.Exists(target)) File.Copy(file, target);
+                    if (!file.EndsWith(".vrmanifest", StringComparison.OrdinalIgnoreCase)) File.Delete(file);
                 }
+                if (Directory.GetFileSystemEntries(previous).Length == 0) Directory.Delete(previous);
             }
+            if (File.Exists(FilePath)) return;
+            Directory.CreateDirectory(Folder);
             var oldest = Path.Combine(data, "OpenXRGazeOverlay", "app.json");
             if (!File.Exists(FilePath) && File.Exists(oldest)) File.Copy(oldest, FilePath);
         }

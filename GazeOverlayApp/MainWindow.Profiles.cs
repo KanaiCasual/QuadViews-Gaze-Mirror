@@ -293,6 +293,9 @@ public partial class MainWindow
         MirrorSource.Text = live is { Producing: true }
             ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")} - {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
+        // "Headset only": nothing about VRChat on the card - a DCS-only user is not told about avatars.
+        var headsetOnly = _values.GetValueOrDefault("gaze_source") == "headset";
+        ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly ? Visibility.Collapsed : Visibility.Visible;
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
@@ -300,11 +303,16 @@ public partial class MainWindow
             : external.AgeMs <= 2000 ? "VRChat: sending parameters, but no eye ones - the avatar has no eye parameters, or its eye tracking is off. The helper's log lists what arrives."
             : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
         RefreshVrchatCalibrationStatus();
-        var helper = MirrorLive.FindHelper();
-        HelperStatus.Text = helper == null ? "GazeMirrorHelper.exe was not found next to this app."
-            : MirrorLive.IsHelperRunning() ? "The helper is running next to SteamVR."
-            : _appSettings.HelperRegisteredPath.Length > 0 ? "The helper starts with SteamVR and leaves with it. Not running now."
-            : "SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.";
+        HelperStatus.Text = HelperState().Text;
+    }
+
+    /// <summary>The SteamVR helper's state in one line (the Mirror page's Picture card and the Status page share it).</summary>
+    private (string Text, System.Windows.Media.Color Color) HelperState()
+    {
+        if (MirrorLive.FindHelper() == null) return ("GazeMirrorHelper.exe was not found next to this app.", System.Windows.Media.Colors.Firebrick);
+        if (MirrorLive.IsHelperRunning()) return ("The helper is running next to SteamVR.", System.Windows.Media.Colors.SeaGreen);
+        if (_appSettings.HelperRegisteredPath.Length > 0) return ("The helper starts with SteamVR and leaves with it. Not running now.", System.Windows.Media.Colors.SeaGreen);
+        return ("SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.", System.Windows.Media.Colors.DarkOrange);
     }
 
     // ------------------------------------------------------------------ the VRChat gaze calibration (run by the helper)
@@ -362,8 +370,10 @@ public partial class MainWindow
         if (helper == null) { AppLog.Write("SteamVR helper: GazeMirrorHelper.exe not found next to the app."); return; }
         // A manifest left by the 1.9 dev builds under the old data folder name makes SteamVR start the old binary; the
         // helper removes it while registering, so register again as long as it is there.
+        // The 1.9.x builds' manifest in our own data folder is the same story: the manifest now sits next to the exe.
         var legacyManifest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuadViewsGazeMirror", "GazeMirrorHelper.vrmanifest");
-        if (!string.Equals(_appSettings.HelperRegisteredPath, helper, StringComparison.OrdinalIgnoreCase) || File.Exists(legacyManifest))
+        var dataManifest = Path.Combine(AppSettings.Folder, "GazeMirrorHelper.vrmanifest");
+        if (!string.Equals(_appSettings.HelperRegisteredPath, helper, StringComparison.OrdinalIgnoreCase) || File.Exists(legacyManifest) || File.Exists(dataManifest))
         {
             var result = await MirrorLive.SetHelperAutostartAsync(true);
             AppLog.Write($"SteamVR helper: registration of {helper} with SteamVR {(result == 0 ? "done" : $"not done (exit code {result?.ToString() ?? "none"}); tried again next start")}.");

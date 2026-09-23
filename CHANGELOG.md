@@ -2,7 +2,8 @@
 
 ## 2.0.0 - in development (1.9.x builds)
 
-- Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start, and the helper registration SteamVR kept under the old name is replaced).
+- Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start and the old folder is removed; the helper registration SteamVR kept under the old name is replaced).
+- The SteamVR helper's manifest ships next to it, so uninstalling leaves SteamVR nothing to start. The Status page has a row for the helper. With "Headset only" as the gaze source the Gaze card says nothing about VRChat. Reset all says what it keeps (the crop box, the VRChat calibration).
 - Everything that makes the mirror picture is this project's own code. No modified third-party layers any more.
 - OpenXR games and SteamVR games: the gaze mirror layer mirrors OpenXR games, a small SteamVR helper mirrors games that use SteamVR directly (OpenVR). Same crop, same ring, same OBS source. The Placement tab's in-headset marker works in both: drawn into the picture in OpenXR games, shown as a SteamVR overlay in SteamVR games.
 - Gaze comes from the standard interfaces (OpenXR eye gaze, SteamVR eye tracking), so any eye-tracked headset that feeds them works. Quad-Views-Foveated is no longer needed for the ring.
