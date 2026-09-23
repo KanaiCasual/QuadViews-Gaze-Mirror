@@ -147,17 +147,23 @@ How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, 
 
 ### Tail
 
+![Tail page](docs/tab-tail.png)
+
 The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up and
 cool-down, and whether the tail is anchored to **the world** (recommended in VR: looking around by turning your head
 stretches it too) or to the screen.
 
 ### Motion
 
+![Motion page](docs/tab-motion.png)
+
 How the ring follows your eyes. By default a **One-Euro filter**: very steady while you fixate something, instant on eye
 jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from glancing),
 riding through blinks, fade in and out, and when tracking counts as lost.
 
 ### Placement
+
+![Placement page](docs/tab-placement.png)
 
 Where the ring lands in the picture. Normally nothing to do. If the ring sits beside what you look at:
 
@@ -265,6 +271,8 @@ press Apply, then restart the game.**
 - A backup of the file is made before the first change of each session. **File** and **Log** open them.
 
 ### About
+
+![About page](docs/tab-about.png)
 
 Version, the update check (on opening; optional betas), the changelog, and **Logs** for the folder with the app's, the
 layer's and the helper's logs.
