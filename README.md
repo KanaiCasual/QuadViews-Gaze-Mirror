@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
 
 *What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.*
 
-[![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://youtu.be/6375tGa7_gk)
+[![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=ixilzm8F_SY)
 
 One installer sets up everything:
 
