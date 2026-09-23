@@ -228,6 +228,12 @@ to install or set up - OSC has to be on in VRChat (it is, for every face-trackin
 parameters (face-tracking avatars have them). The Gaze card says *VRChat: eye parameters arriving* once it works, and
 "Headset, else VRChat" (the default) switches to the fallback by itself whenever the headset gives no gaze.
 
+Whether the fallback is needed at all depends on the eye-tracking software, not on the headset. On a Pimax Crystal,
+for example, SRanibro stops the Tobii service to take the eye cameras for itself, so the headset's own gaze is gone and
+the ring falls back; [BrokenEye](https://github.com/ghostiam/BrokenEye) with the SRanipal model reads the same cameras
+through the Tobii service instead, the headset's gaze stays available, and the ring never needs the fallback - full
+reach, no calibration, exact angles.
+
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
 Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
