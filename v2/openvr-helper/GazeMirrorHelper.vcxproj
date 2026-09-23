@@ -49,6 +49,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="vrchat_osc.cpp" />
     <ClCompile Include="calibration.cpp" />
+    <ClCompile Include="headset_marker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\GazeMirrorCore.vcxproj">

@@ -29,6 +29,7 @@
 #include "../core/log.h"
 #include "../core/pipeline.h"
 #include "calibration.h"
+#include "headset_marker.h"
 #include "vrchat_osc.h"
 
 using Microsoft::WRL::ComPtr;
@@ -254,6 +255,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     GazeCalibration calibration;
     // A calibration that was under way when the last helper went away: say so, rather than count forever.
     if (pipeline.settings().vrchatCalibrated.rfind("running", 0) == 0) pipeline.persist({{"vrchat_calibrated", "failed: the previous run did not finish"}});
+    HeadsetMarker marker; // The Placement tab's calibration marker, as an overlay (the layer draws it into OpenXR games).
     Mirror mirror;
     SceneApp scene;
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);
@@ -310,6 +312,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         if (pipeline.settings().vrchatCalibrate && !calibration.running()) calibration.start(vrchat, pipeline);
         // Nothing to do: sleep until a reader turns up (SteamVR's events are looked at twice a second meanwhile).
         if (!wanted) {
+            marker.hide(); // Switched off: no frame runs to take it down otherwise.
             const HANDLE handles[2] = {g_stop, wake};
             WaitForMultipleObjects(2, handles, FALSE, 500);
             if (++idleTicks % 120 == 0 && publishing && pipeline.settings().enabled) {
@@ -378,9 +381,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                 input.gaze.uv[e][1] = 0.5f - 0.5f * ndc[e].v[1];
             }
         }
-        pipeline.frame(input);
+        const FrameOutput output = pipeline.frame(input);
+        marker.update(output, input, eye);
     }
 
+    marker.hide();
     if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
     mirror = {};
     vrchat.stop();

@@ -164,8 +164,9 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 - Switch on **"Show a marker inside the headset (calibration)"** - a marker appears *in the headset* where the ring is on
   the mirror. Look at something small and nudge with the sliders, or in the game with **Ctrl+Alt+arrow keys** (Shift =
-  bigger steps; these keys only exist while calibration is on). Switch it off again when done - it is the only thing in
-  this project that draws into the headset, and it is only ever switched from this tab.
+  bigger steps; these keys only exist while calibration is on). Switch it off again when done - it is only ever switched
+  from this tab. In OpenXR games the layer draws it into the picture; in SteamVR games the helper shows it as a small
+  SteamVR overlay two metres out along your line of sight.
 - **What you usually look at is ...** sets the distance used to place the ring (a cockpit panel is close, the world is
   far): the mirror shows one eye, and the two eyes see close things in different places.
 
