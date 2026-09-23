@@ -231,6 +231,11 @@ the four corners. Follow it with your eyes only, head still; the status line cou
 the target disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own calibration;
 **Forget** drops it.
 
+One limit the calibration cannot lift: the ring can only go as far as the eye-tracking software lets the avatar's eyes
+go. Some of that software caps the gaze it sends (SRanibro stops at about 30 degrees in every direction, for
+example), and past that point the ring holds at the edge of the range while your eyes carry on. That cap belongs to
+the software that feeds VRChat, not to this project; check its gaze range settings, or ask its author.
+
 ### Quad Views
 
 ![Quad Views tab](docs/tab-quadviews.png)
