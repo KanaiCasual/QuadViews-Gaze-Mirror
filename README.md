@@ -239,7 +239,7 @@ the target disappears and the ring lands where you look. Redo it after changing 
 One limit the calibration cannot lift: the ring can only go as far as the eye-tracking software lets the avatar's eyes
 go. Some of that software caps the gaze it sends, and past the cap the ring holds at the edge of the range while your
 eyes carry on. **Known: SRanibro caps the gaze at about 30 degrees in every direction** on the headsets it serves
-(Pimax Crystal and Crystal Super, Dream Air, StarVR One, Varjo, PSVR2). The cap is in SRanibro's output, not in its
+(Pimax Crystal/Super, StarVR One, Varjo). The cap is in SRanibro's output, not in its
 open-source core and not in this project; check its gaze range settings, or ask its author.
 
 ### Quad Views
