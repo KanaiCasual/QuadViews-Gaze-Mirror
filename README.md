@@ -215,15 +215,20 @@ through a One-Euro filter and the box counter-moves the difference.
 Moving the box is only a different source rectangle for the copy the layer makes anyway, so cropping, following and
 steadying cost nothing.
 
-**Gaze from** (the Gaze card): normally the ring gets the eyes from the headset itself - OpenXR's eye-gaze extension in
-OpenXR games, SteamVR's eye tracking in SteamVR games. Some headsets' software feeds neither, but does drive a VRChat
-avatar's eye parameters (through [VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking) with SRanibro,
-EyeTrackVR, Quest Pro over ALVR, ...). For those, the SteamVR helper is an **OSCQuery service**: VRChat finds it on the
-machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing to install or set up - OSC has to
-be on in VRChat (it is, for every face-tracking user) and the avatar needs eye parameters (face-tracking avatars have
-them). The Gaze card says *VRChat: eye parameters arriving* once it works.
+**Gaze from** (the Gaze card): the ring's main source is the headset itself - OpenXR's eye-gaze extension in OpenXR
+games, SteamVR's eye tracking in SteamVR games. Exact angles, nothing to set up, and as long as that gaze arrives it is
+all the ring uses.
 
-**Calibrate VRChat gaze** (only for this source - the headset's own eye tracking needs none): the avatar's eye values
+The **VRChat fallback** is for when it does not arrive. Some eye-tracking software takes the eye cameras for itself
+(SRanibro), or only ever feeds VRChat (EyeTrackVR, Quest Pro over ALVR, ...); the headset's own gaze is then gone, and
+the only trace of where you look is the VRChat avatar's eye parameters, driven through
+[VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking). For those, the SteamVR helper is an **OSCQuery
+service**: VRChat finds it on the machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing
+to install or set up - OSC has to be on in VRChat (it is, for every face-tracking user) and the avatar needs eye
+parameters (face-tracking avatars have them). The Gaze card says *VRChat: eye parameters arriving* once it works, and
+"Headset, else VRChat" (the default) switches to the fallback by itself whenever the headset gives no gaze.
+
+**Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
 Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
 twenty places, about two seconds each - straight ahead, then out to 30 degrees to each side, 22 up and 30 down, then
@@ -232,9 +237,10 @@ the target disappears and the ring lands where you look. Redo it after changing 
 **Forget** drops it.
 
 One limit the calibration cannot lift: the ring can only go as far as the eye-tracking software lets the avatar's eyes
-go. Some of that software caps the gaze it sends (SRanibro stops at about 30 degrees in every direction, for
-example), and past that point the ring holds at the edge of the range while your eyes carry on. That cap belongs to
-the software that feeds VRChat, not to this project; check its gaze range settings, or ask its author.
+go. Some of that software caps the gaze it sends, and past the cap the ring holds at the edge of the range while your
+eyes carry on. **Known: SRanibro caps the gaze at about 30 degrees in every direction** on the headsets it serves
+(Pimax Crystal and Crystal Super, Dream Air, StarVR One, Varjo, PSVR2). The cap is in SRanibro's output, not in its
+open-source core and not in this project; check its gaze range settings, or ask its author.
 
 ### Quad Views
 

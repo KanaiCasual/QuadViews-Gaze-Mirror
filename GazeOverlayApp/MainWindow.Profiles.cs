@@ -330,9 +330,9 @@ public partial class MainWindow
         VrchatCalibrationStatus.Text = running ? $"Calibrating, target {calibrated[8..]}: follow it with your eyes, head still."
             : requested ? "Calibrating: follow the target in the headset with your eyes, head still."
             : underWay ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
-            : mapped ? $"VRChat gaze calibrated {calibrated}{(corners ? "" : " (axes only, no corners)")}."
+            : mapped ? $"VRChat fallback calibrated {calibrated}{(corners ? "" : " (axes only, no corners)")}."
             : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
-            : "VRChat gaze not calibrated yet: until then the ring only roughly follows your eyes in VRChat.";
+            : "VRChat fallback not calibrated yet: whenever the ring has to use the avatar's eyes, it will only roughly follow them until you calibrate once.";
         VrchatCalibrate.IsEnabled = !requested && !running;
         VrchatCalibrationForget.IsEnabled = mapped;
     }
