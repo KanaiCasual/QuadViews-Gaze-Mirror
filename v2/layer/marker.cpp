@@ -17,12 +17,18 @@ V vs(uint id : SV_VertexID) {
     o.p = float4(o.uv * float2(2, -2) + float2(-1, 1), 0, 1);
     return o;
 }
+// The 1.x reticle: four corner brackets on a box the size of the ring, and a small cross in the middle.
 float4 ps(V i) : SV_Target {
-    float d = length((i.uv - center) * float2(aspect, 1));
-    float ring = 1 - smoothstep(0.0008, 0.0016, abs(d - radius));
-    float cross = max(1 - smoothstep(0.0006, 0.0012, min(abs(i.uv.x - center.x) * aspect, abs(i.uv.y - center.y))), 0) * step(d, radius * 0.6);
-    float a = max(ring, cross) * 0.9;
-    return float4(color.rgb, a);
+    float2 a = abs((i.uv - center) * float2(aspect, 1));
+    float h = radius;          // Half-size of the box, a fraction of the image height (like the ring's radius).
+    float arm = h * 0.5;       // Each bracket arm reaches half way back towards the centre.
+    float lw = 0.0009;         // Line width, a fraction of the image height.
+    float edge = 1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, min(abs(a.y - h), abs(a.x - h)));
+    float onHorizontal = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, abs(a.y - h))) * step(h - arm, a.x) * step(a.x, h + lw * 0.5);
+    float onVertical = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, abs(a.x - h))) * step(h - arm, a.y) * step(a.y, h + lw * 0.5);
+    float cross = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, min(a.x, a.y))) * step(max(a.x, a.y), h * 0.25);
+    float alpha = max(max(onHorizontal, onVertical), cross) * 0.9;
+    return float4(color.rgb, alpha);
 }
 )";
     }

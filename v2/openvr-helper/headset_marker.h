@@ -1,7 +1,7 @@
 // VR Gaze Mirror 2.0 - the OpenVR helper: the calibration marker inside the headset for SteamVR games.
 //
 // The OpenXR layer draws the marker straight into the game's images. This program has no hand in a SteamVR game's
-// images, so it shows the marker as an OpenVR overlay instead: a small ring in the ring's colour, head-locked, two
+// images, so it shows the marker as an OpenVR overlay instead: the corner-bracket reticle in the ring's colour, head-locked, two
 // metres out along the line from the recorded eye through where the stream's ring is. Only while headset_marker=1 in
 // the settings file, which only the settings app sets - nothing pressed in a game can switch it on.
 #pragma once

@@ -493,7 +493,7 @@ int wmain(int argc, wchar_t** argv) {
             if (signalMapping) CloseHandle(signalMapping);
         }
 
-        // The calibration marker (last case): the game's own image now carries a ring at the gaze point.
+        // The calibration marker (last case): the game's own image now carries the bracket reticle at the gaze point.
         if (strstr(test.settings, "headset_marker=1")) {
             D3D11_TEXTURE2D_DESC stagingDesc{};
             imageA->GetDesc(&stagingDesc);
@@ -511,13 +511,14 @@ int wmain(int argc, wchar_t** argv) {
                 float gu, gv;
                 ExpectedGaze(gu, gv);
                 const int gx = int(gu * ImageWidth), gy = int(gv * ImageHeight);
-                const int r = int(0.05f * ImageHeight); // The marker ring's radius.
+                const int r = int(0.05f * ImageHeight); // The reticle box's half-size (the ring's radius).
+                // The bracket arms run along the box's top edge, from each corner half way in.
                 for (int dx = -r - 3; dx <= r + 3 && !orangeFound; dx++) {
-                    const int x = gx + dx, y = gy;
-                    if (x < 0 || x >= int(ImageWidth)) continue;
+                    const int x = gx + dx, y = gy - r;
+                    if (x < 0 || x >= int(ImageWidth) || y < 0) continue;
                     const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
                     // R8G8B8A8_UNORM_SRGB swapchain: the marker colour (sRGB 255,128,0) lands as roughly 255,128,0 bytes.
-                    if (p[0] > 200 && p[1] > 90 && p[1] < 170 && p[2] < 60 && abs(dx) > r - 6) orangeFound = true;
+                    if (p[0] > 200 && p[1] > 90 && p[1] < 170 && p[2] < 60 && abs(dx) >= r / 2 - 2) orangeFound = true;
                 }
                 gameContext->Unmap(staging.Get(), D3D11CalcSubresource(0, test.eye, 1));
             }

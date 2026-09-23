@@ -15,20 +15,33 @@ namespace gaze_mirror {
     namespace {
 
         constexpr float Distance = 2.f; // Metres out along the eye's line of sight.
-        constexpr int Size = 64;
+        constexpr int Size = 128;
+        constexpr float BoxHalf = 0.8f; // The bracket box's half-size in the overlay's -1..1 square (a margin around it).
 
-        // A plain ring in the given colour: the ring spans 78..98 % of the half-size, like the calibration target.
-        std::vector<uint8_t> RingPixels(const float color[3]) {
+        // The 1.x reticle in the given colour: four corner brackets on a box, and a small cross in the middle. Drawn
+        // with 4x4 samples per pixel, so the thin lines get soft edges.
+        std::vector<uint8_t> ReticlePixels(const float color[3]) {
+            const float arm = BoxHalf * 0.5f, lw = 0.05f, cross = BoxHalf * 0.25f;
+            const auto inside = [&](float ax, float ay) {
+                const bool horizontal = std::fabs(ay - BoxHalf) < lw * 0.5f && ax >= BoxHalf - arm && ax <= BoxHalf + lw * 0.5f;
+                const bool vertical = std::fabs(ax - BoxHalf) < lw * 0.5f && ay >= BoxHalf - arm && ay <= BoxHalf + lw * 0.5f;
+                const bool centre = std::min(ax, ay) < lw * 0.5f && std::max(ax, ay) < cross;
+                return horizontal || vertical || centre;
+            };
             std::vector<uint8_t> pixels(size_t(Size) * Size * 4, 0);
-            const float c = (Size - 1) / 2.f;
             for (int y = 0; y < Size; y++) {
                 for (int x = 0; x < Size; x++) {
-                    const float r = std::sqrt((x - c) * (x - c) + (y - c) * (y - c)) / c;
-                    float alpha = 0.f;
-                    if (r > 0.78f && r < 0.98f) alpha = std::min(1.f, std::min(r - 0.78f, 0.98f - r) * 12.f);
+                    int covered = 0;
+                    for (int sy = 0; sy < 4; sy++) {
+                        for (int sx = 0; sx < 4; sx++) {
+                            const float nx = ((x + (sx + 0.5f) / 4.f) / Size) * 2.f - 1.f;
+                            const float ny = ((y + (sy + 0.5f) / 4.f) / Size) * 2.f - 1.f;
+                            if (inside(std::fabs(nx), std::fabs(ny))) covered++;
+                        }
+                    }
                     uint8_t* p = &pixels[(size_t(y) * Size + x) * 4];
                     for (int i = 0; i < 3; i++) p[i] = uint8_t(std::clamp(color[i], 0.f, 1.f) * 255.f + 0.5f);
-                    p[3] = uint8_t(alpha * 255.f);
+                    p[3] = uint8_t(covered * 255 / 16);
                 }
             }
             return pixels;
@@ -54,7 +67,7 @@ namespace gaze_mirror {
             Log("marker: shown in the headset while the app's calibration switch is on");
         }
         if (color[0] != _color[0] || color[1] != _color[1] || color[2] != _color[2]) {
-            const std::vector<uint8_t> pixels = RingPixels(color);
+            const std::vector<uint8_t> pixels = ReticlePixels(color);
             overlay->SetOverlayRaw(_handle, const_cast<uint8_t*>(pixels.data()), Size, Size, 4);
             for (int i = 0; i < 3; i++) _color[i] = color[i];
         }
@@ -75,10 +88,10 @@ namespace gaze_mirror {
         const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
         direction = {direction.x / length, direction.y / length, direction.z / length};
         const Vec3 at{pose.position.x + direction.x * Distance, pose.position.y + direction.y * Distance, pose.position.z + direction.z * Distance};
-        // The ring's radius, as the fraction of the image height it is, becomes an angle: the overlay spans the ring
-        // (which sits at 88 % of the overlay's half-width) at that size two metres out.
+        // The ring's radius, as the fraction of the image height it is, becomes an angle: the bracket box (which sits at
+        // BoxHalf of the overlay's half-width) gets that half-size two metres out.
         const float tanRadius = output.markerRadius * (view.fov.up - view.fov.down);
-        const float width = std::clamp(2.f * Distance * tanRadius / 0.88f, 0.02f, 1.5f);
+        const float width = std::clamp(2.f * Distance * tanRadius / BoxHalf, 0.02f, 1.5f);
         vr::IVROverlay* overlay = vr::VROverlay();
         // Head-locked, facing the head (x right, y up, z towards the viewer).
         const vr::HmdMatrix34_t m = {{{1, 0, 0, at.x}, {0, 1, 0, at.y}, {0, 0, 1, at.z}}};
