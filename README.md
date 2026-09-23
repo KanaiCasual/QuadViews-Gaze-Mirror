@@ -122,7 +122,7 @@ the Quad Views page - see there). The app is small on purpose: it is meant to si
 
 ### Status
 
-![Status page](docs/tab-status.png)
+![Status page](docs/page-status.png)
 
 - **Components:** the gaze mirror layer, the OBS plugin, the SteamVR helper and (optionally) Quad-Views-Foveated, each
   with what is wrong if something is. The line at the top says what is being mirrored right now and whether gaze
@@ -133,7 +133,7 @@ the Quad Views page - see there). The app is small on purpose: it is meant to si
 
 ### Ring
 
-![Ring page](docs/tab-look.png)
+![Ring page](docs/page-ring.png)
 
 How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, sky or black.
 
@@ -147,7 +147,7 @@ How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, 
 
 ### Tail
 
-![Tail page](docs/tab-tail.png)
+![Tail page](docs/page-tail.png)
 
 The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up and
 cool-down, and whether the tail is anchored to **the world** (recommended in VR: looking around by turning your head
@@ -155,7 +155,7 @@ stretches it too) or to the screen.
 
 ### Motion
 
-![Motion page](docs/tab-motion.png)
+![Motion page](docs/page-motion.png)
 
 How the ring follows your eyes. By default a **One-Euro filter**: very steady while you fixate something, instant on eye
 jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from glancing),
@@ -163,7 +163,7 @@ riding through blinks, fade in and out, and when tracking counts as lost.
 
 ### Placement
 
-![Placement page](docs/tab-placement.png)
+![Placement page](docs/page-placement.png)
 
 Where the ring lands in the picture. Normally nothing to do. If the ring sits beside what you look at:
 
@@ -177,7 +177,7 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 ### Mirror
 
-![Mirror page](docs/mirror-tab.png)
+![Mirror page](docs/page-mirror.png)
 
 *Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
 
@@ -255,7 +255,7 @@ is in SRanibro's output, not in this project - check its gaze range settings, or
 
 ### Quad Views
 
-![Quad Views page](docs/tab-quadviews.png)
+![Quad Views page](docs/page-quadviews.png)
 
 Only listed while Quad-Views-Foveated is installed. Its own settings, with the same sliders and value logic as
 TallyMouse's *QuadViews Companion* (both can be used on the same file): focus size, vertical offset, foveate and
@@ -272,7 +272,7 @@ press Apply, then restart the game.**
 
 ### About
 
-![About page](docs/tab-about.png)
+![About page](docs/page-about.png)
 
 Version, the update check (on opening; optional betas), the changelog, and **Logs** for the folder with the app's, the
 layer's and the helper's logs.
