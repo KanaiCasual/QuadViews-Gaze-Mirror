@@ -29,6 +29,8 @@ __pycache__/
 !/v2/external/libobs/COPYING
 !/v2/external/libobs/obsconfig.h
 /v2/external/libobs-lib/
+/v2/external/openxr-sdk/*
+!/v2/external/openxr-sdk/LICENSE
 /v2/external/openvr/*
 !/v2/external/openvr/LICENSE
 /v2/external/qvf/

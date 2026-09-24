@@ -1,12 +1,13 @@
 # Fetches the third-party files the 2.0 build needs but does not keep in the repository (only their licences are kept):
 #   external\libobs\      OBS Studio's public headers, tag 32.1.2 (GPL-2)   - to build the OBS plugin
 #   external\libobs-lib\  an import library made from the INSTALLED obs.dll  - no download
+#   external\openxr-sdk\  the OpenXR headers, release 1.1.43 (Apache-2.0) - for the layer and its test
 #   external\openvr\      Valve's OpenVR SDK v2.15.6: header, import library, redistributable DLL (BSD-3) - for the OpenVR helper
 #   external\qvf\         mbucchia's official Quad-Views-Foveated 1.1.3 installer (MIT) - bundled, offered by our installer
 # Needs the GitHub CLI (gh) and Visual Studio 2022. Nothing is executed or installed.
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot 'external'
-New-Item -ItemType Directory -Force "$root\libobs", "$root\libobs-lib", "$root\openvr", "$root\qvf" | Out-Null
+New-Item -ItemType Directory -Force "$root\libobs", "$root\libobs-lib", "$root\openvr", "$root\qvf", "$root\openxr-sdk\openxr" | Out-Null
 
 function Fetch($repo, $ref, $path, $target) {
     New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
@@ -14,6 +15,14 @@ function Fetch($repo, $ref, $path, $target) {
     if ($LASTEXITCODE -ne 0) { throw "could not fetch $repo $ref $path" }
 }
 
+if (-not (Test-Path "$root\openxr-sdk\openxr\openxr.h")) {
+    # The OpenXR headers (Apache-2.0 / MIT), release 1.1.43: for the layer and its offline test.
+    foreach ($file in 'openxr.h', 'openxr_platform.h', 'openxr_platform_defines.h', 'openxr_loader_negotiation.h', 'openxr_reflection.h', 'openxr_reflection_structs.h', 'openxr_reflection_parent_structs.h') {
+        Fetch 'KhronosGroup/OpenXR-SDK' 'release-1.1.43' "include/openxr/$file" (Join-Path "$root\openxr-sdk\openxr" $file)
+    }
+    Fetch 'KhronosGroup/OpenXR-SDK' 'release-1.1.43' 'LICENSE' "$root\openxr-sdk\LICENSE"
+    'OpenXR headers fetched.'
+}
 if (-not (Test-Path "$root\openvr\openvr.h")) {
     foreach ($file in 'headers/openvr.h', 'lib/win64/openvr_api.lib', 'bin/win64/openvr_api.dll', 'LICENSE') {
         Fetch 'ValveSoftware/openvr' 'v2.15.6' $file (Join-Path "$root\openvr" (Split-Path $file -Leaf))
